@@ -764,6 +764,38 @@ function parseQuick(text, projects) {
   if (d && words.length > 1) words.pop(); else d = null;
   return { title: words.join(" "), due: d, time: time, imp: im, project: project };
 }
+function findHabitIn(v, c) { return v.habits.find((h) => (c.habit != null && h.id === c.habit) || (c.hcid && h.cid === c.hcid)); }
+const habitKey = (h) => h.id != null ? String(h.id) : "c:" + h.cid;
+const habitRef = (h) => h.id != null ? { habit: h.id } : { hcid: h.cid };
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function daysText(days) { return !days || !days.length || days.length === 7 ? "every day" : DAYS.filter((d) => days.includes(d)).map((d) => DAY_NAMES[DAYS.indexOf(d)]).join(", "); }
+function habitDialog(h) {                      // new habit (h = null) or change one
+  let days = h ? (h.days || []).slice() : [];
+  const draw = () => '<div class="row" style="flex-wrap:wrap">' + DAYS.map((d, i) => '<button class="btn raised small' + (days.includes(d) ? " on" : "") + '" data-day="' + d + '" style="flex:1 0 12%">' + DAY_NAMES[i] + "</button>").join("") +
+    '</div><div class="dim" style="margin-top:6px">' + (days.length ? "Only on " + esc(daysText(days)) : "None picked = every day") + "</div>";
+  dialog('<label class="field">Habit</label><input class="inp" id="hn" value="' + esc(h ? h.name : "") + '" placeholder="e.g. Drink 2 litres of water" autocomplete="off">' +
+    '<label class="field">Which days?</label><div id="hd">' + draw() + "</div>",
+    [[h ? "Save" : "Add habit", () => {
+      const name = $("hn").value.trim();
+      if (!name) { $("hn").focus(); return false; }
+      const ds = days.length === 7 ? [] : DAYS.filter((d) => days.includes(d));
+      if (h) todoChange(Object.assign({ kind: "habit_edit", name: name, days: ds }, habitRef(h)));
+      else todoChange({ kind: "habit_add", name: name, days: ds, hcid: "h" + Date.now().toString(36) });
+    }, 1], ["Cancel"]], "🔥", { title: h ? "Change habit" : "New habit" });
+  $("hd").onclick = (e) => { const b = e.target.closest("[data-day]"); if (!b) return; const d = b.dataset.day; days = days.includes(d) ? days.filter((x) => x !== d) : days.concat([d]); $("hd").innerHTML = draw(); };
+}
+function habitsManager() {
+  const v = todoView(); if (!v) return;
+  dialog((v.habits.length ? '<div class="lv sunk">' + v.habits.map((h) => '<div class="li"><span class="lab"><b>' + esc(h.name) + '</b><div class="dim">' + esc(daysText(h.days)) + (h.pending ? " · ⏳ waiting for the Mac" : "") + '</div></span>' +
+    '<button class="btn raised small" data-hedit="' + esc(habitKey(h)) + '">✏️</button><button class="btn raised small" data-hdel="' + esc(habitKey(h)) + '">🗑</button></div>').join("") + "</div>" : '<div class="dim">No habits yet.</div>'),
+    [["＋ New habit", () => { setTimeout(() => habitDialog(null), 0); }, 1], ["Done"]], null, { title: "Habits" });
+  $("dlg").querySelector(".msg").onclick = (e) => {
+    const ed = e.target.closest("[data-hedit]"), del = e.target.closest("[data-hdel]");
+    const find = (k) => todoView().habits.find((h) => habitKey(h) === k);
+    if (ed) { const h = find(ed.dataset.hedit); if (h) habitDialog(h); }
+    if (del) { const h = find(del.dataset.hdel); if (h) ask("Delete the habit \"" + h.name + "\"? Its streak goes too.", () => todoChange(Object.assign({ kind: "habit_delete" }, habitRef(h)))); }
+  };
+}
 function todoView() {
   const o = O(); if (!o || !o.todo) return null;
   const v = JSON.parse(JSON.stringify(o.todo));
@@ -776,7 +808,10 @@ function todoView() {
     else if (c.kind === "due") { const x = find(); if (x) x.due = c.due; }
     else if (c.kind === "delete") v.tasks = v.tasks.filter((x) => !((c.task != null && x.id === c.task) || (c.cid && x.cid === c.cid)));
     else if (c.kind === "add") { const pq = parseQuick(c.text, v.projects); v.tasks.push(Object.assign({ id: null, cid: c.cid }, pq, { due: pq.due || c.due || null, done: c.done || null, pending: true })); }
-    else if (c.kind === "habit") { const h = v.habits.find((h) => h.id === c.habit); if (h) { const s = new Set(h.log || []); c.kept ? s.add(c.date) : s.delete(c.date); h.log = [...s].sort(); } }
+    else if (c.kind === "habit") { const h = findHabitIn(v, c); if (h) { const s = new Set(h.log || []); c.kept ? s.add(c.date) : s.delete(c.date); h.log = [...s].sort(); } }
+    else if (c.kind === "habit_add") { if (!v.habits.some((h) => h.cid && h.cid === c.hcid)) v.habits.push({ id: null, cid: c.hcid, name: c.name, days: c.days || [], log: [], added: c.at.slice(0, 10), pending: true }); }
+    else if (c.kind === "habit_edit") { const h = findHabitIn(v, c); if (h) { if (c.name) h.name = c.name; if (c.days) h.days = c.days; } }
+    else if (c.kind === "habit_delete") { const h = findHabitIn(v, c); if (h) v.habits = v.habits.filter((x) => x !== h); }
   }
   return v;
 }
@@ -824,7 +859,8 @@ function winTodo() {
     '<button class="btn raised wide" style="font-weight:600">Add</button></form>';
   const sec = (title, list, cls) => list.length ? '<div class="h' + (cls ? " " + cls : "") + '">' + title + " (" + list.length + ')</div><div class="lv sunk">' + list.map((x) => taskRow(x, v)).join("") + "</div>" : "";
   h += sec("Overdue", over, "bad") + (now.length ? sec("Today", now) : '<div class="h">Today</div><div class="dim">Nothing due today.</div>');
-  if (habits.length) h += '<div class="h">Habits</div><div class="lv sunk">' + habits.map((hb) => { const kept = (hb.log || []).includes(iso), s = streak(hb, iso); return '<div class="task' + (kept ? " done" : "") + '"><button class="circ' + (kept ? " done" : "") + '" style="color:#2e8b57" data-a="habit" data-arg="' + hb.id + '"></button><div style="flex:1"><div class="tt">' + esc(hb.name) + '</div><div class="dim">' + (s ? "🔥 " + s + " day streak" : "start a streak") + "</div></div></div>"; }).join("") + "</div>";
+  h += '<div class="h" style="display:flex;justify-content:space-between;align-items:center">Habits<button class="btn raised small" data-a="habits">✏️ Add / change</button></div>';
+  h += habits.length ? '<div class="lv sunk">' + habits.map((hb) => { const kept = (hb.log || []).includes(iso), s = streak(hb, iso); return '<div class="task' + (kept ? " done" : "") + '"><button class="circ' + (kept ? " done" : "") + '" style="color:#2e8b57" data-a="habit" data-arg="' + esc(habitKey(hb)) + '"></button><div style="flex:1"><div class="tt">' + esc(hb.name) + '</div><div class="dim">' + (hb.pending ? "⏳ waiting for the Mac" : s ? "🔥 " + s + " day streak" : "start a streak") + "</div></div></div>"; }).join("") + "</div>" : '<div class="dim">No habits for today.</div>';
   h += sec("Coming up", soon) + sec("No date", inbox) + sec("Done today", doneT);
   h += '<div class="dim" style="margin-top:10px">From your Mac ' + esc(ago(v.made)) + ". Ticks here reach todo next time the Mac is on.</div>";
   return h;
@@ -1174,7 +1210,8 @@ document.addEventListener("click", async (e) => {
   else if (a === "topen") { openTask = openTask === arg ? null : arg; render(); }
   else if (a === "timp") { const [k, nn] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "imp", n: Number(nn) }, taskRef(x))); }
   else if (a === "tdue") { const [k, dd] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "due", due: dd || null }, taskRef(x))); }
-  else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => String(hh.id) === arg); if (h) todoChange({ kind: "habit", habit: h.id, date: todayISO(), kept: !(h.log || []).includes(todayISO()) }); }
+  else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => habitKey(hh) === arg); if (h) todoChange(Object.assign({ kind: "habit", date: todayISO(), kept: !(h.log || []).includes(todayISO()) }, habitRef(h))); }
+  else if (a === "habits") habitsManager();
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
