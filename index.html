@@ -226,6 +226,7 @@ async function pump() {
       const res = await callOp(it.id, it.fn, ...it.args);
       outbox.shift(); saveBox();
       if (it.fn === "deskAct" && res && res.row) { const i = D.rows.findIndex((r) => r.id === res.row.id); if (i >= 0) D.rows[i] = res.row; }
+      if (it.fn === "deskHooks") { const op = pendingHooks.find((x) => x.opid === it.hook); if (op) { op.sent = Date.now(); store.set("hookq", pendingHooks); } }
       if (it.fn === "deskTodo") { const c = pendingTodo.find((x) => x.id === it.todo); if (c) { c.sent = true; store.set("todoq", pendingTodo); } }
       if (it.fn === "deskSetting" && D.office && !DRY) { D.office.settings[it.args[1]] = it.args[2]; }
       save();
@@ -279,6 +280,9 @@ async function syncOnce(force) {
     const d = await call("deskSync", KEY, !!force);
     D = Object.assign({}, D || {}, { rows: d.rows, now: d.now });
     if (d.office && (!D.office || (d.office.at || "") >= (D.office.at || ""))) D.office = d.office;
+    if (d.office && !d.stale) {                    // the office now holds every hook op sent before this sync
+      pendingHooks = pendingHooks.filter((x) => !x.sent || x.sent > Date.parse(d.office.at || 0)); store.set("hookq", pendingHooks);
+    }
     if (D.office) {
       const seen = new Set((D.office.queue || []).map((c) => c.id));
       const made = D.office.todo && D.office.todo.made;   // keep anything unsent, or sent but not yet seen by the Mac
@@ -340,7 +344,8 @@ const owed = (r) => r.paid ? 0 : r.owed;
 // ── email wording: the office's templates, filled in here so he sees exactly what goes ──
 const TPL_NAMES = { deposit_invoice: "Invoice and deposit", confirm: "Booking confirmed", reminder: "Reminder", aftercare: "Aftercare",
   late: "Running late", directions: "Directions (auto)", receipt: "Receipt", balance: "Invoice for the rest", deposit_receipt: "Deposit receipt",
-  chase_deposit: "Chase the deposit", chase_balance: "Chase the rest", gone: "That slot's gone" };
+  chase_deposit: "Chase the deposit", chase_balance: "Chase the rest", gone: "That slot's gone",
+  healing: "How's it healing?", healed_photo: "Healed photo ask", review: "Review + rebook" };
 function freeDates() {
   const av = O() && O().avail && O().avail.days;
   if (!av) return "(free dates)";
@@ -421,7 +426,7 @@ function applyLocal(r, what, o) {                // what the screen shows straig
   else if (what === "book") r.booked = true;
   else if (what === "receipt") r.rec = r.rec || "R-…";
   else if (what === "balance") r.inv = r.inv || "FM-…";
-  else if (what === "mail") { const f = { reminder: "reminder", aftercare: "aftercare", late: "late", chase_deposit: "chasedDep", chase_balance: "chasedRest" }[o.kind]; if (f) r[f] = true; }
+  else if (what === "mail") { const f = { reminder: "reminder", aftercare: "aftercare", late: "late", chase_deposit: "chasedDep", chase_balance: "chasedRest", healing: "healing", healed_photo: "healedAsk", review: "reviewAsk" }[o.kind]; if (f) r[f] = true; }
   else if (what === "gone" || what === "cancel") r.cancelled = true;
   r.waiting = true;
 }
@@ -527,7 +532,8 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["bookings", "📒", "Bookings"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
-  ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"], ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
+  ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
 function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); }
 function home() { stack = []; menuOpen = false; render(); }
@@ -552,6 +558,121 @@ function decodeSetup(v) {
   const j = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
   if (!j.k || !j.u) throw new Error("incomplete");
   return j;
+}
+// ── Hooks: pasted from the social media chat, used + tracked ──
+let pendingHooks = store.get("hookq", []), hookFilter = store.get("hookf", "unused"), hookTag = "";
+const HOOK_TAGS = ["Tattoo", "Flash", "Process", "Behind the scenes", "Personal", "Promo", "Booking"];
+function hooksView() {
+  const base = (O() && O().hooks) || [];
+  let list = JSON.parse(JSON.stringify(base));
+  for (const op of pendingHooks) {
+    const h = list.find((x) => x.id === op.id);
+    if (op.kind === "add") (op.items || []).forEach((it) => { if (!list.some((x) => x.id === it.id || x.text.trim().toLowerCase() === it.text.trim().toLowerCase())) list.push({ id: it.id, text: it.text, tags: it.tags || [], star: false, used: [], added: op.at, pending: true }); });
+    else if (op.kind === "delete") list = list.filter((x) => x.id !== op.id);
+    else if (h && op.kind === "edit") { if (op.text) h.text = op.text; if (op.tags) h.tags = op.tags; }
+    else if (h && op.kind === "star") h.star = op.star;
+    else if (h && op.kind === "use") { h.used = (h.used || []).filter((d) => d !== op.date); if (op.on !== false) h.used.push(op.date); }
+  }
+  return list;
+}
+function hookOp(op) {
+  op.opid = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+  op.at = new Date().toISOString();
+  pendingHooks.push(op); store.set("hookq", pendingHooks);
+  enqueue({ fn: "deskHooks", args: [KEY, op, DRY], hook: op.opid, label: "Hooks" });
+  render();
+}
+function parseHooks(text) {                   // whatever the chat gave him → one hook per line
+  const seen = new Set(hooksView().map((h) => h.text.trim().toLowerCase())), out = [];
+  String(text || "").split(/\r?\n/).forEach((line) => {
+    let t = line.trim();
+    if (!t) return;
+    t = t.replace(/^\s*(?:[-*•·▪►✅✨🔥👉]+|\(?\d{1,3}[.)\]:]|#\d+)\s*/u, "")      // bullets and numbering
+         .replace(/^(?:hook|idea|option)\s*\d*\s*[:.\-–]\s*/i, "")                  // "Hook 3:"
+         .replace(/^\*\*(.+)\*\*$/, "$1").replace(/^["“”'‘’]+|["“”'‘’]+$/g, "").trim();
+    if (t.length < 8 || /:$/.test(t) || /^#+\s/.test(line.trim())) return;          // headings and scraps
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key); out.push(t);
+  });
+  return out;
+}
+function pasteHooks() {
+  dialog('<div class="dim">Paste the hooks from your chat. One per line; numbers, bullets and quotes get tidied up.</div>' +
+    '<textarea class="inp" id="hp" style="height:200px;margin-top:8px" autocapitalize="off"></textarea><div id="hpn" class="dim" style="margin-top:6px"></div>' +
+    '<label class="field">Tag them (optional)</label><div class="row" id="hpt" style="flex-wrap:wrap">' + HOOK_TAGS.map((t) => '<button class="btn raised small" data-tag="' + esc(t) + '" style="flex:0 0 auto">' + esc(t) + "</button>").join("") + "</div>",
+    [["Save hooks", () => {
+      const found = parseHooks($("hp").value);
+      if (!found.length) { $("hpn").textContent = "No hooks found yet. Paste the list above."; return false; }
+      const tags = [...$("hpt").querySelectorAll(".on")].map((b) => b.dataset.tag);
+      hookOp({ kind: "add", items: found.map((text, i) => ({ id: "h" + Date.now().toString(36) + i, text: text, tags: tags })) });
+      setTimeout(() => toast(found.length + " hook" + (found.length === 1 ? "" : "s") + " saved ✓"), 0);
+    }, 1], ["Cancel"]], "🪝", { title: "Paste hooks" });
+  $("hp").oninput = () => { const n = parseHooks($("hp").value).length; $("hpn").textContent = n ? n + " hook" + (n === 1 ? "" : "s") + " found (duplicates skipped)" : ""; };
+  $("hpt").onclick = (e) => { const bt = e.target.closest("[data-tag]"); if (bt) bt.classList.toggle("on"); };
+}
+function editHook(h) {
+  let tags = (h.tags || []).slice();
+  const all = [...new Set(HOOK_TAGS.concat(hooksView().flatMap((x) => x.tags || [])))];
+  const draw = () => all.map((t) => '<button class="btn raised small' + (tags.includes(t) ? " on" : "") + '" data-tag="' + esc(t) + '" style="flex:0 0 auto">' + esc(t) + "</button>").join("");
+  dialog('<textarea class="inp" id="he" style="height:110px">' + esc(h.text) + '</textarea><label class="field">Tags</label><div class="row" id="het" style="flex-wrap:wrap">' + draw() + '</div>' +
+    '<input class="inp" id="hnt" placeholder="New tag…" style="margin-top:8px">',
+    [["Save", () => { const nt = $("hnt").value.trim(); if (nt && !tags.includes(nt)) tags.push(nt); hookOp({ kind: "edit", id: h.id, text: $("he").value.trim() || h.text, tags: tags }); }, 1],
+     ["🗑 Delete", () => { setTimeout(() => ask("Delete this hook?", () => hookOp({ kind: "delete", id: h.id })), 0); }], ["Cancel"]], null, { title: "Edit hook" });
+  $("het").onclick = (e) => { const bt = e.target.closest("[data-tag]"); if (!bt) return; const t = bt.dataset.tag; tags = tags.includes(t) ? tags.filter((x) => x !== t) : tags.concat([t]); $("het").innerHTML = draw(); };
+}
+function copyHook(h) {
+  const done = () => ask("Copied ✓ Mark it as used today?", () => hookOp({ kind: "use", id: h.id, date: todayISO() }));
+  if (navigator.clipboard) navigator.clipboard.writeText(h.text).then(done, () => toast("Press and hold the hook text to copy it."));
+  else toast("Press and hold the hook text to copy it.");
+}
+function winHooks() {
+  const all = hooksView(), t = todayISO();
+  const tags = [...new Set(all.flatMap((h) => h.tags || []))].sort();
+  const pass = (h) => (hookFilter === "all" || (hookFilter === "unused" && !(h.used || []).length) || (hookFilter === "used" && (h.used || []).length) || (hookFilter === "star" && h.star)) && (!hookTag || (h.tags || []).includes(hookTag));
+  const list = all.filter(pass).sort((x, y) => (y.star - x.star) || (y.added || "").localeCompare(x.added || ""));
+  let h = '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hookpaste" style="font-weight:600">📋 Paste hooks</button><button class="btn raised" data-a="hookrand">🎲 Random</button></div>';
+  h += '<div class="row">' + [["unused", "Unused"], ["star", "⭐"], ["used", "Used"], ["all", "All"]].map(([k, l]) => '<button class="btn raised small' + (hookFilter === k ? " on" : "") + '" data-a="hookf" data-arg="' + k + '">' + l + " (" + all.filter((x) => k === "all" || (k === "unused" && !(x.used || []).length) || (k === "used" && (x.used || []).length) || (k === "star" && x.star)).length + ")</button>").join("") + "</div>";
+  if (tags.length) h += '<div class="row" style="flex-wrap:wrap"><button class="btn raised small' + (!hookTag ? " on" : "") + '" data-a="hooktag" data-arg="" style="flex:0 0 auto">Any tag</button>' + tags.map((tg) => '<button class="btn raised small' + (hookTag === tg ? " on" : "") + '" data-a="hooktag" data-arg="' + esc(tg) + '" style="flex:0 0 auto">' + esc(tg) + "</button>").join("") + "</div>";
+  if (!all.length) return h + '<div class="card sunk" style="margin-top:10px">No hooks yet. Copy a list from your social media chat and tap 📋 Paste hooks.</div>';
+  h += '<div class="lv sunk" style="margin-top:10px">' + (list.map((x) => {
+    const last = (x.used || []).slice(-1)[0];
+    return '<div class="li" style="align-items:flex-start"><button class="btn raised small" data-a="hookstar" data-arg="' + esc(x.id) + '" style="flex:none">' + (x.star ? "⭐" : "☆") + '</button>' +
+      '<span class="lab" style="-webkit-user-select:text;user-select:text">' + esc(x.text) + '<div class="dim">' + ((x.tags || []).map(esc).join(" · ") || "no tag") + (last ? " · used " + esc(niceDay(last)) + ((x.used || []).length > 1 ? " (" + x.used.length + "×)" : "") : "") + (x.pending ? " · ⏳" : "") + "</div></span>" +
+      '<span style="display:flex;flex-direction:column;gap:4px;flex:none"><button class="btn raised small" data-a="hookcopy" data-arg="' + esc(x.id) + '">Copy</button><button class="btn raised small" data-a="hookedit" data-arg="' + esc(x.id) + '">✏️</button></span></div>';
+  }).join("") || '<div class="li dim">Nothing here with that filter.</div>') + "</div>";
+  return h;
+}
+
+// ── Bean's weekly report ──
+function weekStats(start) {                    // Monday-based week starting `start` (iso)
+  const end = addDays(start, 6), inWeek = (iso) => iso && iso >= start && iso <= end;
+  const shortOf = (iso) => { const d = new Date(iso + "T12:00"); return d.getDate() + " " + MON[d.getMonth()]; };
+  const days = new Set(Array.from({ length: 7 }, (_, i) => shortOf(addDays(start, i))));
+  let money = 0; live().forEach((r) => { if (r.paid && days.has(r.paid.day)) money += r.paid.amt; });
+  const v = todoView();
+  const todos = v ? v.tasks.filter((x) => inWeek(x.done)).length : 0;
+  let kept = 0, due = 0;
+  if (v) v.habits.forEach((h) => { for (let i = 0; i < 7; i++) { const d = addDays(start, i); if (d > todayISO()) break; if (scheduled(h, d) && (h.added || "0") <= d) { due++; if ((h.log || []).includes(d)) kept++; } } });
+  const hooksUsed = (hooksView() || []).reduce((n, h) => n + (h.used || []).filter(inWeek).length, 0);
+  return { money, requests: rows().filter((r) => r.submitted && inWeek(r.submitted.slice(0, 10))).length, deposits: rows().filter((r) => inWeek(r.depIso)).length,
+    tattoos: live().filter((r) => inWeek(r.iso) && r.iso <= todayISO() && (r.deposit || r.paid)).length, todos, habits: due ? Math.round(kept / due * 100) : null, hooksUsed };
+}
+function winWeekly() {
+  const t = todayISO(), mon = addDays(t, -dow(t)), last = addDays(mon, -7), nextMon = addDays(mon, 7);
+  const a = weekStats(mon), b = weekStats(last);
+  const score = Math.max(0, Math.min(100, Math.round((a.tattoos ? 25 : 0) + Math.min(25, a.money / 20) + Math.min(15, a.todos * 3) + (a.habits == null ? 10 : a.habits * 0.2) + Math.min(15, a.hooksUsed * 5) + Math.min(10, a.deposits * 5))));
+  const line = score >= 80 ? "Solid week. I'm thriving. Don't get cocky." : score >= 55 ? "Decent week! A bit more posting and we're golden." : score >= 30 ? "Quiet one, babe. Let's pick it up." : "Rough week. One small thing today and I'll stop sulking.";
+  const row = (label, x, y, fmt) => { fmt = fmt || ((n) => String(n)); const diff = x == null || y == null ? "" : x > y ? ' <span class="ok">▲</span>' : x < y ? ' <span class="bad">▼</span>' : ""; return "<b>" + label + "</b><span>" + (x == null ? "–" : fmt(x)) + diff + ' <span class="dim">(last week ' + (y == null ? "–" : fmt(y)) + ")</span></span>"; };
+  const next = live().filter((r) => r.iso && r.iso >= nextMon && r.iso <= addDays(nextMon, 6)).sort((x, y) => x.iso < y.iso ? -1 : 1);
+  const thisRest = live().filter((r) => r.iso && r.iso > t && r.iso < nextMon);
+  const v = todoView(), dueNext = v ? v.tasks.filter((x) => !x.done && x.due && x.due >= t && x.due <= addDays(nextMon, 6)).length : 0;
+  const fu = adminItems().filter((x) => /^(🩹|📸|⭐)$/.test(x.icon)).length;
+  return '<div class="card sunk"><div class="dim">Week of ' + esc(shortDay(mon)) + '</div><div class="big">' + score + '/100</div><div style="margin-top:4px">🫘 ' + esc(BEAN.name) + ': "' + esc(line) + '"</div></div>' +
+    '<div class="h">This week</div><div class="card sunk"><div class="kv">' + row("Money in", a.money, b.money, money) + row("New requests", a.requests, b.requests) + row("Deposits in", a.deposits, b.deposits) +
+    row("Tattoos done", a.tattoos, b.tattoos) + row("To-dos done", a.todos, b.todos) + row("Habits kept", a.habits, b.habits, (n) => n + "%") + row("Hooks used", a.hooksUsed, b.hooksUsed) + "</div></div>" +
+    '<div class="h">Coming up</div><div class="lv sunk">' + (thisRest.concat(next).map((r) => clientRow(r, true)).join("") || '<div class="li dim">No clients booked in the next two weeks yet.</div>') + "</div>" +
+    '<div class="dim" style="margin-top:8px">' + dueNext + " to-do" + (dueNext === 1 ? "" : "s") + " due · " + fu + " follow-up" + (fu === 1 ? "" : "s") + " waiting in Admin</div>";
 }
 function winTitle(w) {
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
@@ -585,7 +706,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -667,6 +788,11 @@ function winClient(id) {
       L.push(li("⏰", "Running late", r.late ? "✓ sent · again" : "tell them", "late", r.id));
       L.push(li("🔔", "Reminder", r.reminder ? "✓ sent" : "send", "mail", r.id, "reminder"));
       L.push(li("🧴", "Aftercare", r.aftercare ? "✓ sent" : "send", "mail", r.id, "aftercare"));
+      if (r.paid) {
+        L.push(li("🩹", "How's it healing?", r.healing ? "✓ asked" : "ask", "mail", r.id, "healing"));
+        L.push(li("📸", "Healed photo", r.healedAsk ? "✓ asked" : "ask", "mail", r.id, "healed_photo"));
+        L.push(li("⭐", "Review + rebook", r.reviewAsk ? "✓ asked" : "ask", "mail", r.id, "review"));
+      }
       if (r.iso) { const ds = dirState(r); L.push(li("🚪", "Directions", ds[0], ds[1] ? "open" : null, null, ds[1] ? "auto" : null, ds[1])); }
       if (!r.deposit) L.push(li("🚫", "Slot's gone (email + release)", "", "gone", r.id));
     }
@@ -695,6 +821,16 @@ function adminItems() {
     if (r.paid && r.email && !r.rec && r.iso && r.iso >= t) add(50, "🧾", "Send " + r.first + "'s receipt", r, "receipt", "Receipt");
     if (s === "aftercare") add(55, "🧴", "Aftercare for " + r.first, r, "aftercare", "Send");
   });
+  if (on("followups")) live().forEach((r) => {
+    if (!r.paid || !r.email || !r.iso || r.iso >= t) return;
+    const d = daysBetween(r.iso, t);
+    if (d >= 14 && d <= 30 && !r.healing) add(40, "🩹", "Ask " + r.first + " how it's healing (" + d + " days)", r, "fu_healing", "Ask");
+    else if (d >= 42 && d <= 70 && !r.healedAsk) add(35, "📸", "Ask " + r.first + " for a healed photo", r, "fu_healed_photo", "Ask");
+    else if (d >= 56 && d <= 84 && !r.reviewAsk) add(30, "⭐", "Ask " + r.first + " for a review / next booking", r, "fu_review", "Ask");
+  });
+  const lastUse = (hooksView() || []).reduce((m, h) => (h.used || []).reduce((mm, x) => x > mm ? x : mm, m), "");
+  if ((hooksView() || []).some((h) => !(h.used || []).length) && (!lastUse || daysBetween(lastUse, t) >= 5))
+    out.push({ score: 25, icon: "🪝", text: "No hook used " + (lastUse ? "for " + daysBetween(lastUse, t) + " days" : "yet") + ": time for a post?", open: "hooks" });
   const snap = O() && O().snapshot;
   if (snap && snap.tax && snap.tax.days != null && snap.tax.days <= 14) out.push({ score: 65, icon: "🧮", text: snap.tax.name + " in " + snap.tax.days + " days (on the Mac: Money)" });
   if (snap && snap.bank_days != null && snap.bank_days > 30) out.push({ score: 30, icon: "🏦", text: "Bank statement not imported for " + snap.bank_days + " days (on the Mac)" });
@@ -704,7 +840,7 @@ function adminItems() {
 function winAdmin() {
   const items = adminItems();
   if (!items.length) return '<div class="card sunk">Nothing needs doing. Go draw something 🎨</div>';
-  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
+  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : x.open ? ' data-a="open" data-arg="' + x.open + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
     (x.id && x.arg ? '<button class="btn raised small" data-a="quick" data-id="' + esc(x.id) + '" data-arg="' + x.arg + '">' + esc(x.label) + "</button>" : "") + "</div>").join("") + "</div>";
 }
 
@@ -947,6 +1083,7 @@ function winAuto() {
     sw("auto_receipt", "Receipt after payment", "Ticked for you in the Take payment box (phone), sent straight away by D (Mac).") +
     sw("auto_aftercare", "Aftercare after the final payment", "Goes with the receipt when they pay the rest.") +
     sw("auto_confirm", "Booking confirmed when the deposit's in", "With their deposit receipt attached. The Mac does it too when you press P.") +
+    sw("followups", "Follow-up reminders in Admin", "Healing check (2 weeks), healed photo (6 weeks), review + rebook (8 weeks). Shown in Admin for you to tap; never sent by themselves.") +
     sw("directions", "Directions 30 min before", "The black door / 5J email with the door photo, to bookings with a calendar invite.<div style='margin-top:4px'>" + timer + "</div>") + "</div>";
   h += '<div class="h">What the emails say</div><div class="lv sunk">' + Object.keys(TPL_NAMES).map((k) => {
     const at = S().tpl_at && S().tpl_at["tpl_" + k];
@@ -1111,7 +1248,9 @@ let beanTips = [], beanI = 0, beanOpen = false, beanFrame = 0;
 function beanHidden() { return store.get("beanhide", "") === todayISO(); }
 function beanSay(first) {
   const a = assess();
-  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + x.text.charAt(0).toLowerCase() + x.text.slice(1) + ". Want to sort it?", id: x.id, arg: x.arg, open: x.id ? "client" : "admin" }));
+  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + x.text.charAt(0).toLowerCase() + x.text.slice(1) + ". Want to sort it?", id: x.id, arg: x.arg, open: x.id ? "client" : (x.open || "admin") }));
+  const wk = new Date(), wkKey = "week-" + todayISO();
+  if ((wk.getDay() === 0 && wk.getHours() >= 17) || wk.getDay() === 1) beanTips.unshift({ text: "Your week's in! Want to see how we did? 📰", open: "week" });
   if (a) beanTips.push({ text: sayLine(a), open: "todo" });
   if (!beanTips.length) beanTips.push({ text: "Hi! I'm " + BEAN.name + ". Nothing needs you right now." });
   if (first && !beanHidden() && store.get("beanseen", "") !== todayISO()) { beanI = 0; beanOpen = true; store.set("beanseen", todayISO()); }
@@ -1176,6 +1315,7 @@ document.addEventListener("click", async (e) => {
     else if (k === "aftercare") startMail(r, "aftercare");
     else if (k === "receipt") startDoc(r, "receipt");
     else if (k === "chase_deposit") startMail(r, "chase_deposit");
+    else if (k.indexOf("fu_") === 0) startMail(r, k.slice(3));
   }
   else if (a === "doc") startDoc(r, arg);
   else if (a === "mail") startMail(r, arg);
@@ -1187,6 +1327,16 @@ document.addEventListener("click", async (e) => {
     act(r.id, "hide", {}); home();
   });
   else if (a === "copy") copyStory();
+  else if (a === "hookpaste") pasteHooks();
+  else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
+  else if (a === "hooktag") { hookTag = arg; render(); }
+  else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
+  else if (a === "hookcopy") { const h = hooksView().find((x) => x.id === arg); if (h) copyHook(h); }
+  else if (a === "hookedit") { const h = hooksView().find((x) => x.id === arg); if (h) editHook(h); }
+  else if (a === "hookrand") {
+    const pool = hooksView().filter((h) => !(h.used || []).length), fav = pool.filter((h) => h.star), pick = (fav.length ? fav : pool)[Math.floor(Math.random() * (fav.length || pool.length))];
+    if (!pick) toast("No unused hooks left. Paste some new ones!"); else dialog('<div style="font-size:17px;-webkit-user-select:text;user-select:text">' + esc(pick.text) + "</div>", [["Copy", () => { setTimeout(() => copyHook(pick), 0); }, 1], ["Another", () => { setTimeout(() => document.querySelector('[data-a="hookrand"]').click(), 0); }], ["Close"]], "🎲", { title: "Try this one" });
+  }
   else if (a === "boxretry") { const it = failed.splice(Number(arg), 1)[0]; delete it.error; outbox.push(it); saveBox(); pump(); render(); }
   else if (a === "boxbin") { const list = arg[0] === "f" ? failed : outbox, i = Number(arg.slice(1));
     if (list === outbox && i === 0 && sending) return toast("That one is sending right now.");
@@ -1196,7 +1346,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "toggle") {
     const nv = !on(arg);
     if (arg === "auto_confirm") return toast("Booking confirmed is switched on or off on the Mac (Requests, then : for Settings). On the phone you choose each time when you tick a deposit.");
-    ask((nv ? "Turn ON: " : "Turn OFF: ") + ({ auto_receipt: "receipts after payment", auto_aftercare: "aftercare after the final payment", directions: "the directions email" }[arg]) + "?", async () => {
+    ask((nv ? "Turn ON: " : "Turn OFF: ") + ({ auto_receipt: "receipts after payment", auto_aftercare: "aftercare after the final payment", directions: "the directions email", followups: "follow-up reminders in Admin" }[arg]) + "?", async () => {
       setBusy(1);
       try { setting(arg, nv, "Switch"); } finally { setBusy(-1); }
     });
