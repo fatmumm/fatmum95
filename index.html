@@ -13,13 +13,16 @@ button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .tbar .btn{min-height:38px;padding:2px 10px}
 .spacer{flex:1}
 .tray{padding:7px 9px;font-size:14px;white-space:nowrap}
-.sync{font-size:11px;color:#333;font-family:Tahoma,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+.sync{font-size:12px;color:#333;font-family:Tahoma,sans-serif;white-space:nowrap;overflow:hidden;flex:1;min-width:0}
+.sync span{display:inline-block}.sync.roll span{padding-left:100%;animation:roll 9s linear infinite}
+@keyframes roll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 .menu{position:absolute;left:4px;top:calc(56px + env(safe-area-inset-top));width:min(270px,92vw);z-index:12;display:flex}
 .menu .side{background:linear-gradient(0deg,#000080,#1084d0);color:#c0c0c0;writing-mode:vertical-rl;transform:rotate(180deg);padding:8px 4px;font-family:"FMDigits","Pixelify Sans",sans-serif;font-weight:600;letter-spacing:2px}
 .menu .items{flex:1}.menu .it{padding:12px;cursor:pointer}.menu .it:active{background:#000080;color:#fff}
 .desk{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:14px 6px;padding:18px 8px}
 .icon{text-align:center;color:#fff;cursor:pointer;min-width:0;height:96px;position:relative}
-.icon .ic{font-size:36px;line-height:46px;height:46px;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.45))}
+.icon .ic{width:52px;height:52px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf}
+.icon .ic>i{font-style:normal;display:block;width:32px;height:32px;line-height:32px;font-size:28px;text-align:center;overflow:hidden}
 .icon span{display:inline-block;max-width:100%;margin-top:4px;padding:1px 4px;font-size:14px;line-height:1.15;text-shadow:1px 1px #000;overflow-wrap:anywhere}
 .icon:active span{background:#000080;outline:1px dotted #fff;text-shadow:none}
 .badge{position:absolute;top:0;left:calc(50% + 12px);background:#ff0;color:#000;border:1px solid #000;font-size:11px;line-height:15px;min-width:17px;padding:0 3px;text-shadow:none;font-family:Tahoma,sans-serif}
@@ -110,7 +113,6 @@ textarea.inp{height:190px;font-size:14px;line-height:1.35}
   <button class="btn raised" data-a="home" aria-label="Home">🏠</button>
   <button class="btn raised" data-a="open" data-arg="outbox" id="boxbtn" style="display:none"></button>
   <span class="sync" id="sync"></span>
-  <div class="spacer"></div>
   <button class="btn raised" data-a="reload" aria-label="Reload">↻</button>
   <div class="tray sunk px" id="clock"></div>
 </div>
@@ -187,7 +189,7 @@ function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
     if (!navigator.onLine) return Promise.reject(new NetErr("no signal"));
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 90000);
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
     return fetch(API, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
       .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr("no signal"); })
       .then((j) => { if (j.error) throw new Error(j.error); return j.result; })
@@ -227,10 +229,10 @@ async function pump() {
       if (it.fn === "deskTodo") { const c = pendingTodo.find((x) => x.id === it.todo); if (c) { c.sent = true; store.set("todoq", pendingTodo); } }
       if (it.fn === "deskSetting" && D.office && !DRY) { D.office.settings[it.args[1]] = it.args[2]; }
       save();
-      $("sync").textContent = "✓ " + (res && res.msg ? res.msg : it.label || "saved");
+      setStatus("✓ " + (res && res.msg ? res.msg : it.label || "saved"));
     } catch (e) {
       if (e instanceof NetErr) {                     // keep it, try again soon
-        $("sync").textContent = "📵 " + outbox.length + " waiting to send";
+        setStatus("📵 " + outbox.length + " waiting to send");
         clearTimeout(retryT); retryT = setTimeout(pump, 30000);
         break;
       }
@@ -242,14 +244,28 @@ async function pump() {
   render();
   if (!outbox.length) setTimeout(() => load(false), 600);
 }
-window.addEventListener("online", () => { $("sync").textContent = "back online, sending…"; pump(); load(false); });
-window.addEventListener("offline", () => { $("sync").textContent = "📵 no signal: changes wait on the phone"; });
+window.addEventListener("online", () => { setStatus("back online, sending…"); pump(); load(false); });
+window.addEventListener("offline", () => { setStatus("📵 no signal: changes wait on the phone"); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { pump(); load(false); } });
+function setStatus(t) {                        // the top-bar line: scrolls if it doesn't fit
+  const el = $("sync"); if (!el) return;
+  el.innerHTML = "<span>" + esc(t) + "</span>";
+  el.classList.remove("roll");
+  if (el.firstChild.offsetWidth > el.clientWidth) el.classList.add("roll");
+}
 function setBusy(n) { busy = Math.max(0, busy + n); $("prog").innerHTML = busy ? '<div class="prog sunk"><i></i></div>' : ""; }
 function save() { store.set("D", D); }
-let officeRetry = null;
+let officeRetry = null, loading = false, loadAgain = false;
 async function load(force) {
   if (STANDALONE && !KEY) { setupScreen(); return; }
+  if (loading) { loadAgain = true; return; }           // already syncing: just do one more round after
+  loading = true;
+  try { await loadOnce(force); } finally {
+    loading = false;
+    if (loadAgain) { loadAgain = false; setTimeout(() => load(false), 300); }
+  }
+}
+async function loadOnce(force) {
   pump();
   const officeP = call("deskOffice", KEY, !!force);
   officeP.catch(() => {});
@@ -261,14 +277,15 @@ async function load(force) {
     save(); render();
   } catch (e) {
     if (!D) D = { rows: [] };
-    if (e instanceof NetErr) $("sync").textContent = "📵 offline · showing what you last saw";
+    if (e instanceof NetErr) setStatus("📵 offline · showing what you last saw");
     else if (STANDALONE && e.message === "nope") { store.set("key", ""); setupScreen("Your saved key didn't work. Paste your setup link or code again."); return; }
     else if (!D.rows.length) dialog("Couldn't load: " + esc(e.message), [["Retry", () => load(force)], ["Close"]], "⚠️");
   }
   finally { setBusy(-1); }
-  setBusy(1);
+  setStatus("syncing…");
   try {
     D.office = await officeP;
+    setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5));
     const seen = new Set((D.office.queue || []).map((c) => c.id));
     const made = D.office.todo && D.office.todo.made;   // keep anything unsent, or sent but not yet seen by the Mac
     pendingTodo = pendingTodo.filter((c) => !c.sent || (!seen.has(c.id) && !(made && made > c.at + "Z")));
@@ -276,9 +293,8 @@ async function load(force) {
     save(); render(); beanSay(true);
   } catch (e) {
     if (e instanceof NetErr) { clearTimeout(officeRetry); officeRetry = setTimeout(() => load(false), 20000); }   // try again in a bit
-    else $("sync").textContent = "⚠ office: " + e.message;
+    else setStatus("⚠ office: " + e.message);
   }
-  finally { setBusy(-1); }
 }
 
 // ── rows and stages (same rules as home on the Mac) ──
@@ -553,10 +569,10 @@ function badge(kind) {
 }
 function render() {
   $("clock").textContent = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
-  $("sync").textContent = (DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : "");
+  setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
   $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
-    $("main").innerHTML = '<div class="desk">' + APPS.map((a) => { const n = badge(a[0]); return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic">' + a[1] + "</div>" + (n ? '<b class="badge">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
+    $("main").innerHTML = '<div class="desk">' + APPS.map((a) => { const n = badge(a[0]); return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n ? '<b class="badge">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
     const w = stack[stack.length - 1];
     let body = "";
@@ -590,6 +606,14 @@ function winToday() {
   const tom = live().filter((r) => r.iso === addDays(t, 1));
   let h = list.length ? '<div class="lv sunk">' + list.map((r) => clientRow(r, false)).join("") + "</div>" : '<div class="card sunk">No clients today. Have a cuppa ☕</div>';
   if (tom.length) h += '<div class="h">Tomorrow</div><div class="lv sunk">' + tom.map((r) => clientRow(r, false)).join("") + "</div>";
+  const v = todoView();
+  if (v) {
+    const due = v.tasks.filter((x) => !x.done && x.due && x.due <= t).sort((a, b) => imp(b) - imp(a));
+    const doneT = v.tasks.filter((x) => x.done === t);
+    h += '<div class="h">To-do today (' + due.length + ')</div>' + (due.length ? '<div class="lv sunk">' + due.map((x) => taskRow(x, v)).join("") + "</div>" : '<div class="dim">Nothing due today ✓</div>');
+    if (doneT.length) h += '<div class="lv sunk" style="margin-top:6px">' + doneT.map((x) => taskRow(x, v)).join("") + "</div>";
+    h += '<button class="btn raised wide" data-a="open" data-arg="todo">All to-dos / add one</button>';
+  }
   return h;
 }
 function winBookings() {
