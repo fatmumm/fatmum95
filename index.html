@@ -532,7 +532,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["bookings", "📒", "Bookings"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
-  ["hooks", "🪝", "Hooks"], ["reading", "📚", "Reading"], ["money", "💰", "Money"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
 function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); }
@@ -561,7 +561,9 @@ function decodeSetup(v) {
 }
 // ── Hooks: pasted from the social media chat, used + tracked ──
 let pendingHooks = store.get("hookq", []), hookFilter = store.get("hookf", "unused"), hookTag = "";
-const HOOK_TAGS = ["Tattoo", "Flash", "Process", "Behind the scenes", "Personal", "Promo", "Booking"];
+const HOOK_TAGS = ["Aron's own", "Negative", "Curiosity", "Bold claim", "Reverse psychology", "Question", "Mid-sentence", "Vulnerable",
+  "Emotional", "Proof", "Comparison", "Post format", "Tattoo", "Flash", "Art", "Behind the scenes"];
+const isSrc = (t) => String(t).charAt(0) === "@";          // "@Dom" = where the hook came from
 function hooksView() {
   const base = (O() && O().hooks) || [];
   let list = JSON.parse(JSON.stringify(base));
@@ -612,12 +614,13 @@ function pasteHooks() {
   $("hpt").onclick = (e) => { const bt = e.target.closest("[data-tag]"); if (bt) bt.classList.toggle("on"); };
 }
 function editHook(h) {
-  let tags = (h.tags || []).slice();
-  const all = [...new Set(HOOK_TAGS.concat(hooksView().flatMap((x) => x.tags || [])))];
+  const srcTags = (h.tags || []).filter(isSrc);
+  let tags = (h.tags || []).filter((t) => !isSrc(t));
+  const all = [...new Set(HOOK_TAGS.concat(hooksView().flatMap((x) => x.tags || []).filter((t) => !isSrc(t))))];
   const draw = () => all.map((t) => '<button class="btn raised small' + (tags.includes(t) ? " on" : "") + '" data-tag="' + esc(t) + '" style="flex:0 0 auto">' + esc(t) + "</button>").join("");
   dialog('<textarea class="inp" id="he" style="height:110px">' + esc(h.text) + '</textarea><label class="field">Tags</label><div class="row" id="het" style="flex-wrap:wrap">' + draw() + '</div>' +
     '<input class="inp" id="hnt" placeholder="New tag…" style="margin-top:8px">',
-    [["Save", () => { const nt = $("hnt").value.trim(); if (nt && !tags.includes(nt)) tags.push(nt); hookOp({ kind: "edit", id: h.id, text: $("he").value.trim() || h.text, tags: tags }); }, 1],
+    [["Save", () => { const nt = $("hnt").value.trim().replace(/^@/, ""); if (nt && !tags.includes(nt)) tags.push(nt); hookOp({ kind: "edit", id: h.id, text: $("he").value.trim() || h.text, tags: tags.concat(srcTags) }); }, 1],
      ["🗑 Delete", () => { setTimeout(() => ask("Delete this hook?", () => hookOp({ kind: "delete", id: h.id })), 0); }], ["Cancel"]], null, { title: "Edit hook" });
   $("het").onclick = (e) => { const bt = e.target.closest("[data-tag]"); if (!bt) return; const t = bt.dataset.tag; tags = tags.includes(t) ? tags.filter((x) => x !== t) : tags.concat([t]); $("het").innerHTML = draw(); };
 }
@@ -628,17 +631,22 @@ function copyHook(h) {
 }
 function winHooks() {
   const all = hooksView(), t = todayISO();
-  const tags = [...new Set(all.flatMap((h) => h.tags || []))].sort();
+  const used = new Set(all.flatMap((h) => h.tags || []));
+  const tags = HOOK_TAGS.filter((t) => used.has(t)).concat([...used].filter((t) => !isSrc(t) && !HOOK_TAGS.includes(t)).sort());
+  const srcs = [...used].filter(isSrc).sort();
   const pass = (h) => (hookFilter === "all" || (hookFilter === "unused" && !(h.used || []).length) || (hookFilter === "used" && (h.used || []).length) || (hookFilter === "star" && h.star)) && (!hookTag || (h.tags || []).includes(hookTag));
   const list = all.filter(pass).sort((x, y) => (y.star - x.star) || (y.added || "").localeCompare(x.added || ""));
   let h = '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hookpaste" style="font-weight:600">📋 Paste hooks</button><button class="btn raised" data-a="hookrand">🎲 Random</button></div>';
   h += '<div class="row">' + [["unused", "Unused"], ["star", "⭐"], ["used", "Used"], ["all", "All"]].map(([k, l]) => '<button class="btn raised small' + (hookFilter === k ? " on" : "") + '" data-a="hookf" data-arg="' + k + '">' + l + " (" + all.filter((x) => k === "all" || (k === "unused" && !(x.used || []).length) || (k === "used" && (x.used || []).length) || (k === "star" && x.star)).length + ")</button>").join("") + "</div>";
-  if (tags.length) h += '<div class="row" style="flex-wrap:wrap"><button class="btn raised small' + (!hookTag ? " on" : "") + '" data-a="hooktag" data-arg="" style="flex:0 0 auto">Any tag</button>' + tags.map((tg) => '<button class="btn raised small' + (hookTag === tg ? " on" : "") + '" data-a="hooktag" data-arg="' + esc(tg) + '" style="flex:0 0 auto">' + esc(tg) + "</button>").join("") + "</div>";
+  const chip = (tg, label) => '<button class="btn raised small' + (hookTag === tg ? " on" : "") + '" data-a="hooktag" data-arg="' + esc(tg) + '" style="flex:0 0 auto">' + esc(label) + "</button>";
+  if (tags.length) h += '<div class="row" style="flex-wrap:wrap">' + chip("", "Any type") + tags.map((tg) => chip(tg, tg)).join("") + "</div>";
+  if (srcs.length) h += '<div class="row" style="flex-wrap:wrap"><span class="dim" style="align-self:center">via</span>' + srcs.map((tg) => chip(tg, tg.slice(1))).join("") + "</div>";
   if (!all.length) return h + '<div class="card sunk" style="margin-top:10px">No hooks yet. Copy a list from your social media chat and tap 📋 Paste hooks.</div>';
   h += '<div class="lv sunk" style="margin-top:10px">' + (list.map((x) => {
     const last = (x.used || []).slice(-1)[0];
     return '<div class="li" style="align-items:flex-start"><button class="btn raised small" data-a="hookstar" data-arg="' + esc(x.id) + '" style="flex:none">' + (x.star ? "⭐" : "☆") + '</button>' +
-      '<span class="lab" style="-webkit-user-select:text;user-select:text">' + esc(x.text) + '<div class="dim">' + ((x.tags || []).map(esc).join(" · ") || "no tag") + (last ? " · used " + esc(niceDay(last)) + ((x.used || []).length > 1 ? " (" + x.used.length + "×)" : "") : "") + (x.pending ? " · ⏳" : "") + "</div></span>" +
+      '<span class="lab" style="-webkit-user-select:text;user-select:text">' + esc(x.text) + '<div class="dim">' + ((x.tags || []).filter((t) => !isSrc(t)).map(esc).join(" · ") || "no tag") +
+      ((x.tags || []).filter(isSrc).map((t) => " · via " + esc(t.slice(1))).join("")) + (last ? " · used " + esc(niceDay(last)) + ((x.used || []).length > 1 ? " (" + x.used.length + "×)" : "") : "") + (x.pending ? " · ⏳" : "") + "</div></span>" +
       '<span style="display:flex;flex-direction:column;gap:4px;flex:none"><button class="btn raised small" data-a="hookcopy" data-arg="' + esc(x.id) + '">Copy</button><button class="btn raised small" data-a="hookedit" data-arg="' + esc(x.id) + '">✏️</button></span></div>';
   }).join("") || '<div class="li dim">Nothing here with that filter.</div>') + "</div>";
   return h;
