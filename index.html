@@ -147,7 +147,7 @@ const store = {
   } catch (e) {}
 })();
 const KEY = STANDALONE ? store.get("key", "") : "";
-const API = STANDALONE ? store.get("api", "") : "";
+let API = STANDALONE ? store.get("api", "") : "";
 let D = store.get("D", null);              // { rows, now, office }
 let busy = 0, menuOpen = false, stack = [];
 let pendingTodo = store.get("todoq", []);  // phone to-do changes not yet confirmed by the office
@@ -192,7 +192,13 @@ function callOp(op, fn, ...args) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
     return fetch(API, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
       .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr(navigator.onLine ? "Google is slow" : "no signal"); })
-      .then((j) => { if (j.error) throw new Error(j.error); return j.result; })
+      .then((j) => {
+        if (j.error && store.get("api_old", "") && /nope|permission|openById|not have access|unknown/i.test(j.error)) {
+          API = store.get("api_old"); store.set("api", API); store.set("api_old", ""); store.set("moveFailed", Date.now());   // back to the old way
+          throw new NetErr("switching back");
+        }
+        if (j.error) throw new Error(j.error); return j.result;
+      })
       .finally(() => clearTimeout(t));
   }
   return new Promise((ok, bad) => {
@@ -278,6 +284,12 @@ async function syncOnce(force) {
   if (first) setBusy(1); else setStatus("syncing…");
   try {
     const d = await call("deskSync", KEY, !!force);
+    if (STANDALONE && d.moveTo && d.moveTo !== API && !store.get("api_old", "") && Date.now() - store.get("moveFailed", 0) > 864e5) {
+      try {                                      // the office can serve the app directly now: check it, then move (one Google hop fewer)
+        const r = await fetch(d.moveTo, { method: "POST", body: JSON.stringify({ k: KEY, fn: "deskSync", args: [KEY, false] }) }).then((x) => x.json());
+        if (r.ok && r.result && (r.result.rows || []).length) { store.set("api_old", API); API = d.moveTo; store.set("api", API); setStatus("⚡ faster sync switched on"); }
+      } catch (e) {}
+    }
     D = Object.assign({}, D || {}, { rows: d.rows, now: d.now });
     if (d.office && (!D.office || (d.office.at || "") >= (D.office.at || ""))) D.office = d.office;
     if (d.office && !d.stale) {                    // the office now holds every hook op sent before this sync
