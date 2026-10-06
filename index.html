@@ -532,7 +532,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["bookings", "📒", "Bookings"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
-  ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["reading", "📚", "Reading"], ["money", "💰", "Money"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
 function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); }
@@ -644,6 +644,69 @@ function winHooks() {
   return h;
 }
 
+// ── 📚 Reading + 💰 Money: the Mac's bookclub and books, asked for from here ──
+const macSnap = () => (O() && O().todo) || null;
+function macResults(kind) {                    // what the Mac reported back, plus what's still waiting for it
+  const done = ((macSnap() || {}).results || []).filter((r) => r.kind === kind);
+  const doneIds = new Set(done.map((r) => r.id));
+  const waiting = pendingTodo.filter((c) => c.kind === kind && !doneIds.has(c.id));
+  return { done: done.slice().reverse(), waiting: waiting };
+}
+function macAge() { const m = macSnap(); return m && m.made ? "from your Mac " + ago(m.made) : "waiting for your Mac to sync"; }
+function winReading() {
+  const r = (macSnap() || {}).reading, res = macResults("kindle");
+  let h = '<div class="card sunk"><b>Send to Kindle</b><div class="dim">Paste a link (or a few). Your Mac turns it into a book and it shows up on the Kindle.</div>' +
+    '<textarea class="inp" id="kl" style="height:70px;margin-top:6px" autocapitalize="off" autocorrect="off" placeholder="https://…"></textarea>' +
+    '<button class="btn raised wide" data-a="kindlesend" style="font-weight:600">📤 Send to Kindle</button></div>';
+  if (res.waiting.length || res.done.length) h += '<div class="lv sunk" style="margin-top:8px">' +
+    res.waiting.map((c) => '<div class="li"><span class="ico">⏳</span><span class="lab">' + esc(c.url.slice(0, 80)) + '<div class="dim">waiting for your Mac</div></span></div>').join("") +
+    res.done.slice(0, 5).map((x) => '<div class="li"><span class="ico">' + (x.ok ? "📗" : "⚠️") + '</span><span class="lab">' + esc(x.text) + '<div class="dim">' + esc(ago(x.at)) + "</div></span></div>").join("") + "</div>";
+  if (!r) return h + '<div class="card sunk" style="margin-top:10px">Your reading list shows up once your Mac has synced.</div>';
+  if (r.error) return h + '<div class="card sunk bad" style="margin-top:10px">⚠ ' + esc(r.error) + "</div>";
+  const readNow = new Set(pendingTodo.filter((c) => c.kind === "read").map((c) => c.article));
+  const list = (r.unread || []).filter((x) => !readNow.has(x.id));
+  h += '<div class="h">Unread (' + Math.max(0, r.unread_n - readNow.size) + ")" + (r.inbox_n ? ' <span class="dim">· ' + r.inbox_n + " in the inbox on the Mac</span>" : "") + "</div>";
+  h += list.length ? '<div class="lv sunk">' + list.map((x) => '<div class="li"><span class="lab"><b>' + esc(x.title || x.url) + '</b><div class="dim">' + esc(x.site || "") +
+    (x.words ? " · " + Math.max(1, Math.round(x.words / 230)) + " min" : "") + (x.added ? " · " + esc(niceDay(String(x.added).slice(0, 10))) : "") + '</div></span><button class="btn raised small" data-a="markread" data-arg="' + esc(x.id) + '">✓ read</button></div>').join("") + "</div>"
+    : '<div class="dim">All read ✓</div>';
+  if ((r.highlights || []).length) h += '<div class="h">Latest highlights</div><div class="lv sunk">' + r.highlights.map((x) => '<div class="li"><span class="lab"><i>“' + esc(x.text) + '”</i><div class="dim">' + esc(x.book) + (x.author ? ", " + esc(x.author) : "") + "</div></span></div>").join("") + "</div>";
+  return h + '<div class="dim" style="margin-top:8px">' + esc(macAge()) + "</div>";
+}
+function winMoney() {
+  const m = (macSnap() || {}).money, res = macResults("money");
+  let h = '<button class="btn raised main" style="margin-top:0" data-a="moneyadd">＋ Add cash in / an expense</button>';
+  if (!m) return h + '<div class="card sunk">Your money shows up once your Mac has synced.</div>';
+  if (m.error) return h + '<div class="card sunk bad">⚠ ' + esc(m.error) + "</div>";
+  h += '<div class="tiles"><div class="tile sunk"><div class="l">In (' + esc(m.year) + ')</div><div class="v">' + money(m.income) + '</div></div><div class="tile sunk"><div class="l">Costs</div><div class="v">' + money(m.costs) + "</div></div>" +
+    '<div class="tile sunk"><div class="l">Profit</div><div class="v">' + money(m.profit) + '</div></div><div class="tile sunk"><div class="l">Put aside for tax</div><div class="v">' + money(m.tax) + "</div></div></div>";
+  h += '<div class="card sunk" style="margin-top:8px;font-size:14px">' + (m.next ? "🧮 <b>" + esc(niceDay(m.next.date)) + "</b> (" + m.next.days + " days): " + esc(m.next.what) : "No tax dates coming up.") +
+    '<div class="dim" style="margin-top:4px">' + (m.bank_days == null ? "No bank statement imported yet (on the Mac: Money)." : "Bank statement last imported " + m.bank_days + " days ago (on the Mac).") + "</div></div>";
+  h += '<div class="h">Money in per month</div>' + chartSlot("mm1", 140);
+  charts = [["mm1", "bars", (m.months || []).map((x) => ymLabel(x[0])), [(m.months || []).map((x) => x[1])], ["Money in"], money]];
+  const lines = res.waiting.map((c) => '<div class="li"><span class="ico">⏳</span><span class="lab">' + esc(c.desc || (c.dir === "in" ? "Money in" : "Expense")) + '<div class="dim">' + esc(c.cat) + " · " + esc(niceDay(c.date)) + ' · waiting for your Mac</div></span><b class="' + (c.dir === "in" ? "ok" : "bad") + '">' + (c.dir === "in" ? "+" : "−") + money(c.amount) + "</b></div>")
+    .concat(res.done.filter((x) => !x.ok).slice(0, 3).map((x) => '<div class="li"><span class="ico">⚠️</span><span class="lab">' + esc(x.text) + "</span></div>"))
+    .concat((m.recent || []).map((x) => '<div class="li"><span class="lab">' + esc(x.desc || x.cat) + '<div class="dim">' + esc(x.cat || "") + " · " + esc(niceDay(x.date)) + (x.manual ? " · cash/manual" : "") + '</div></span><b class="' + (x.amount >= 0 ? "ok" : "bad") + '">' + (x.amount >= 0 ? "+" : "−") + money(Math.abs(x.amount)) + "</b></div>"));
+  h += '<div class="h">Latest</div><div class="lv sunk">' + (lines.join("") || '<div class="li dim">Nothing yet.</div>') + "</div>";
+  return h + '<div class="dim" style="margin-top:8px">Bank statements are imported on the Mac (home, Money). ' + esc(macAge()) + ". An estimate, not tax advice.</div>";
+}
+function moneyAdd() {
+  const m = (macSnap() || {}).money || {};
+  let dir = "out";
+  const cats = () => (dir === "in" ? (m.income_cats || ["Tattoos", "Shop"]) : (m.expense_cats || ["Supplies", "Travel", "Other"]));
+  const draw = () => '<div class="row" style="margin-top:0"><button class="btn raised' + (dir === "out" ? " on" : "") + '" data-dir="out">' + (dir === "out" ? "◉" : "○") + ' Money out</button><button class="btn raised' + (dir === "in" ? " on" : "") + '" data-dir="in">' + (dir === "in" ? "◉" : "○") + " Money in</button></div>" +
+    '<label class="field">Category</label><select class="inp" id="mc">' + cats().map((c) => "<option>" + esc(c) + "</option>").join("") + "</select>";
+  dialog('<div id="md">' + draw() + '</div><label class="field">How much (£)</label><input class="inp money" id="ma" inputmode="decimal">' +
+    '<label class="field">What was it?</label><input class="inp" id="mw" placeholder="e.g. needles from the shop" autocomplete="off">' +
+    '<label class="field">Date</label><input class="inp" id="mt" type="date" value="' + todayISO() + '">',
+    [["Add", () => {
+      const amt = Number(String($("ma").value).replace(/[£,]/g, ""));
+      if (!(amt > 0)) { $("ma").focus(); return false; }
+      todoChange({ kind: "money", amount: amt, dir: dir, cat: $("mc").value, desc: $("mw").value.trim(), date: $("mt").value || todayISO() });
+      setTimeout(() => toast("Added " + money(amt) + (dir === "in" ? " in" : " out") + " ✓ Your Mac puts it in the books."), 0);
+    }, 1], ["Cancel"]], "💰", { title: "Add to the books" });
+  $("md").onclick = (e) => { const bt = e.target.closest("[data-dir]"); if (!bt) return; dir = bt.dataset.dir; $("md").innerHTML = draw(); };
+}
+
 // ── Bean's weekly report ──
 function weekStats(start) {                    // Monday-based week starting `start` (iso)
   const end = addDays(start, 6), inWeek = (iso) => iso && iso >= start && iso <= end;
@@ -706,7 +769,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1328,6 +1391,14 @@ document.addEventListener("click", async (e) => {
   });
   else if (a === "copy") copyStory();
   else if (a === "hookpaste") pasteHooks();
+  else if (a === "kindlesend") {
+    const v = ($("kl").value || "").trim(), links = v.match(/https?:\/\/[^\s<>"']+/g) || [];
+    if (!links.length) return toast("Paste a link that starts with https://");
+    links.forEach((u) => todoChange({ kind: "kindle", url: u }));
+    toast(links.length + " link" + (links.length === 1 ? "" : "s") + " queued for the Kindle 📤 Your Mac does the rest.");
+  }
+  else if (a === "markread") todoChange({ kind: "read", article: arg, read: true });
+  else if (a === "moneyadd") moneyAdd();
   else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
   else if (a === "hooktag") { hookTag = arg; render(); }
   else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
