@@ -139,7 +139,7 @@ const store = {
   const m = STANDALONE && location.hash.match(/setup=([\w-]+)/);
   if (!m) return;
   try {
-    const j = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const j = decodeSetup(location.hash);
     if (j.k && j.u) { store.set("key", j.k); store.set("api", j.u); }
     if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matches) history.replaceState(null, "", location.pathname);
   } catch (e) {}
@@ -262,6 +262,7 @@ async function load(force) {
   } catch (e) {
     if (!D) D = { rows: [] };
     if (e instanceof NetErr) $("sync").textContent = "📵 offline · showing what you last saw";
+    else if (STANDALONE && e.message === "nope") { store.set("key", ""); setupScreen("Your saved key didn't work. Paste your setup link or code again."); return; }
     else if (!D.rows.length) dialog("Couldn't load: " + esc(e.message), [["Retry", () => load(force)], ["Close"]], "⚠️");
   }
   finally { setBusy(-1); }
@@ -523,9 +524,19 @@ function winOutbox() {
   if (failed.length) h += '<div class="h bad">Didn\'t go</div><div class="lv sunk">' + failed.map((it, i) => row(it, i, true)).join("") + "</div>";
   return h;
 }
-function setupScreen() {
-  $("main").innerHTML = '<div class="win raised"><div class="title"><span class="t">Welcome to Fat Mum 95</span></div><div class="body"><p>Paste your setup code (from your Mac: <b>home phone-link</b>).</p>' +
-    '<textarea class="inp" id="setupc" style="height:90px"></textarea><button class="btn raised main" data-a="setupsave">Save</button><div class="dim">Your key stays on this phone.</div></div></div>';
+function setupScreen(msg) {
+  $("main").innerHTML = '<div class="win raised"><div class="title"><span class="t">Welcome to Fat Mum 95</span></div><div class="body">' +
+    (msg ? '<div class="card sunk bad" style="margin-bottom:10px">' + esc(msg) + "</div>" : "") +
+    '<p>Paste your setup link or code (on your Mac: <b>home phone-link</b>).</p>' +
+    '<textarea class="inp" id="setupc" style="height:110px" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></textarea>' +
+    '<button class="btn raised main" data-a="setupsave">Save</button><div class="dim">Your key stays on this phone.</div></div></div>';
+}
+function decodeSetup(v) {
+  v = String(v || "").replace(/[\u00AD\u200B-\u200D\u2060\uFEFF\s]/g, "").replace(/[\u2010-\u2015]/g, "-");   // undo what iPhones do to pasted text
+  const m = v.match(/setup=([\w-]+)/) || [0, v.replace(/^.*#/, "")];
+  const j = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+  if (!j.k || !j.u) throw new Error("incomplete");
+  return j;
 }
 function winTitle(w) {
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
@@ -1079,9 +1090,13 @@ document.addEventListener("click", async (e) => {
   if (a !== "menu") menuOpen = false;
   const r = id ? byId(id) : null;
   if (a === "setupsave") {
-    const v = ($("setupc").value || "").trim(), m = v.match(/setup=([\w-]+)/) || [0, v];
-    try { const j = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))); store.set("key", j.k); store.set("api", j.u); location.reload(); }
-    catch (err) { toast("⚠ That code didn't work. Copy the whole link or code from your Mac."); }
+    let j;
+    try { j = decodeSetup($("setupc").value); } catch (err) { setupScreen("That doesn't look like the whole code. Copy it again (all of it) and paste."); return; }
+    t.textContent = "Checking…";
+    fetch(j.u, { method: "POST", body: JSON.stringify({ k: j.k, fn: "deskData", args: [j.k] }) }).then((r) => r.json()).then((res) => {
+      if (res.error === "nope") { setupScreen("Google didn't recognise that key (it starts " + j.k.slice(0, 3) + "…). Run home phone-link on your Mac and paste the new one."); return; }
+      store.set("key", j.k); store.set("api", j.u); store.set("D", null); location.reload();
+    }).catch(() => setupScreen("No signal right now. Try again when you're online."));
     return;
   }
   if (a === "menu") { menuOpen = !menuOpen; render(); }
