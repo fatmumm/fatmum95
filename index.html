@@ -191,7 +191,7 @@ function callOp(op, fn, ...args) {
     if (!navigator.onLine) return Promise.reject(new NetErr("no signal"));
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
     return fetch(API, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
-      .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr("no signal"); })
+      .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr(navigator.onLine ? "Google is slow" : "no signal"); })
       .then((j) => { if (j.error) throw new Error(j.error); return j.result; })
       .finally(() => clearTimeout(t));
   }
@@ -233,7 +233,7 @@ async function pump() {
     } catch (e) {
       if (e instanceof NetErr) {                     // keep it, try again soon
         setStatus("📵 " + outbox.length + " waiting to send");
-        clearTimeout(retryT); retryT = setTimeout(pump, 30000);
+        clearTimeout(retryT); retryT = setTimeout(pump, Math.min(30000 * Math.pow(2, Math.min(it.tries = (it.tries || 0) + 1, 4)), 300000));
         break;
       }
       outbox.shift(); failed.push(Object.assign(it, { error: e.message })); saveBox();
@@ -242,11 +242,11 @@ async function pump() {
   }
   sending = false;
   render();
-  if (!outbox.length) setTimeout(() => load(false), 600);
+  if (!outbox.length && Date.now() - lastSync > 5000) setTimeout(() => load(false), 1500);
 }
 window.addEventListener("online", () => { setStatus("back online, sending…"); pump(); load(false); });
 window.addEventListener("offline", () => { setStatus("📵 no signal: changes wait on the phone"); });
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { pump(); load(false); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { pump(); if (Date.now() - lastSync > 60000) load(false); } });
 function setStatus(t) {                        // the top-bar line: scrolls if it doesn't fit
   const el = $("sync"); if (!el) return;
   el.innerHTML = "<span>" + esc(t) + "</span>";
@@ -255,46 +255,45 @@ function setStatus(t) {                        // the top-bar line: scrolls if i
 }
 function setBusy(n) { busy = Math.max(0, busy + n); $("prog").innerHTML = busy ? '<div class="prog sunk"><i></i></div>' : ""; }
 function save() { store.set("D", D); }
-let officeRetry = null, loading = false, loadAgain = false;
+let loading = false, loadAgain = false, lastSync = 0, backoff = 0, retryLoad = null;
 async function load(force) {
   if (STANDALONE && !KEY) { setupScreen(); return; }
-  if (loading) { loadAgain = true; return; }           // already syncing: just do one more round after
+  if (loading) { loadAgain = loadAgain || !!force; return; }   // one sync at a time
   loading = true;
-  try { await loadOnce(force); } finally {
+  clearTimeout(retryLoad);
+  try { await syncOnce(force); } finally {
     loading = false;
-    if (loadAgain) { loadAgain = false; setTimeout(() => load(false), 300); }
+    if (loadAgain) { const f = loadAgain === true; loadAgain = false; setTimeout(() => load(f), 500); }
   }
 }
-async function loadOnce(force) {
+function retryLater(why) {                     // calm retries: 30s, 1m, 2m, 5m … never a storm
+  backoff = Math.min(backoff ? backoff * 2 : 30, 300);
+  setStatus(why + " · trying again in " + (backoff < 60 ? backoff + "s" : Math.round(backoff / 60) + " min"));
+  clearTimeout(retryLoad); retryLoad = setTimeout(() => load(false), backoff * 1000);
+}
+async function syncOnce(force) {
   pump();
-  const officeP = call("deskOffice", KEY, !!force);
-  officeP.catch(() => {});
-  setBusy(1);
+  const first = !D || !D.rows || !D.rows.length;
+  if (first) setBusy(1); else setStatus("syncing…");
   try {
-    const d = await call("deskData", KEY);
+    const d = await call("deskSync", KEY, !!force);
     D = Object.assign({}, D || {}, { rows: d.rows, now: d.now });
-    if (d.office && (!D.office || d.office.at >= (D.office.at || ""))) D.office = d.office;
-    save(); render();
+    if (d.office && (!D.office || (d.office.at || "") >= (D.office.at || ""))) D.office = d.office;
+    if (D.office) {
+      const seen = new Set((D.office.queue || []).map((c) => c.id));
+      const made = D.office.todo && D.office.todo.made;   // keep anything unsent, or sent but not yet seen by the Mac
+      pendingTodo = pendingTodo.filter((c) => !c.sent || (!seen.has(c.id) && !(made && made > c.at + "Z")));
+      store.set("todoq", pendingTodo);
+    }
+    save(); lastSync = Date.now(); render(); beanSay(true);
+    if (d.officeError) retryLater("✓ bookings synced, office busy");
+    else { backoff = 0; setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5)); }
   } catch (e) {
     if (!D) D = { rows: [] };
-    if (e instanceof NetErr) setStatus("📵 offline · showing what you last saw");
-    else if (STANDALONE && e.message === "nope") { store.set("key", ""); setupScreen("Your saved key didn't work. Paste your setup link or code again."); return; }
-    else if (!D.rows.length) dialog("Couldn't load: " + esc(e.message), [["Retry", () => load(force)], ["Close"]], "⚠️");
-  }
-  finally { setBusy(-1); }
-  setStatus("syncing…");
-  try {
-    D.office = await officeP;
-    setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5));
-    const seen = new Set((D.office.queue || []).map((c) => c.id));
-    const made = D.office.todo && D.office.todo.made;   // keep anything unsent, or sent but not yet seen by the Mac
-    pendingTodo = pendingTodo.filter((c) => !c.sent || (!seen.has(c.id) && !(made && made > c.at + "Z")));
-    store.set("todoq", pendingTodo);
-    save(); render(); beanSay(true);
-  } catch (e) {
-    if (e instanceof NetErr) { clearTimeout(officeRetry); officeRetry = setTimeout(() => load(false), 20000); }   // try again in a bit
-    else setStatus("⚠ office: " + e.message);
-  }
+    if (e instanceof NetErr) retryLater(navigator.onLine ? "Google is slow" : "📵 offline, showing what you last saw");
+    else if (STANDALONE && e.message === "nope") setupScreen("Google says your saved key is wrong. Paste your setup link or code again (on your Mac: home phone-link).");
+    else retryLater("⚠ " + e.message);
+  } finally { if (first) setBusy(-1); }
 }
 
 // ── rows and stages (same rules as home on the Mac) ──
