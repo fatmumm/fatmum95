@@ -4,6 +4,7 @@
 @font-face{font-family:"FMDigits";src:url(https://fonts.gstatic.com/s/vt323/v18/pxiKyp0ihIEF2isfFJXUdVNF.woff2) format("woff2");unicode-range:U+0030-0039;size-adjust:125%;font-display:swap}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
+body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:110px;overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .px,.title,.btn,.icon span,.big,.h,.chip,.tbar{font-family:"FMDigits","Pixelify Sans",Tahoma,sans-serif}
@@ -554,7 +555,32 @@ function startGone(r) {
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
   ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
-  ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
+  ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
+
+// ── ⚙️ Settings: looks + feel, saved on this phone ──
+const PREF_DEFAULTS = { badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
+let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
+const pref = (k) => prefs[k];
+function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
+const BADGE_COLOURS = { yellow: ["🟡 Yellow", "#ff0", "#000"], red: ["🔴 Red", "#d00000", "#fff"], green: ["🟢 Green", "#008000", "#fff"], blue: ["🔵 Blue", "#000080", "#fff"], off: ["Off (no number)", "", ""] };
+function winSettings() {
+  const sel = (id, val, opts) => '<select class="inp" data-pref="' + id + '" style="width:auto;min-width:150px">' + opts.map(([v, l]) => '<option value="' + v + '"' + (val === v ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>";
+  const box = (on) => '<span class="bx sunk" style="width:20px;height:20px;display:inline-block;text-align:center;line-height:16px;font-weight:700;flex:none">' + (on ? "✓" : "") + "</span>";
+  const row = (ico, label, ctl) => '<div class="li"><span class="ico">' + ico + '</span><span class="lab">' + label + "</span>" + ctl + "</div>";
+  const colourOpts = Object.keys(BADGE_COLOURS).map((k) => [k, BADGE_COLOURS[k][0]]);
+  let h = '<div class="h" style="margin-top:0">Badge colours</div><div class="lv sunk">' +
+    [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["todo", "✅", "To-do"]].map(([k, i, l]) => row(i, l, sel("badge_" + k, pref("badge_" + k), colourOpts))).join("") + "</div>";
+  h += '<div class="h">Icons on the desktop</div><div class="dim" style="margin-bottom:6px">Untick the ones you don\'t use. They stay in the Start menu.</div><div class="lv sunk">' +
+    APPS.filter((x) => x[0] !== "settings").map((x) => '<div class="li" data-a="prefhide" data-arg="' + x[0] + '">' + box(!pref("hide").includes(x[0])) + '<span class="lab">' + x[1] + " " + esc(x[2]) + "</span></div>").join("") + "</div>";
+  h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
+    '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
+    '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
+  h += '<div class="h">Text size</div><div class="lv sunk">' + row("🔠", "Text", sel("text", pref("text"), [["normal", "Normal"], ["big", "Big"]])) + "</div>";
+  h += '<div class="h">Emails</div><div class="lv sunk"><div class="li" data-a="open" data-arg="auto"><span class="ico">✉️</span><span class="lab">Email wording, quick replies, reply nudges</span><span class="st">Auto emails ›</span></div></div>';
+  return h + '<div class="dim" style="margin-top:10px">These are saved on this phone.</div>';
+}
+document.addEventListener("change", (e) => { const k = e.target.dataset && e.target.dataset.pref; if (k) setPref(k, e.target.value); });
+document.body && document.body.classList.toggle("big", prefs.text === "big");
 function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); }
 function home() { stack = []; menuOpen = false; render(); }
@@ -944,7 +970,7 @@ function render() {
   setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
   $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
-    $("main").innerHTML = '<div class="desk">' + APPS.map((a) => { const n = badge(a[0]); return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n ? '<b class="badge">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
+    $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
     const w = stack[stack.length - 1];
     let body = "";
@@ -958,7 +984,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1525,12 +1551,13 @@ function beanSay(first) {
   if ((wk.getDay() === 0 && wk.getHours() >= 17) || wk.getDay() === 1) beanTips.unshift({ text: "Your week's in! Want to see how we did? 📰", open: "week" });
   if (a) beanTips.push({ text: sayLine(a), open: "todo" });
   if (!beanTips.length) beanTips.push({ text: "Hi! I'm " + BEAN.name + ". Nothing needs you right now." });
-  if (first && !beanHidden() && store.get("beanseen", "") !== todayISO()) { beanI = 0; beanOpen = true; store.set("beanseen", todayISO()); }
+  if (first && pref("bean") !== false && pref("bean_morning") !== false && !beanHidden() && store.get("beanseen", "") !== todayISO()) { beanI = 0; beanOpen = true; store.set("beanseen", todayISO()); }
   beanDraw();
 }
 function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
+  if (pref("bean") === false) { el.innerHTML = ""; return; }
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -1657,6 +1684,8 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
+  else if (a === "prefhide") { const h = pref("hide").slice(), i = h.indexOf(arg); if (i >= 0) h.splice(i, 1); else h.push(arg); setPref("hide", h); }
+  else if (a === "preftoggle") setPref(arg, !pref(arg));
   else if (a === "beanback") { store.set("beanhide", ""); menuOpen = false; beanOpen = true; beanI = 0; render(); beanDraw(); }
   else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.open === "client") open_("client", tip.id); else if (tip.open === "thread") open_("thread", tip.tid); else open_(tip.open); }
 });
