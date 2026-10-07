@@ -186,7 +186,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot"];
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone"];
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -740,15 +740,16 @@ function moneyAdd() {
 const replyDays = () => Number(S().reply_days || 2);
 const inboxData = () => { const a = O() && O().inbox, b = inboxLocal; return (a && b ? (a.at >= b.at ? a : b) : (a || b)) || null; };
 const repliedHere = () => new Set(outbox.filter((it) => it.fn === "deskReply").map((it) => it.args[1]));
+const handledHere = () => new Set(outbox.filter((it) => it.fn === "deskReply" || (it.fn === "deskDone" && !it.args[3])).map((it) => it.args[1]));
 function waitingThreads(minDays) {
   const d = inboxData(); if (!d) return [];
-  const done = repliedHere();
+  const done = handledHere();
   return (d.threads || []).filter((x) => x.needsReply && !done.has(x.id) && Date.now() - x.last >= minDays * 864e5).sort((a, b) => a.last - b.last);
 }
 const threadMeta = (id) => ((inboxData() || {}).threads || []).find((x) => x.id === id);
 const threadsFor = (r) => ((inboxData() || {}).threads || []).filter((x) => x.rid === r.id);
 function threadRow(x) {
-  const waiting = x.needsReply && !repliedHere().has(x.id), d = Math.floor((Date.now() - x.last) / 864e5);
+  const waiting = x.needsReply && !handledHere().has(x.id), d = Math.floor((Date.now() - x.last) / 864e5);
   return '<div class="li" data-a="thread" data-arg="' + esc(x.id) + '"><span class="ico">' + (waiting ? "💌" : x.fromMe ? "↩️" : "✉️") + '</span><span class="lab"><b>' + esc(x.name || x.client) + "</b> · " + esc(x.subject) +
     '<div class="dim">' + esc(x.snippet) + "</div></span>" + (waiting ? '<span class="chip bad">' + (d ? d + "d" : "new") + "</span>" : '<span class="st dimst">' + esc(niceDay(isoOf(new Date(x.last)))) + "</span>") + "</div>";
 }
@@ -770,12 +771,14 @@ function winThread(id) {
   const t = threadCache[id], meta = threadMeta(id);
   if (!t || t.stale) loadThread(id);
   if (!t) return '<div class="card sunk">Loading the conversation…</div>';
-  const waiting = meta && meta.needsReply && !repliedHere().has(id);
+  const waiting = meta && meta.needsReply && !handledHere().has(id);
   return '<div class="h" style="margin-top:0">' + esc(t.subject) + "</div>" + t.messages.map((m) =>
     '<div class="card ' + (m.fromMe ? "raised" : "sunk") + '" style="margin-bottom:8px' + (m.fromMe ? ";margin-left:24px" : ";margin-right:24px") + '"><div class="dim">' + esc(m.fromMe ? "You" : m.from) + " · " + esc(niceDay(isoOf(new Date(m.date)))) + " " + new Date(m.date).toTimeString().slice(0, 5) +
     '</div><div style="white-space:pre-wrap;margin-top:4px;-webkit-user-select:text;user-select:text">' + esc(m.text) + "</div></div>").join("") +
     (repliedHere().has(id) ? '<div class="card sunk">📤 Your reply is waiting to send.</div>' : "") +
     '<button class="btn raised main" data-a="reply" data-arg="' + esc(id) + '">' + (waiting ? "↩️ Reply (they're waiting)" : "↩️ Reply") + "</button>" +
+    '<div class="row">' + (waiting ? '<button class="btn raised" style="flex:1" data-a="threaddone" data-arg="' + esc(id) + '">✓ No reply needed</button>' : "") +
+    (meta && meta.rid && rows().some((r) => r.id === meta.rid) ? '<button class="btn raised" style="flex:1" data-a="slot" data-id="' + esc(meta.rid) + '">📅 Change their date</button>' : "") + "</div>" +
     (meta && meta.rid ? '<a class="link" data-a="client" data-id="' + esc(meta.rid) + '">Open ' + esc(meta.name || "their") + "'s booking</a>" : "");
 }
 async function loadThread(id) {
@@ -786,7 +789,10 @@ async function loadThread(id) {
 }
 function startReply(id) {
   const meta = threadMeta(id) || {};
-  dialog('<div class="dim">To ' + esc(meta.name || "") + " &lt;" + esc(meta.client || "") + '&gt;, in the same email thread.</div><textarea class="inp" id="rb" style="height:220px;margin-top:6px" placeholder="Hi ' + esc(String(meta.name || "").split(" ")[0]) + ',"></textarea>',
+  const first = titleCase(String(meta.name || "").split(" ")[0] || "there"), rr = rows().find((x) => x.id === meta.rid);
+  dialog('<div class="dim">To ' + esc(meta.name || "") + " &lt;" + esc(meta.client || "") + '&gt;, in the same email thread.</div>' +
+    '<div id="qr" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + quickReplies().map((q, i) => '<span class="btn raised small" data-q="' + i + '" style="cursor:pointer">💬 ' + esc(q.label) + "</span>").join("") + "</div>" +
+    '<textarea class="inp" id="rb" style="height:220px;margin-top:6px" placeholder="Hi ' + esc(first) + ',"></textarea>',
     [["Next", () => {
       const body = $("rb").value.trim();
       if (!body) { $("rb").focus(); return false; }
@@ -794,6 +800,46 @@ function startReply(id) {
         [["Send", () => { const b2 = $("rb2").value.trim(); enqueue({ fn: "deskReply", args: [KEY, id, b2, DRY], label: "Reply to " + (meta.name || "client") }); if (threadCache[id]) threadCache[id].stale = true; render();
           setTimeout(() => toast(navigator.onLine ? "Reply sending ✓" : "Saved 📤 It sends when you're back online."), 0); }, 1], ["Cancel"]], null, { title: "Are you sure?", topButtons: true }), 0);
     }, 1], ["Cancel"]], "↩️", { title: "Reply" });
+  $("qr").onclick = (e) => { const c = e.target.closest("[data-q]"); if (c) qrInsert($("rb"), qrText(quickReplies()[Number(c.dataset.q)], rr, first), first); };
+}
+
+function markDone(id, undo) {
+  const meta = threadMeta(id) || {};
+  enqueue({ fn: "deskDone", args: [KEY, id, meta.last, !!undo], label: (undo ? "Needs a reply again · " : "No reply needed · ") + (meta.name || "client") });
+  [D.office && D.office.inbox, inboxLocal].forEach((ib) => ((ib && ib.threads) || []).forEach((x) => { if (x.id === id) x.needsReply = undo ? !x.fromMe : false; }));
+  if (inboxLocal) store.set("inboxlocal", inboxLocal);
+  save(); render();
+  if (!undo) setTimeout(() => dialog("Marked as handled. It comes back if " + esc(String(meta.name || "they").split(" ")[0]) + " writes again.", [["Undo", () => { setTimeout(() => markDone(id, true), 0); }], ["OK", null, 1]], "✅"), 0);
+}
+const QR_DEFAULT = [
+  { label: "Bring a friend", text: "Of course, one friend is totally fine!" },
+  { label: "Free dates", text: "Here are my next free dates:\n{free_dates}\n\nJust let me know which one suits you and I'll pop you in." },
+  { label: "Aftercare again", text: "{aftercare}" }];
+const quickReplies = () => (Array.isArray(S().quick_replies) ? S().quick_replies : QR_DEFAULT);
+function qrText(q, r, first) {
+  const middle = (t) => t.replace(/^\s*Hi[^\n]*\n+/i, "").replace(/\n+\s*Aron x\s*$/i, "").trim();
+  let t = q.text.split("{first_name}").join(first || "there").split("{free_dates}").join(freeDates());
+  if (t.includes("{aftercare}")) t = t.split("{aftercare}").join(r ? middle(fill("aftercare", r).body) : middle((S().tpl_aftercare || "").replace(/^Subject:[^\n]*\n+/i, "")));
+  return nodash(t);
+}
+function qrInsert(ta, text, first) {
+  const v = ta.value.trim();
+  if (!v) ta.value = "Hi " + first + ",\n\n" + text + "\n\nAron x";
+  else if (/\n\s*Aron x\s*$/i.test(v)) ta.value = v.replace(/\n\s*Aron x\s*$/i, "\n\n" + text + "\n\nAron x");
+  else ta.value = v + "\n\n" + text;
+  ta.focus();
+}
+function editQr(i) {
+  const list = quickReplies().slice(), q = list[i] || { label: "", text: "" };
+  dialog('<label class="field">Button name</label><input class="inp" id="ql" value="' + esc(q.label) + '">' +
+    '<label class="field">What it adds</label><textarea class="inp" id="qt" style="height:180px">' + esc(q.text) + "</textarea>" +
+    '<div class="dim">Fill-ins: {first_name} {free_dates} {aftercare}. Your hello and "Aron x" are added for you.</div>',
+    [["Save", () => {
+      const label = $("ql").value.trim(), text = $("qt").value.replace(/\s*[—–]\s*/g, ", ").trim();
+      if (!label || !text) { toast("⚠ It needs a name and some words."); return false; }
+      list[i] = { label: label, text: text }; setting("quick_replies", list, "Quick replies");
+    }, 1]].concat(list[i] ? [["Delete", () => { list.splice(i, 1); setting("quick_replies", list, "Quick replies"); }]] : []).concat([["Cancel"]]),
+    "💬", { title: list[i] ? "Quick reply" : "New quick reply" });
 }
 
 // ── 📅 change a client's date (or not decided yet) ──
@@ -1303,6 +1349,8 @@ function winAuto() {
     '<select class="inp" id="rdays" style="margin-top:6px">' + [1, 2, 3, 4, 5, 7].map((n) => '<option value="' + n + '"' + (replyDays() === n ? " selected" : "") + ">after " + n + " day" + (n === 1 ? "" : "s") + "</option>").join("") + "</select></span></div>" +
     sw("followups", "Follow-up reminders in Admin", "Healing check (2 weeks), healed photo (6 weeks), review + rebook (8 weeks). Shown in Admin for you to tap; never sent by themselves.") +
     sw("directions", "Directions 30 min before", "The black door / 5J email with the door photo, to bookings with a calendar invite.<div style='margin-top:4px'>" + timer + "</div>") + "</div>";
+  h += '<div class="h">Quick replies</div><div class="lv sunk">' + quickReplies().map((q, i) => '<div class="li" data-a="qredit" data-arg="' + i + '"><span class="ico">💬</span><span class="lab"><b>' + esc(q.label) + '</b><div class="dim">' + esc(q.text.split("{aftercare}").join("(your aftercare email)").split("{free_dates}").join("(your free dates)").slice(0, 70)) + "</div></span></div>").join("") +
+    '<div class="li" data-a="qredit" data-arg="' + quickReplies().length + '"><span class="ico">➕</span><span class="lab">Add a quick reply</span></div></div><div class="dim" style="margin-top:6px">Buttons in the Inbox reply box. Tap one to add its words to your reply.</div>';
   h += '<div class="h">What the emails say</div><div class="lv sunk">' + Object.keys(TPL_NAMES).map((k) => {
     const at = S().tpl_at && S().tpl_at["tpl_" + k];
     return '<div class="li" data-a="tpl" data-arg="' + k + '"><span class="ico">✏️</span><span class="lab">' + esc(TPL_NAMES[k]) + '</span><span class="st dimst">' + (at ? esc(ago(at)) : "") + "</span></div>";
@@ -1544,6 +1592,8 @@ document.addEventListener("click", async (e) => {
   else if (a === "thread") open_("thread", arg);
   else if (a === "inboxrefresh") refreshInbox();
   else if (a === "reply") startReply(arg);
+  else if (a === "threaddone") markDone(arg, false);
+  else if (a === "qredit") editQr(Number(arg));
   else if (a === "cancel") ask("Cancel " + r.first + "'s booking?" + (r.booked ? " Their calendar event is removed too." : "") + " No email is sent.", () => act(r.id, "cancel", {}));
   else if (a === "undo") ask("Undo that payment?", () => act(r.id, "undo", {}));
   else if (a === "hide") ask("Remove " + r.name + " from the app? It stays in your Google Sheet (tagged [HIDDEN]); no email is sent.", async () => {
