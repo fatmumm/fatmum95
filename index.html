@@ -1524,7 +1524,8 @@ function beanSay(first) {
 }
 function beanDraw() {
   const el = $("bean");
-  if (beanHidden() || !BEAN.sprites) { el.innerHTML = ""; return; }
+  if (!BEAN.sprites) { el.innerHTML = ""; return; }
+  if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
   el.innerHTML = (beanOpen && tip ? '<div class="bubble"><div class="bn">' + esc(BEAN.name) + (a ? ' <span class="dim">· ' + esc(a.label) + " " + a.hp + "%</span>" : "") + "</div>" + esc(tip.text) +
