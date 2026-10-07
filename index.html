@@ -936,7 +936,7 @@ function badge(kind) {
 function render() {
   $("clock").textContent = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
   setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
-  $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
+  $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
     $("main").innerHTML = '<div class="desk">' + APPS.map((a) => { const n = badge(a[0]); return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n ? '<b class="badge">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
@@ -1541,8 +1541,12 @@ function paintBean(st) {
 }
 setInterval(() => { beanFrame++; const a = $("beancv") && assess(); paintBean(a ? a.state : "fine"); }, 450);
 let pressT = null;
-document.addEventListener("pointerdown", (e) => { if (e.target.id === "beancv") pressT = setTimeout(() => { pressT = "long"; store.set("beanhide", todayISO()); beanDraw(); toast(BEAN.name + " will be back tomorrow."); }, 700); });
-document.addEventListener("pointerup", () => { if (pressT && pressT !== "long") clearTimeout(pressT); });
+document.addEventListener("pointerdown", (e) => { if (e.target.id === "beancv") pressT = setTimeout(() => {   // a long, still hold asks first
+  pressT = "long";
+  dialog("Send " + esc(BEAN.name) + " away until tomorrow?", [["Keep " + esc(BEAN.name), null, 1], ["Hide till tomorrow", () => { store.set("beanhide", todayISO()); beanDraw(); render(); }]], "🫘");
+}, 1200); });
+const beanLetGo = () => { if (pressT && pressT !== "long") clearTimeout(pressT); pressT = null; };
+["pointerup", "pointercancel", "pointerleave", "scroll", "touchmove"].forEach((ev) => document.addEventListener(ev, beanLetGo, { passive: true, capture: true }));
 
 // ── taps ──
 document.addEventListener("submit", (e) => {
@@ -1646,6 +1650,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
+  else if (a === "beanback") { store.set("beanhide", ""); menuOpen = false; beanOpen = true; beanI = 0; render(); beanDraw(); }
   else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.open === "client") open_("client", tip.id); else if (tip.open === "thread") open_("thread", tip.tid); else open_(tip.open); }
 });
 
