@@ -851,7 +851,8 @@ function startSlot(r) {
   const draw = () => '<div class="row" style="margin-top:0">' + ["11am", "1pm", "Full day"].map((t) => '<button class="btn raised small' + (time === t ? " on" : "") + '" data-t="' + t + '" style="flex:1">' + (time === t ? "◉ " : "○ ") + t + "</button>").join("") + "</div>" +
     '<label class="field">Open Mondays & Sundays</label><div class="lv sunk" style="max-height:220px;overflow:auto">' + av.map((a) => {
       const ok = free(a, time) || a.iso === r.iso;
-      return '<div class="li" data-d="' + a.iso + '" style="' + (pick === a.iso ? "background:#000080;color:#fff;" : "") + (ok ? "" : "opacity:.45;") + 'cursor:pointer"><span class="lab">' + esc(a.label) + '</span><span class="st' + (pick === a.iso ? '" style="color:#fff' : "") + '">' + (a.iso === r.iso ? "their date now" : ok ? "free" : "taken") + "</span></div>";
+      const other = !ok && (a.am.free || a.pm.free) ? (a.pm.free ? "1pm free" : "11am free") : "";
+      return '<div class="li" data-d="' + a.iso + '" style="' + (pick === a.iso ? "background:#000080;color:#fff;" : "") + (ok || other ? "" : "opacity:.45;") + 'cursor:pointer"><span class="lab">' + esc(a.label) + '</span><span class="st' + (pick === a.iso ? '" style="color:#fff' : "") + '">' + (a.iso === r.iso ? "their date now" : ok ? "free" : other || "taken") + "</span></div>";
     }).join("") + "</div>" +
     '<label class="field">Or any other date</label><input class="inp" id="sd" type="date" value="' + (pick && !av.some((a) => a.iso === pick) ? pick : "") + '">' +
     (r.booked || invited(r) ? '<div class="chk" data-c="inv"><span class="bx sunk">' + (moveInv ? "✓" : "") + "</span><span>Move their calendar invite too (Google emails them)</span></div>" : "") +
@@ -863,7 +864,12 @@ function startSlot(r) {
     }, 1], ["Not decided yet", () => { setTimeout(() => saveSlot(r, null, null, moveInv, false), 0); }], ["Cancel"]], "📅", { title: "Change " + r.first + "'s date" });
   $("sw").onclick = (e) => {
     const t = e.target.closest("[data-t]"), d = e.target.closest("[data-d]"), c = e.target.closest("[data-c]");
-    if (t) time = t.dataset.t; if (d) { pick = d.dataset.d; $("sd").value = ""; }
+    if (t) time = t.dataset.t;
+    if (d) {                                         // tapping a day picks it, and a free time on it
+      pick = d.dataset.d; $("sd").value = "";
+      const a = av.find((x) => x.iso === pick);
+      if (a && a.iso !== r.iso && !free(a, time)) time = a.pm.free ? "1pm" : a.am.free ? "11am" : time;
+    }
     if (c) { if (c.dataset.c === "inv") moveInv = !moveInv; else tell = !tell; }
     if (t || d || c) $("sw").innerHTML = draw();
   };
