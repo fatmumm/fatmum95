@@ -150,6 +150,7 @@ const KEY = STANDALONE ? store.get("key", "") : "";
 let API = STANDALONE ? store.get("api", "") : "";
 let D = store.get("D", null);              // { rows, now, office }
 let busy = 0, menuOpen = false, stack = [];
+let inboxLocal = store.get("inboxlocal", null), threadCache = store.get("threads", {});
 let pendingTodo = store.get("todoq", []);  // phone to-do changes not yet confirmed by the office
 let calM = null, calSel = null, statM = null, openTask = null;
 
@@ -193,7 +194,7 @@ function callOp(op, fn, ...args) {
     return fetch(API, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
       .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr(navigator.onLine ? "Google is slow" : "no signal"); })
       .then((j) => {
-        if (j.error && store.get("api_old", "") && /nope|permission|openById|not have access|unknown/i.test(j.error)) {
+        if (j.error && fn === "deskSync" && store.get("api_old", "") && /nope|permission|openById|not have access|unknown/i.test(j.error)) {
           API = store.get("api_old"); store.set("api", API); store.set("api_old", ""); store.set("moveFailed", Date.now());   // back to the old way
           throw new NetErr("switching back");
         }
@@ -231,10 +232,12 @@ async function pump() {
     try {
       const res = await callOp(it.id, it.fn, ...it.args);
       outbox.shift(); saveBox();
-      if (it.fn === "deskAct" && res && res.row) { const i = D.rows.findIndex((r) => r.id === res.row.id); if (i >= 0) D.rows[i] = res.row; }
+      if ((it.fn === "deskAct" || it.fn === "deskSlot") && res && res.row) { const i = D.rows.findIndex((r) => r.id === res.row.id); if (i >= 0) D.rows[i] = res.row; }
       if (it.fn === "deskHooks") { const op = pendingHooks.find((x) => x.opid === it.hook); if (op) { op.sent = Date.now(); store.set("hookq", pendingHooks); } }
       if (it.fn === "deskTodo") { const c = pendingTodo.find((x) => x.id === it.todo); if (c) { c.sent = true; store.set("todoq", pendingTodo); } }
       if (it.fn === "deskSetting" && D.office && !DRY) { D.office.settings[it.args[1]] = it.args[2]; }
+      if (it.fn === "deskReply") [D.office && D.office.inbox, inboxLocal].forEach((ib) => ((ib && ib.threads) || []).forEach((x) => { if (x.id === it.args[1]) { x.needsReply = false; x.fromMe = true; x.last = Date.now(); } }));
+      if (it.fn === "deskReply" && inboxLocal) store.set("inboxlocal", inboxLocal);
       save();
       setStatus("✓ " + (res && res.msg ? res.msg : it.label || "saved"));
     } catch (e) {
@@ -324,6 +327,7 @@ function holdEnd(r) {
 }
 function stage(r) {
   if (r.cancelled) return "cancelled";
+  if (r.tbc && !r.paid) return "tbc";
   const t = todayISO();
   if (r.iso && r.iso < t) return "done";                    // anything in the past is done (his call: keeps Admin clear)
   if (/^confirm/i.test(r.status) && !r.deposit && !r.invIso && !r.paid) {   // sorted by hand before home did bookings
@@ -347,7 +351,7 @@ function stage(r) {
   if (r.iso === addDays(t, 1) && !r.reminder) return "remind";
   return "booked";
 }
-const STAGES = [["expired", "⌛ Hold ran out"], ["new", "New: needs an invoice"], ["deposit", "Waiting on deposit"],
+const STAGES = [["expired", "⌛ Hold ran out"], ["new", "New: needs an invoice"], ["tbc", "Date not decided yet"], ["deposit", "Waiting on deposit"],
   ["book", "Ready to book (send the invite)"], ["remind", "Reminder due"], ["due", "Today / to pay"], ["booked", "Booked in"],
   ["aftercare", "Aftercare due"], ["ticket", "Tickets"], ["done", "Done"], ["cancelled", "Cancelled"]];
 const stageName = (s) => (STAGES.find((x) => x[0] === s) || [s, s])[1];
@@ -357,7 +361,7 @@ const owed = (r) => r.paid ? 0 : r.owed;
 const TPL_NAMES = { deposit_invoice: "Invoice and deposit", confirm: "Booking confirmed", reminder: "Reminder", aftercare: "Aftercare",
   late: "Running late", directions: "Directions (auto)", receipt: "Receipt", balance: "Invoice for the rest", deposit_receipt: "Deposit receipt",
   chase_deposit: "Chase the deposit", chase_balance: "Chase the rest", gone: "That slot's gone",
-  healing: "How's it healing?", healed_photo: "Healed photo ask", review: "Review + rebook" };
+  healing: "How's it healing?", healed_photo: "Healed photo ask", review: "Review + rebook", date_change: "Date changed" };
 function freeDates() {
   const av = O() && O().avail && O().avail.days;
   if (!av) return "(free dates)";
@@ -377,7 +381,7 @@ function fill(kind, r, extra) {
   const vals = Object.assign({
     first_name: titleCase(r.first), name: r.name, slot: nodash(r.slot) || "your slot", day: r.iso ? shortDay(r.iso) : "",
     time: r.time, package: r.pkgFull, price: price ? "£" + price : "", flash: r.flash, deposit: "£" + DEPOSIT,
-    rest: price ? "£" + Math.max(0, price - (r.deposit ? DEPOSIT : 0)) : "the rest", hold_until: longWeekday(hold),
+    rest: price ? "£" + Math.max(0, price - DEPOSIT) : "the rest", hold_until: longWeekday(hold),
     payment: S().payment || "(payment details)", location: S().location || "Good Soup, Stamford Works", minutes: 15,
     amount: money(r.paid ? r.paid.amt : owed(r)), method: r.paid ? r.paid.how : "", free_dates: freeDates()
   }, extra || {});
@@ -434,7 +438,7 @@ function applyLocal(r, what, o) {                // what the screen shows straig
   if (what === "pay") { r.paid = { amt: Number(o.amt), how: o.how, day: short }; if (o.receipt) r.rec = "R-…"; if (o.aftercare) r.aftercare = true; }
   else if (what === "undo") r.paid = null;
   else if (what === "deposit_paid") { r.deposit = true; r.depIso = t; r.owed = Math.max(0, r.price - DEPOSIT); if (o.send) r.confirmed = true; }
-  else if (what === "deposit_invoice") { r.invIso = t; r.holdIso = addDays(t, 2); r.depInv = "FM-…"; }
+  else if (what === "deposit_invoice") { r.invIso = t; r.holdIso = addDays(t, 2); r.depInv = "FM-…"; if (Number(o.total) > 0) r.price = Number(o.total); }
   else if (what === "book") r.booked = true;
   else if (what === "receipt") r.rec = r.rec || "R-…";
   else if (what === "balance") r.inv = r.inv || "FM-…";
@@ -454,14 +458,16 @@ function act(id, what, o) {
 }
 
 function startInvoice(r) {
-  dialog('<label class="field">Total for ' + esc(r.first) + ' (£)</label><input class="inp money" id="tot" inputmode="decimal" value="' + (r.price || "") + '">' +
-    '<div class="dim" style="margin-top:6px">£' + DEPOSIT + " deposit, the rest on the day. Their slot is held for 48 hours.</div>",
+  dialog('<label class="field">The whole tattoo price for ' + esc(r.first) + ' (£)</label><input class="inp money" id="tot" inputmode="decimal" value="' + (r.price || "") + '">' +
+    '<div id="totline" style="margin-top:6px;font-weight:600"></div><div class="dim" style="margin-top:4px">Their slot is held for 48 hours.</div>',
     [["Next", () => {
       const total = Number(String($("tot").value).replace(/[£,]/g, ""));
       if (!(total > 0)) return false;
       setTimeout(() => confirmMails("Send the invoice?", "", [{ to: r.email, mail: fill("deposit_invoice", Object.assign({}, r, { price: total })), attach: "Invoice FM-(next number).pdf" }],
         (m) => act(r.id, "deposit_invoice", { total: total, mail: m[0] })), 0);
     }, 1], ["Cancel"]], "📨", { title: "Deposit invoice" });
+  const tl = () => { const t = Number(String($("tot").value).replace(/[£,]/g, "")); $("totline").textContent = t > 0 ? "£" + DEPOSIT + " deposit now, " + money(Math.max(0, t - DEPOSIT)) + " on the day" : ""; };
+  $("tot").oninput = tl; tl();
 }
 function startDepositPaid(r) {
   let send = on("auto_confirm") && !!r.email && !r.confirmed;
@@ -543,7 +549,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["bookings", "📒", "Bookings"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
   ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"]];
 function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
@@ -727,6 +733,112 @@ function moneyAdd() {
   $("md").onclick = (e) => { const bt = e.target.closest("[data-dir]"); if (!bt) return; dir = bt.dataset.dir; $("md").innerHTML = draw(); };
 }
 
+// ── 📧 Inbox: only emails with clients (people who sent a booking request) ──
+const replyDays = () => Number(S().reply_days || 2);
+const inboxData = () => { const a = O() && O().inbox, b = inboxLocal; return (a && b ? (a.at >= b.at ? a : b) : (a || b)) || null; };
+const repliedHere = () => new Set(outbox.filter((it) => it.fn === "deskReply").map((it) => it.args[1]));
+function waitingThreads(minDays) {
+  const d = inboxData(); if (!d) return [];
+  const done = repliedHere();
+  return (d.threads || []).filter((x) => x.needsReply && !done.has(x.id) && Date.now() - x.last >= minDays * 864e5).sort((a, b) => a.last - b.last);
+}
+const threadMeta = (id) => ((inboxData() || {}).threads || []).find((x) => x.id === id);
+const threadsFor = (r) => ((inboxData() || {}).threads || []).filter((x) => x.rid === r.id);
+function threadRow(x) {
+  const waiting = x.needsReply && !repliedHere().has(x.id), d = Math.floor((Date.now() - x.last) / 864e5);
+  return '<div class="li" data-a="thread" data-arg="' + esc(x.id) + '"><span class="ico">' + (waiting ? "💌" : x.fromMe ? "↩️" : "✉️") + '</span><span class="lab"><b>' + esc(x.name || x.client) + "</b> · " + esc(x.subject) +
+    '<div class="dim">' + esc(x.snippet) + "</div></span>" + (waiting ? '<span class="chip bad">' + (d ? d + "d" : "new") + "</span>" : '<span class="st dimst">' + esc(niceDay(isoOf(new Date(x.last)))) + "</span>") + "</div>";
+}
+function winInbox() {
+  const d = inboxData();
+  let h = '<div class="row" style="margin-top:0"><button class="btn raised" data-a="inboxrefresh">↻ Check for new emails</button></div>';
+  if (!d) return h + '<div class="card sunk" style="margin-top:8px">Your client emails show up here after the first check (tap ↻), or within 10 minutes.</div>';
+  const all = d.threads || [], wait = waitingThreads(0), rest = all.filter((x) => !wait.includes(x));
+  if (wait.length) h += '<div class="h bad">Needs a reply (' + wait.length + ")</div>" + '<div class="lv sunk">' + wait.map(threadRow).join("") + "</div>";
+  h += '<div class="h">Recent</div>' + (rest.length ? '<div class="lv sunk">' + rest.map(threadRow).join("") + "</div>" : '<div class="dim">Nothing else.</div>');
+  return h + '<div class="dim" style="margin-top:8px">Only emails with people who sent you a booking request. Checked ' + esc(ago(new Date(d.at).toISOString())) + ".</div>";
+}
+async function refreshInbox() {
+  setStatus("checking emails…");
+  try { inboxLocal = await call("deskInbox", KEY); store.set("inboxlocal", inboxLocal); setStatus("✓ emails checked"); render(); }
+  catch (e) { setStatus(e instanceof NetErr ? "📵 can't check emails offline" : "⚠ " + e.message); }
+}
+function winThread(id) {
+  const t = threadCache[id], meta = threadMeta(id);
+  if (!t || t.stale) loadThread(id);
+  if (!t) return '<div class="card sunk">Loading the conversation…</div>';
+  const waiting = meta && meta.needsReply && !repliedHere().has(id);
+  return '<div class="h" style="margin-top:0">' + esc(t.subject) + "</div>" + t.messages.map((m) =>
+    '<div class="card ' + (m.fromMe ? "raised" : "sunk") + '" style="margin-bottom:8px' + (m.fromMe ? ";margin-left:24px" : ";margin-right:24px") + '"><div class="dim">' + esc(m.fromMe ? "You" : m.from) + " · " + esc(niceDay(isoOf(new Date(m.date)))) + " " + new Date(m.date).toTimeString().slice(0, 5) +
+    '</div><div style="white-space:pre-wrap;margin-top:4px;-webkit-user-select:text;user-select:text">' + esc(m.text) + "</div></div>").join("") +
+    (repliedHere().has(id) ? '<div class="card sunk">📤 Your reply is waiting to send.</div>' : "") +
+    '<button class="btn raised main" data-a="reply" data-arg="' + esc(id) + '">' + (waiting ? "↩️ Reply (they're waiting)" : "↩️ Reply") + "</button>" +
+    (meta && meta.rid ? '<a class="link" data-a="client" data-id="' + esc(meta.rid) + '">Open ' + esc(meta.name || "their") + "'s booking</a>" : "");
+}
+async function loadThread(id) {
+  if (loadThread.busy === id) return; loadThread.busy = id;
+  try { threadCache[id] = await call("deskThread", KEY, id); store.set("threads", threadCache); render(); }
+  catch (e) { if (threadCache[id]) threadCache[id].stale = false; setStatus(e instanceof NetErr ? "📵 offline: showing the saved copy" : "⚠ " + e.message); }
+  finally { loadThread.busy = null; }
+}
+function startReply(id) {
+  const meta = threadMeta(id) || {};
+  dialog('<div class="dim">To ' + esc(meta.name || "") + " &lt;" + esc(meta.client || "") + '&gt;, in the same email thread.</div><textarea class="inp" id="rb" style="height:220px;margin-top:6px" placeholder="Hi ' + esc(String(meta.name || "").split(" ")[0]) + ',"></textarea>',
+    [["Next", () => {
+      const body = $("rb").value.trim();
+      if (!body) { $("rb").focus(); return false; }
+      setTimeout(() => dialog('<div class="mailbox"><div class="mh"><b>To:</b> ' + esc(meta.client || "") + "<br><b>Subject:</b> Re: " + esc(String(meta.subject || "").replace(/^(re:\s*)+/i, "")) + '</div><textarea id="rb2" style="height:200px">' + esc(body) + "</textarea></div>",
+        [["Send", () => { const b2 = $("rb2").value.trim(); enqueue({ fn: "deskReply", args: [KEY, id, b2, DRY], label: "Reply to " + (meta.name || "client") }); if (threadCache[id]) threadCache[id].stale = true; render();
+          setTimeout(() => toast(navigator.onLine ? "Reply sending ✓" : "Saved 📤 It sends when you're back online."), 0); }, 1], ["Cancel"]], null, { title: "Are you sure?", topButtons: true }), 0);
+    }, 1], ["Cancel"]], "↩️", { title: "Reply" });
+}
+
+// ── 📅 change a client's date (or not decided yet) ──
+function startSlot(r) {
+  const av = ((O() && O().avail && O().avail.days) || []).slice(0, 14);
+  let pick = r.iso || "", time = (r.time || "").toLowerCase().includes("full") ? "Full day" : (r.time || "").includes("1") && (r.time || "").toLowerCase().includes("pm") ? "1pm" : "11am";
+  let moveInv = !!(r.booked || invited(r)), tell = !!r.email;
+  const free = (a, t) => t === "Full day" ? a.state === "both" : t === "1pm" ? a.pm.free : a.am.free;
+  const draw = () => '<div class="row" style="margin-top:0">' + ["11am", "1pm", "Full day"].map((t) => '<button class="btn raised small' + (time === t ? " on" : "") + '" data-t="' + t + '" style="flex:1">' + (time === t ? "◉ " : "○ ") + t + "</button>").join("") + "</div>" +
+    '<label class="field">Open Mondays & Sundays</label><div class="lv sunk" style="max-height:220px;overflow:auto">' + av.map((a) => {
+      const ok = free(a, time) || a.iso === r.iso;
+      return '<div class="li" data-d="' + a.iso + '" style="' + (pick === a.iso ? "background:#000080;color:#fff;" : "") + (ok ? "" : "opacity:.45;") + 'cursor:pointer"><span class="lab">' + esc(a.label) + '</span><span class="st' + (pick === a.iso ? '" style="color:#fff' : "") + '">' + (a.iso === r.iso ? "their date now" : ok ? "free" : "taken") + "</span></div>";
+    }).join("") + "</div>" +
+    '<label class="field">Or any other date</label><input class="inp" id="sd" type="date" value="' + (pick && !av.some((a) => a.iso === pick) ? pick : "") + '">' +
+    (r.booked || invited(r) ? '<div class="chk" data-c="inv"><span class="bx sunk">' + (moveInv ? "✓" : "") + "</span><span>Move their calendar invite too (Google emails them)</span></div>" : "") +
+    (r.email ? '<div class="chk" data-c="tell"><span class="bx sunk">' + (tell ? "✓" : "") + "</span><span>Email them the new date (you'll see it first)</span></div>" : "");
+  dialog('<div id="sw">' + draw() + "</div>", [["Save date", () => {
+      const iso = $("sd").value || pick;
+      if (!iso) { toast("Pick a date, or tap Not decided yet."); return false; }
+      setTimeout(() => saveSlot(r, iso, time, moveInv, tell), 0);
+    }, 1], ["Not decided yet", () => { setTimeout(() => saveSlot(r, null, null, moveInv, false), 0); }], ["Cancel"]], "📅", { title: "Change " + r.first + "'s date" });
+  $("sw").onclick = (e) => {
+    const t = e.target.closest("[data-t]"), d = e.target.closest("[data-d]"), c = e.target.closest("[data-c]");
+    if (t) time = t.dataset.t; if (d) { pick = d.dataset.d; $("sd").value = ""; }
+    if (c) { if (c.dataset.c === "inv") moveInv = !moveInv; else tell = !tell; }
+    if (t || d || c) $("sw").innerHTML = draw();
+  };
+}
+function saveSlot(r, iso, time, moveInv, tell) {
+  const slotText = iso ? shortDay(iso) + " at " + time : "not decided yet";
+  const o = { iso: iso, time: time, moveInvite: moveInv };
+  if (iso && moveInv) {
+    const def = { "11am": ["11:00", 90], "1pm": ["13:00", 90], "Full day": ["11:00", 420] }[time];
+    const [hh, mm] = def[0].split(":").map(Number), st = new Date(iso + "T00:00:00"); st.setHours(hh, mm, 0, 0);
+    const nr = Object.assign({}, r, { iso: iso, time: time });
+    o.book = { title: eventTitle(nr), start: st.toISOString(), end: new Date(st.getTime() + def[1] * 60000).toISOString(), description: eventDesc(nr) };
+  }
+  const go = (m) => {
+    if (m) o.mail = m;
+    Object.assign(r, iso ? { iso: iso, time: time, tbc: false, slot: shortDay(iso) + " — " + time } : { iso: "", time: "", tbc: true, slot: "Not decided yet" }, { waiting: true });
+    save();
+    enqueue({ fn: "deskSlot", args: [KEY, r.id, o, DRY], label: "New date · " + r.first });
+    render(); toast("Date changed to " + slotText + " ✓" + (navigator.onLine ? "" : " It saves when you're back online."));
+  };
+  if (tell && iso) confirmMails("Send them the new date?", "", [{ to: r.email, mail: fill("date_change", Object.assign({}, r, { slot: shortDay(iso) + " — " + time, iso: iso, time: time })) }], (ms) => go(ms[0]));
+  else go(null);
+}
+
 // ── Bean's weekly report ──
 function weekStats(start) {                    // Monday-based week starting `start` (iso)
   const end = addDays(start, 6), inWeek = (iso) => iso && iso >= start && iso <= end;
@@ -761,12 +873,14 @@ function winTitle(w) {
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
   if (w.kind === "photo") return "Photo";
   if (w.kind === "outbox") return "Outbox";
+  if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
 }
 function badge(kind) {
   if (!D) return 0;
   if (kind === "admin") return adminItems().length;
   if (kind === "today") return live().filter((r) => r.iso === todayISO()).length;
+  if (kind === "inbox") return waitingThreads(0).length;
   if (kind === "todo") { const v = todoView(); return v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0; }
   return 0;
 }
@@ -789,7 +903,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -819,13 +933,16 @@ function winToday() {
   }
   return h;
 }
+let clientQ = "";
 function winBookings() {
-  const all = rows().filter((r) => !r.cancelled && (stage(r) !== "done" || (r.iso && daysBetween(r.iso, todayISO()) <= 14)));
-  return STAGES.map(([s, label]) => {
+  const q = clientQ.trim().toLowerCase();
+  const all = rows().filter((r) => !r.cancelled && (q ? (r.name + " " + r.email).toLowerCase().includes(q) : (stage(r) !== "done" || (r.iso && daysBetween(r.iso, todayISO()) <= 14))));
+  const search = '<input class="inp" id="cq" placeholder="🔎 Search name or email" value="' + esc(clientQ) + '" autocomplete="off" autocapitalize="off" style="margin-bottom:10px">';
+  return search + STAGES.map(([s, label]) => {
     const g = all.filter((r) => stage(r) === s).sort((a, b) => (a.iso || "9") < (b.iso || "9") ? -1 : 1);
     if (!g.length) return "";
     return '<div class="lv sunk" style="margin-bottom:10px"><div class="grp">' + esc(label) + " (" + g.length + ")</div>" + g.map((r) => clientRow(r, true)).join("") + "</div>";
-  }).join("") || '<div class="card sunk">No bookings yet.</div>';
+  }).join("") || '<div class="card sunk">' + (q ? "Nobody matches that." : "No bookings yet.") + "</div>";
 }
 
 // directions line: "✓ sent 10:31" / "auto at 10:30" / why not
@@ -853,7 +970,7 @@ function winClient(id) {
     '<div class="details">' + det.map((x) => "<b>" + x[0] + "</b><span>" + x[1] + "</span>").join("") + "</div></div>";
   const MAIN = { new: ["Send deposit invoice", "inv"], expired: ["Deposit paid", "dep"], deposit: ["Deposit paid", "dep"], book: ["Send calendar invite", "book"],
     remind: ["Send reminder", "remind"], due: ["Take payment " + money(owed(r)), "pay"], booked: [r.iso && r.iso <= addDays(t, 0) ? "Take payment " + money(owed(r)) : "Take payment " + money(owed(r)), "pay"],
-    aftercare: ["Send aftercare", "aftercare"], ticket: [r.deposit ? "Take payment" : "Deposit paid", r.deposit ? "pay" : "dep"] };
+    aftercare: ["Send aftercare", "aftercare"], ticket: [r.deposit ? "Take payment" : "Deposit paid", r.deposit ? "pay" : "dep"], tbc: ["📅 Pick their date", "slot"] };
   if (MAIN[s] && !(s !== "new" && !r.email && ["remind", "aftercare"].includes(s))) h += '<button class="btn raised main" data-a="step" data-id="' + esc(r.id) + '" data-arg="' + MAIN[s][1] + '">' + esc(MAIN[s][0]) + "</button>";
   if (r.paid && r.email && !r.rec) h += '<button class="btn raised wide" data-a="doc" data-id="' + esc(r.id) + '" data-arg="receipt">Send receipt</button>';
   h += '<div class="h">Everything for ' + esc(r.first) + "</div>";
@@ -879,10 +996,13 @@ function winClient(id) {
       if (r.iso) { const ds = dirState(r); L.push(li("🚪", "Directions", ds[0], ds[1] ? "open" : null, null, ds[1] ? "auto" : null, ds[1])); }
       if (!r.deposit) L.push(li("🚫", "Slot's gone (email + release)", "", "gone", r.id));
     }
+    L.push(li("📅", "Change date", r.tbc ? "not decided yet" : r.iso ? shortDay(r.iso) + " " + (r.time || "") : "", "slot", r.id));
     L.push(li("✖️", "Cancel booking", "", "cancel", r.id));
   }
   L.push(li("🗑", "Remove from the app", "", "hide", r.id));
   h += '<div class="lv sunk">' + L.join("") + "</div>";
+  const th = threadsFor(r);
+  if (th.length) h += '<div class="h">Emails with ' + esc(r.first) + '</div><div class="lv sunk">' + th.map(threadRow).join("") + "</div>";
   if (r.photos.length) h += '<div class="h">Their pictures</div><div class="photos">' + r.photos.map((u, i) => '<img src="' + esc(u) + '" data-a="photo" data-id="' + esc(r.id) + '" data-arg="' + i + '">').join("") + "</div>";
   if (r.paid) h += '<a class="link" data-a="undo" data-id="' + esc(r.id) + '">Undo payment</a>';
   return h;
@@ -904,6 +1024,10 @@ function adminItems() {
     if (r.paid && r.email && !r.rec && r.iso && r.iso >= t) add(50, "🧾", "Send " + r.first + "'s receipt", r, "receipt", "Receipt");
     if (s === "aftercare") add(55, "🧴", "Aftercare for " + r.first, r, "aftercare", "Send");
   });
+  waitingThreads(replyDays()).forEach((x) => {
+    const d = Math.floor((Date.now() - x.last) / 864e5);
+    out.push({ score: 88 + Math.min(10, d), icon: "💌", text: (x.name || x.client) + " has been waiting " + d + " day" + (d === 1 ? "" : "s") + " for a reply", open: "thread", tid: x.id, name: true });
+  });
   if (on("followups")) live().forEach((r) => {
     if (!r.paid || !r.email || !r.iso || r.iso >= t) return;
     const d = daysBetween(r.iso, t);
@@ -923,7 +1047,7 @@ function adminItems() {
 function winAdmin() {
   const items = adminItems();
   if (!items.length) return '<div class="card sunk">Nothing needs doing. Go draw something 🎨</div>';
-  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : x.open ? ' data-a="open" data-arg="' + x.open + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
+  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : x.tid ? ' data-a="thread" data-arg="' + esc(x.tid) + '"' : x.open ? ' data-a="open" data-arg="' + x.open + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
     (x.id && x.arg ? '<button class="btn raised small" data-a="quick" data-id="' + esc(x.id) + '" data-arg="' + x.arg + '">' + esc(x.label) + "</button>" : "") + "</div>").join("") + "</div>";
 }
 
@@ -1093,6 +1217,12 @@ function addTodo(today) {
   todoChange({ kind: "add", text: t.replace(/\s!([1-5])\b/g, "") + " !" + n, due: due || null, cid: "p" + Date.now().toString(36) });
   toast("Added" + (due ? " for " + niceDay(due) : "") + " ✓");
 }
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "cq") return;
+  clientQ = e.target.value; const pos = e.target.selectionStart; render();
+  const el = $("cq"); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+});
+document.addEventListener("change", (e) => { if (e.target.id === "rdays") setting("reply_days", Number(e.target.value), "Email nudges"); });
 document.addEventListener("change", (e) => { if (e.target.id === "addd") $("addp").style.display = e.target.value === "pick" ? "block" : "none"; });
 function findTask(key) { const v = todoView(); return v && v.tasks.find((x) => String(x.id != null ? x.id : x.cid) === String(key)); }
 function taskRef(x) { return x.id != null ? { task: x.id } : { cid: x.cid }; }
@@ -1166,6 +1296,8 @@ function winAuto() {
     sw("auto_receipt", "Receipt after payment", "Ticked for you in the Take payment box (phone), sent straight away by D (Mac).") +
     sw("auto_aftercare", "Aftercare after the final payment", "Goes with the receipt when they pay the rest.") +
     sw("auto_confirm", "Booking confirmed when the deposit's in", "With their deposit receipt attached. The Mac does it too when you press P.") +
+    '<div class="li" style="align-items:flex-start"><span class="ico">💌</span><span class="lab"><b>Nudge me about client emails</b><div class="dim">When a client has been waiting this long for a reply, Bean and Admin tell you.</div>' +
+    '<select class="inp" id="rdays" style="margin-top:6px">' + [1, 2, 3, 4, 5, 7].map((n) => '<option value="' + n + '"' + (replyDays() === n ? " selected" : "") + ">after " + n + " day" + (n === 1 ? "" : "s") + "</option>").join("") + "</select></span></div>" +
     sw("followups", "Follow-up reminders in Admin", "Healing check (2 weeks), healed photo (6 weeks), review + rebook (8 weeks). Shown in Admin for you to tap; never sent by themselves.") +
     sw("directions", "Directions 30 min before", "The black door / 5J email with the door photo, to bookings with a calendar invite.<div style='margin-top:4px'>" + timer + "</div>") + "</div>";
   h += '<div class="h">What the emails say</div><div class="lv sunk">' + Object.keys(TPL_NAMES).map((k) => {
@@ -1331,7 +1463,7 @@ let beanTips = [], beanI = 0, beanOpen = false, beanFrame = 0;
 function beanHidden() { return store.get("beanhide", "") === todayISO(); }
 function beanSay(first) {
   const a = assess();
-  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + x.text.charAt(0).toLowerCase() + x.text.slice(1) + ". Want to sort it?", id: x.id, arg: x.arg, open: x.id ? "client" : (x.open || "admin") }));
+  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + (x.name ? x.text : x.text.charAt(0).toLowerCase() + x.text.slice(1)) + ". Want to sort it?", id: x.id, arg: x.arg, tid: x.tid, open: x.id ? "client" : (x.open || "admin") }));
   const wk = new Date(), wkKey = "week-" + todayISO();
   if ((wk.getDay() === 0 && wk.getHours() >= 17) || wk.getDay() === 1) beanTips.unshift({ text: "Your week's in! Want to see how we did? 📰", open: "week" });
   if (a) beanTips.push({ text: sayLine(a), open: "todo" });
@@ -1399,11 +1531,16 @@ document.addEventListener("click", async (e) => {
     else if (k === "receipt") startDoc(r, "receipt");
     else if (k === "chase_deposit") startMail(r, "chase_deposit");
     else if (k.indexOf("fu_") === 0) startMail(r, k.slice(3));
+    else if (k === "slot") startSlot(r);
   }
   else if (a === "doc") startDoc(r, arg);
   else if (a === "mail") startMail(r, arg);
   else if (a === "late") startLate(r);
   else if (a === "gone") startGone(r);
+  else if (a === "slot") startSlot(r);
+  else if (a === "thread") open_("thread", arg);
+  else if (a === "inboxrefresh") refreshInbox();
+  else if (a === "reply") startReply(arg);
   else if (a === "cancel") ask("Cancel " + r.first + "'s booking?" + (r.booked ? " Their calendar event is removed too." : "") + " No email is sent.", () => act(r.id, "cancel", {}));
   else if (a === "undo") ask("Undo that payment?", () => act(r.id, "undo", {}));
   else if (a === "hide") ask("Remove " + r.name + " from the app? It stays in your Google Sheet (tagged [HIDDEN]); no email is sent.", async () => {
@@ -1456,7 +1593,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
-  else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.open === "client") open_("client", tip.id); else open_(tip.open); }
+  else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.open === "client") open_("client", tip.id); else if (tip.open === "thread") open_("thread", tip.tid); else open_(tip.open); }
 });
 
 // pull down at the top to refresh
