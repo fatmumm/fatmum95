@@ -186,12 +186,14 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot"];
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
     if (!navigator.onLine) return Promise.reject(new NetErr("no signal"));
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
-    return fetch(API, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
+    const url = OFFICE_ONLY.includes(fn) && store.get("office", "") ? store.get("office", "") : API;   // the inbox + date moves live only in the office
+    return fetch(url, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }), signal: ctl.signal, redirect: "follow" })
       .then((r) => r.json().catch(() => { throw new NetErr("Google hiccup (" + r.status + ")"); }), () => { throw new NetErr(navigator.onLine ? "Google is slow" : "no signal"); })
       .then((j) => {
         if (j.error && fn === "deskSync" && store.get("api_old", "") && /nope|permission|openById|not have access|unknown/i.test(j.error)) {
@@ -287,7 +289,8 @@ async function syncOnce(force) {
   if (first) setBusy(1); else setStatus("syncing…");
   try {
     const d = await call("deskSync", KEY, !!force);
-    if (STANDALONE && d.moveTo && d.moveTo !== API && !store.get("api_old", "") && Date.now() - store.get("moveFailed", 0) > 864e5) {
+    if (STANDALONE && d.moveTo) store.set("office", d.moveTo);
+    if (STANDALONE && d.moveTo && d.moveTo !== API && !store.get("api_old", "") && Date.now() - store.get("moveFailed", 0) > 36e5) {
       try {                                      // the office can serve the app directly now: check it, then move (one Google hop fewer)
         const r = await fetch(d.moveTo, { method: "POST", body: JSON.stringify({ k: KEY, fn: "deskSync", args: [KEY, false] }) }).then((x) => x.json());
         if (r.ok && r.result && (r.result.rows || []).length) { store.set("api_old", API); API = d.moveTo; store.set("api", API); setStatus("⚡ faster sync switched on"); }
