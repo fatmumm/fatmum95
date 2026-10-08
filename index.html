@@ -235,6 +235,7 @@ async function pump() {
     try {
       const res = await callOp(it.id, it.fn, ...it.args);
       outbox.shift(); saveBox();
+      store.set("lastWrite", Date.now()); pokeServer();          // the home server's copy is now behind: refresh it
       if ((it.fn === "deskAct" || it.fn === "deskSlot") && res && res.row) { const i = D.rows.findIndex((r) => r.id === res.row.id); if (i >= 0) D.rows[i] = res.row; }
       if (it.fn === "deskHooks") { const op = pendingHooks.find((x) => x.opid === it.hook); if (op) { op.sent = Date.now(); store.set("hookq", pendingHooks); } }
       if (it.fn === "deskTodo") { const c = pendingTodo.find((x) => x.id === it.todo); if (c) { c.sent = true; store.set("todoq", pendingTodo); } }
@@ -284,12 +285,28 @@ function retryLater(why) {                     // calm retries: 30s, 1m, 2m, 5m 
   setStatus(why + " · trying again in " + (backoff < 60 ? backoff + "s" : Math.round(backoff / 60) + " min"));
   clearTimeout(retryLoad); retryLoad = setTimeout(() => load(false), backoff * 1000);
 }
+const serverUrl = () => String(pref("server") || "").trim().replace(/\/+$/, "");
+async function fromServer(ms) {                // the home server's copy: only if it's newer than our last change
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 1200);
+  try {
+    const j = await fetch(serverUrl() + "/sync", { method: "POST", body: JSON.stringify({ k: KEY }), signal: ctl.signal }).then((r) => r.json());
+    const at = Number(j.at || 0) * 1000;
+    if (!j.ok || !j.result || at < store.get("lastWrite", 0) || Date.now() - at > 30 * 60000) return null;
+    return j.result;
+  } finally { clearTimeout(t); }
+}
+function pokeServer() {
+  if (!STANDALONE || !serverUrl()) return;
+  fetch(serverUrl() + "/poke", { method: "POST", body: JSON.stringify({ k: KEY }) }).catch(() => {});
+}
 async function syncOnce(force) {
   pump();
   const first = !D || !D.rows || !D.rows.length;
   if (first) setBusy(1); else setStatus("syncing…");
   try {
-    const d = await call("deskSync", KEY, !!force);
+    let d = null, via = "";
+    if (STANDALONE && !force && serverUrl()) { try { d = await fromServer(); if (d) via = " · home server"; } catch (e) { d = null; } }
+    if (!d) d = await call("deskSync", KEY, !!force);
     if (STANDALONE && d.moveTo) store.set("office", d.moveTo);
     if (STANDALONE && d.moveTo && d.moveTo !== API && !store.get("api_old", "") && Date.now() - store.get("moveFailed", 0) > 36e5) {
       try {                                      // the office can serve the app directly now: check it, then move (one Google hop fewer)
@@ -310,7 +327,7 @@ async function syncOnce(force) {
     }
     save(); lastSync = Date.now(); render(); beanSay(true);
     if (d.officeError) retryLater("✓ bookings synced, office busy");
-    else { backoff = 0; setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5)); }
+    else { backoff = 0; setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5) + via); }
   } catch (e) {
     if (!D) D = { rows: [] };
     if (e instanceof NetErr) retryLater(navigator.onLine ? "Google is slow" : "📵 offline, showing what you last saw");
@@ -558,7 +575,7 @@ const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", 
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
+const PREF_DEFAULTS = { server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
@@ -576,6 +593,9 @@ function winSettings() {
     '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
     '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
   h += '<div class="h">Text size</div><div class="lv sunk">' + row("🔠", "Text", sel("text", pref("text"), [["normal", "Normal"], ["big", "Big"]])) + "</div>";
+  h += '<div class="h">Home server</div><div class="dim" style="margin-bottom:6px">Makes syncing near-instant when your phone is on Tailscale. Leave empty to always use Google.</div>' +
+    '<input class="inp" data-pref="server" value="' + esc(pref("server") || "") + '" placeholder="https://….ts.net:8446" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+    '<div class="row"><button class="btn raised" data-a="hstest">Test home server</button></div>';
   h += '<div class="h">Emails</div><div class="lv sunk"><div class="li" data-a="open" data-arg="auto"><span class="ico">✉️</span><span class="lab">Email wording, quick replies, reply nudges</span><span class="st">Auto emails ›</span></div></div>';
   return h + '<div class="dim" style="margin-top:10px">These are saved on this phone.</div>';
 }
@@ -1684,6 +1704,15 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
+  else if (a === "hstest") {
+    const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
+    if (!serverUrl()) return toast("⚠ Type the home server address first.");
+    const t0 = Date.now();
+    fetch(serverUrl() + "/sync", { method: "POST", body: JSON.stringify({ k: KEY }) }).then((r) => r.json()).then((j) => {
+      if (!j.ok) throw new Error(j.error || "no answer");
+      toast("✓ Home server answered in " + ((Date.now() - t0) / 1000).toFixed(1) + "s · its copy is " + ago(new Date(j.at * 1000).toISOString()));
+    }).catch((e) => toast("⚠ Couldn't reach it (" + e.message + "). Is Tailscale on?"));
+  }
   else if (a === "prefhide") { const h = pref("hide").slice(), i = h.indexOf(arg); if (i >= 0) h.splice(i, 1); else h.push(arg); setPref("hide", h); }
   else if (a === "preftoggle") setPref(arg, !pref(arg));
   else if (a === "beanback") { store.set("beanhide", ""); menuOpen = false; beanOpen = true; beanI = 0; render(); beanDraw(); }
