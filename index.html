@@ -4,6 +4,41 @@
 @font-face{font-family:"FMDigits";src:url(https://fonts.gstatic.com/s/vt323/v18/pxiKyp0ihIEF2isfFJXUdVNF.woff2) format("woff2");unicode-range:U+0030-0039;size-adjust:125%;font-display:swap}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
+.nt{margin:-10px;background:#fff;min-height:calc(100vh - 120px);display:flex;flex-direction:column;font-family:-apple-system,system-ui,"Segoe UI",sans-serif}
+.nt-bar{margin-top:auto}.nt-ed .nt-page{flex:1}
+.nt-g{font:700 12px Tahoma,sans-serif;color:#000080;padding:12px 12px 4px;background:#f3f3f3;border-bottom:1px solid #ddd}
+.nt-box{background:#fff;border-bottom:1px solid #ddd}
+.nt-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #eee;cursor:pointer;user-select:none;-webkit-user-select:none}
+.nt-row:last-child{border-bottom:0}.nt-row:active,.nt-note:active{background:#e8ecf8}
+.nt-ic{font-size:17px}.nt-l{flex:1;font-size:16px}.nt-c{color:#777;font-size:12px}
+.nt-hint{color:#999;font-size:12px;padding:8px 12px}
+.nt-empty{color:#888;padding:28px 12px;text-align:center}
+.nt-search{display:block;width:calc(100% - 16px);margin:8px;padding:7px 10px;font-size:15px;border:1px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #404040;background:#fff;box-sizing:border-box}
+.nt-sw{position:relative;overflow:hidden;border-bottom:1px solid #eee}
+.nt-swl,.nt-swr{position:absolute;top:0;bottom:0;width:50%;display:flex;align-items:center;padding:0 16px;font:700 13px Tahoma,sans-serif}
+.nt-swl{left:0;background:#f5c400;color:#000}.nt-swr{right:0;justify-content:flex-end;background:#c00000;color:#fff}
+.nt-note{position:relative;display:flex;align-items:center;gap:8px;background:#fff;padding:9px 12px;touch-action:pan-y;cursor:pointer;user-select:none;-webkit-user-select:none}
+.nt-tx{flex:1;min-width:0}.nt-tx b{display:block;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-tx span{display:block;font-size:13px;color:#7a7a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.nt-th{width:40px;height:40px;object-fit:cover;border:1px solid #ccc;flex:none}
+.nt-q{font-style:normal;color:#000080;font-size:10px}
+.nt-bar,.nt-tools{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#c0c0c0;border-top:1px solid #fff;box-shadow:0 -1px #808080;padding:5px 8px}
+.nt-btn{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 9px;background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;font:13px Tahoma,sans-serif;color:#000;cursor:pointer;user-select:none;-webkit-user-select:none;box-sizing:border-box}
+.nt-btn:active{border-color:#404040 #fff #fff #404040}
+.nt-done{font-weight:700}
+.nt-top{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:12px;color:#888;border-bottom:1px solid #eee}
+.nt-binned{background:#fff4c2;padding:6px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.nt-page{min-height:55vh;padding:12px 16px 90px;outline:none;font-size:17px;line-height:1.45;color:#111;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
+.nt-page .nb{min-height:1.45em}
+.nt-page .nb:first-child,.nb-title{font-size:26px;font-weight:700;line-height:1.25;margin-bottom:4px}
+.nb-h{font-size:20px;font-weight:700;margin-top:8px}
+.nb-li{padding-left:22px;position:relative}.nb-li:before{content:"•";position:absolute;left:7px}
+.nb-check{padding-left:30px;position:relative}
+.nt-cb{position:absolute;left:2px;top:.22em;width:18px;height:18px;box-sizing:border-box;border:1px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #404040;background:#fff;font:700 13px/16px Tahoma,sans-serif;text-align:center;color:#000080;cursor:pointer;user-select:none;-webkit-user-select:none}
+.nb-check.done{color:#9a9a9a;text-decoration:line-through}
+.nb-img{margin:8px 0}.nb-img img{max-width:100%;display:block;border:1px solid #ccc;cursor:pointer}
+.nt-pop{position:sticky;bottom:40px;z-index:6;display:flex;gap:6px;flex-wrap:wrap;background:#c0c0c0;padding:6px 8px;border-top:1px solid #fff}
+.nt-st-title{font-weight:700;font-size:16px}.nt-st-h{font-weight:700}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:110px;overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
@@ -889,12 +924,31 @@ function editQr(i) {
     "💬", { title: list[i] ? "Quick reply" : "New quick reply" });
 }
 
-// ── 📝 Notes: kept on the home server + this phone (never Google). Newest edit wins. ──
-let NOTES = store.get("notes", {}), NQ = store.get("notesq", []), nState = { since: store.get("notesSince", 0), last: store.get("notesLast", 0), err: "" }, nSearch = "", nBusy = false;
+// ── 📝 Notes: kept on the home server + this phone (never Google). Works like Apple Notes. Newest edit wins. ──
+let NOTES = store.get("notes", {}), NQ = store.get("notesq", []), nState = { since: store.get("notesSince", 0), last: store.get("notesLast", 0), err: "" };
+let nSearch = "", nBusy = false, nAgain = false, NFOLDERS = store.get("nfolders", []), nLastBlock = null, nSaveT = null;
 const nId = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-function notesSave() { store.set("notes", NOTES); store.set("notesq", NQ); }
+function notesSave() { store.set("notes", NOTES); store.set("notesq", NQ); store.set("nfolders", NFOLDERS); }
+function nBlocks(n) {                          // old notes (title/body/items) become blocks, nothing lost
+  if (Array.isArray(n.blocks) && n.blocks.length) return n.blocks;
+  const b = [{ t: "title", text: n.title || "" }];
+  if (n.kind === "list") (n.items || []).forEach((i) => b.push({ t: "check", text: i.text || "", done: !!i.done }));
+  else String(n.body || "").split("\n").forEach((l) => b.push({ t: "p", text: l }));
+  (n.photos || []).forEach((id) => b.push({ t: "img", id: id }));
+  return b;
+}
+function nDerive(n) {                          // title + plain text kept alongside, for search and older copies
+  const texts = n.blocks.filter((x) => x.t !== "img");
+  const first = texts.findIndex((x) => x.text.trim());
+  n.title = first >= 0 ? texts[first].text.trim().slice(0, 300) : "";
+  n.body = texts.slice(first + 1).map((x) => (x.t === "check" ? (x.done ? "[x] " : "[ ] ") : x.t === "li" ? "• " : "") + x.text).join("\n");
+  n.photos = n.blocks.filter((x) => x.t === "img").map((x) => x.id);
+  n.items = []; n.kind = "note";
+}
 function noteTouch(n, redraw) {
   n.updated = Math.max(Date.now(), (n.updated || 0) + 1);       // always newer than the version it was edited from
+  delete n._new;
+  if (n.blocks) nDerive(n);
   NOTES[n.id] = n; if (!NQ.includes(n.id)) NQ.push(n.id); notesSave();
   clearTimeout(noteTouch.t); noteTouch.t = setTimeout(notesSync, 600);
   if (redraw) render();
@@ -912,76 +966,111 @@ async function idbDo(mode, fn) { const db = await idb(); return new Promise((ok)
 const idbGet = (id) => idbDo("readonly", (st) => st.get(id));
 const idbPut = (v) => idbDo("readwrite", (st) => st.put(v));
 const idbAll = () => idbDo("readonly", (st) => st.getAll());
+const nEditing = () => { const ed = $("nted"); return !!(ed && ed.contains(document.activeElement)); };
 async function notesSync() {
-  if (!STANDALONE || !serverUrl() || nBusy) return;
-  nBusy = true;
+  if (!STANDALONE || !serverUrl()) return;
+  if (nBusy) { nAgain = true; return; }        // a sync is running: go again as soon as it finishes
+  nBusy = true; nAgain = false; let ok = false;
   try {
     for (const ph of (await idbAll()) || []) if (ph.pending) { await nsrv("/notes/photo/put", { id: ph.id, data: ph.data }, 30000); ph.pending = false; await idbPut(ph); }
     for (const id of NQ.slice()) {
       if (!NOTES[id]) { NQ = NQ.filter((x) => x !== id); continue; }
       const sentAt = NOTES[id].updated, r = await nsrv("/notes/save", { note: NOTES[id] });
       if (!r.note || r.note.id !== id) throw new Error("odd answer from the server");
+      if (!r.note.blocks && NOTES[id].blocks && r.note.updated === NOTES[id].updated) { r.note.blocks = NOTES[id].blocks; r.note.folder = NOTES[id].folder; }   // an older server that doesn't keep blocks yet
       if (NOTES[id].updated === sentAt) { NOTES[id] = r.note; NQ = NQ.filter((x) => x !== id); }   // edited again meanwhile: send that next round
       notesSave();
     }
     const l = await nsrv("/notes/list", { since: nState.since });
     if (!Array.isArray(l.notes) || !l.now) throw new Error("odd answer from the server");
-    l.notes.filter((n) => n && n.id).forEach((n) => { const mine = NOTES[n.id]; if (!mine || (!NQ.includes(n.id) && (mine.updated || 0) <= n.updated)) NOTES[n.id] = n; });
-    nState.since = l.now; nState.last = Date.now(); nState.err = "";
+    l.notes.filter((n) => n && n.id).forEach((n) => {
+      const mine = NOTES[n.id];
+      if (mine && !n.blocks && mine.blocks && mine.updated === n.updated) { n.blocks = mine.blocks; n.folder = mine.folder; }
+      if (!mine || (!NQ.includes(n.id) && (mine.updated || 0) <= n.updated)) NOTES[n.id] = n;
+    });
+    nState.since = l.now; nState.last = Date.now(); nState.err = ""; ok = true;
     store.set("notesSince", nState.since); store.set("notesLast", nState.last);
   } catch (e) { nState.err = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
   finally {
     nBusy = false; notesSave();
     const top = stack[stack.length - 1];
-    if (top && ["notes", "notesbin"].includes(top.kind)) render();
-    else if (!stack.length) render();
+    if (!stack.length || (top && ["notes", "nlist"].includes(top.kind)) || (top && top.kind === "note" && !nEditing())) render();
+    if (nAgain || (ok && NQ.length)) setTimeout(notesSync, 300);
   }
 }
+function notesFlush() {                        // the app is being closed/hidden: send what's waiting right now
+  if (!STANDALONE || !serverUrl()) return;
+  if ($("nted")) nSaveNow();
+  NQ.forEach((id) => { if (NOTES[id]) fetch(serverUrl() + "/notes/save", { method: "POST", body: JSON.stringify({ k: KEY, note: NOTES[id] }), keepalive: true }).catch(() => {}); });
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) notesFlush(); else setTimeout(notesSync, 500); });
+window.addEventListener("pagehide", notesFlush);
 window.addEventListener("online", () => setTimeout(notesSync, 1500));
-function noteLine(n) {
-  const items = n.items || [], done = items.filter((i) => i.done).length;
-  const first = n.kind === "list" ? items.filter((i) => !i.done).slice(0, 3).map((i) => i.text).join(", ") : String(n.body || "").split("\n").find((x) => x.trim()) || "";
-  return '<div class="li" data-a="opennote" data-arg="' + esc(n.id) + '"><span class="ico">' + (n.pinned ? "📌" : n.kind === "list" ? "☑️" : "📝") + '</span><span class="lab"><b>' + esc(n.title || (n.kind === "list" ? "Checklist" : "Untitled")) + "</b>" +
-    '<div class="dim">' + esc(first.slice(0, 90)) + "</div></span>" + '<span class="st dimst">' + (n.kind === "list" ? "☑ " + done + "/" + items.length + " " : "") + ((n.photos || []).length ? "📷 " : "") + (NQ.includes(n.id) ? "📤" : "") + "</span></div>";
+setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && ["notes", "nlist", "note"].includes(top.kind)) notesSync(); }, 30000);
+
+// list helpers
+const nLive = () => Object.values(NOTES).filter((n) => !n.binned && !n._new);
+function nFolders() { const s = new Set(NFOLDERS); nLive().forEach((n) => { if (n.folder) s.add(n.folder); }); return [...s].sort((a, b) => a.localeCompare(b)); }
+function nGroup(n) {
+  const d = new Date(n.updated), t = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(t) - day(d)) / 864e5);
+  if (diff <= 0) return "Today"; if (diff === 1) return "Yesterday"; if (diff < 7) return "Previous 7 days"; if (diff < 30) return "Previous 30 days";
+  return d.toLocaleString("en-GB", d.getFullYear() === t.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
 }
-function notesStatus() {
-  if (!serverUrl()) return "";
-  return '<div class="dim" style="margin-top:10px">' + (NQ.length ? "📤 " + NQ.length + " waiting to sync" + (nState.err ? " (" + esc(nState.err) + ")" : "") : nState.last ? "✓ synced " + esc(ago(new Date(nState.last).toISOString())) : "Not synced yet") + " · kept on your home server, never Google.</div>";
+function nStatus() {
+  return NQ.length ? "📤 " + NQ.length + " waiting" + (nState.err ? " · " + esc(nState.err) : "") : nState.last ? "✓ synced " + esc(ago(new Date(nState.last).toISOString())) : "not synced yet";
 }
-function winNotes() {
+function winNotes() {                          // Folders
   if (!serverUrl()) return '<div class="card sunk">Notes live on your home server. Add its address in ⚙️ Settings → Home server first.</div><button class="btn raised" data-a="open" data-arg="settings">Open Settings</button>';
-  if (!nState.last || Date.now() - nState.last > 60000) setTimeout(notesSync, 0);
-  const q = nSearch.trim().toLowerCase();
-  const all = Object.values(NOTES).filter((n) => !n.binned && (!q || [n.title, n.body].concat((n.items || []).map((i) => i.text)).join(" ").toLowerCase().includes(q)))
-    .sort((x, y) => (y.pinned - x.pinned) || (y.updated - x.updated));
-  return '<div class="row" style="margin-top:0"><button class="btn raised" style="flex:1" data-a="newnote" data-arg="note">＋ Note</button><button class="btn raised" style="flex:1" data-a="newnote" data-arg="list">＋ Checklist</button></div>' +
-    '<input class="inp" id="nq" placeholder="🔎 Search notes" value="' + esc(nSearch) + '" autocomplete="off" style="margin:8px 0">' +
-    (all.length ? '<div class="lv sunk">' + all.map(noteLine).join("") + "</div>" : '<div class="card sunk">' + (q ? "Nothing matches that." : "No notes yet.") + "</div>") +
-    '<a class="link" data-a="open" data-arg="notesbin">🗑 Bin (' + Object.values(NOTES).filter((n) => n.binned).length + ")</a>" + notesStatus();
+  if (!nState.last || Date.now() - nState.last > 30000) setTimeout(notesSync, 0);
+  Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
+  const live = nLive(), binned = Object.values(NOTES).filter((n) => n.binned).length;
+  const row = (key, icon, label, count) => '<div class="nt-row" data-a="nfolder" data-arg="' + esc(key) + '"' + (key && key[0] !== "*" && key[0] !== "#" ? ' data-folder="' + esc(key) + '"' : "") + '><span class="nt-ic">' + icon + '</span><span class="nt-l">' + esc(label) + '</span><span class="nt-c">' + count + " ›</span></div>";
+  return '<div class="nt"><div class="nt-g">Folders</div><div class="nt-box">' + row("*", "🗂", "All notes", live.length) + row("", "📝", "Notes", live.filter((n) => !n.folder).length) +
+    nFolders().map((f) => row(f, "📁", f, live.filter((n) => n.folder === f).length)).join("") + '</div><div class="nt-box">' + row("#bin", "🗑", "Bin", binned) + "</div>" +
+    '<div class="nt-hint">Hold a folder to rename it.</div><div class="nt-bar"><span class="nt-btn" data-a="nnewfolder">📁＋ New folder</span><span class="nt-c">' + nStatus() + "</span></div></div>";
 }
-function winNotesBin() {
-  const b = Object.values(NOTES).filter((n) => n.binned).sort((x, y) => y.updated - x.updated);
-  return (b.length ? '<div class="lv sunk">' + b.map(noteLine).join("") + "</div>" : '<div class="card sunk">The bin is empty.</div>') + '<div class="dim" style="margin-top:8px">Open a note here to restore it. Nothing in the bin is ever deleted.</div>';
+function nRow(n) {
+  const b = nBlocks(n), txt = b.filter((x) => x.t !== "img" && x.text.trim()), img = b.find((x) => x.t === "img");
+  const prev = txt.slice(1).map((x) => (x.t === "check" ? (x.done ? "☑ " : "☐ ") : "") + x.text).join("  ").slice(0, 100);
+  const d = new Date(n.updated), when = nGroup(n) === "Today" ? d.toTimeString().slice(0, 5) : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return '<div class="nt-sw"><div class="nt-swl">' + (n.pinned ? "Unpin" : "📌 Pin") + '</div><div class="nt-swr">Bin 🗑</div><div class="nt-note" data-a="opennote" data-arg="' + esc(n.id) + '">' +
+    '<div class="nt-tx"><b>' + esc(txt.length ? txt[0].text : "New note") + "</b><span>" + esc(when) + "&nbsp;&nbsp;" + esc(prev || "No additional text") + "</span></div>" +
+    (img ? '<img class="nt-th" data-ph="' + esc(img.id) + '">' : "") + (NQ.includes(n.id) ? '<i class="nt-q" title="waiting to sync">●</i>' : "") + "</div></div>";
+}
+function winNList(f) {
+  if (!nState.last || Date.now() - nState.last > 30000) setTimeout(notesSync, 0);
+  Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
+  setTimeout(fillPhotos, 0);
+  const q = nSearch.trim().toLowerCase(), bin = f === "#bin";
+  const pool = Object.values(NOTES).filter((n) => !n._new && (bin ? n.binned : !n.binned && (f === "*" || (n.folder || "") === f)))
+    .filter((n) => !q || nBlocks(n).map((x) => x.text || "").join(" ").toLowerCase().includes(q)).sort((x, y) => y.updated - x.updated);
+  const groups = [];
+  pool.forEach((n) => { const name = n.pinned && !bin ? "📌 Pinned" : nGroup(n); let g = groups.find((x) => x[0] === name); if (!g) groups.push(g = [name, []]); g[1].push(n); });
+  groups.sort((x, y) => (y[0] === "📌 Pinned") - (x[0] === "📌 Pinned"));
+  return '<div class="nt"><input class="nt-search" id="nq" placeholder="🔎 Search" value="' + esc(nSearch) + '" autocomplete="off">' +
+    (groups.length ? groups.map(([name, ns]) => '<div class="nt-g">' + esc(name) + '</div><div class="nt-list">' + ns.map(nRow).join("") + "</div>").join("") :
+      '<div class="nt-empty">' + (q ? "Nothing matches that." : bin ? "The bin is empty." : "No notes yet.") + "</div>") +
+    (bin ? '<div class="nt-hint">Open a note to restore it. Nothing in the bin is ever deleted.</div>' : '<div class="nt-hint">Swipe a note left to bin it, right to pin it.</div>') +
+    '<div class="nt-bar"><span class="nt-c">' + pool.length + " note" + (pool.length === 1 ? "" : "s") + " · " + nStatus() + "</span>" + (bin ? "" : '<span class="nt-btn" data-a="newnote" data-arg="' + esc(f) + '">✏️ New</span>') + "</div></div>";
+}
+function nBlockHtml(b) {
+  if (b.t === "img") return '<div class="nb nb-img" contenteditable="false" data-t="img" data-id="' + esc(b.id) + '"><img data-ph="' + esc(b.id) + '" data-a="nview" data-arg="' + esc(b.id) + '"></div>';
+  const t = esc(b.text) || "<br>";
+  if (b.t === "check") return '<div class="nb nb-check' + (b.done ? " done" : "") + '" data-t="check"><span class="nt-cb" contenteditable="false">' + (b.done ? "✓" : "") + "</span>" + t + "</div>";
+  return '<div class="nb nb-' + b.t + '" data-t="' + b.t + '">' + t + "</div>";
 }
 function winNote(id) {
   const n = NOTES[id];
   if (!n) return '<div class="card sunk">That note isn\'t here.</div>';
+  if (!Array.isArray(n.blocks) || !n.blocks.length) n.blocks = nBlocks(n);
   setTimeout(fillPhotos, 0);
-  const items = (n.items || []).slice().sort((x, y) => x.done - y.done);
-  let h = '<input class="inp" data-nfield="title" data-nid="' + esc(id) + '" value="' + esc(n.title) + '" placeholder="Title" style="font-weight:700">';
-  if (n.kind === "list") {
-    h += '<div class="lv sunk" style="margin-top:8px">' + items.map((it) => '<div class="li"><span class="bx sunk" data-a="ntick" data-arg="' + esc(id + "|" + it.id) + '" style="width:22px;height:22px;display:inline-block;text-align:center;line-height:18px;font-weight:700;flex:none;cursor:pointer">' + (it.done ? "✓" : "") + "</span>" +
-      '<input class="inp" data-nitem="' + esc(id + "|" + it.id) + '" value="' + esc(it.text) + '" style="flex:1;border:none;background:transparent;padding:4px;' + (it.done ? "text-decoration:line-through;opacity:.55" : "") + '">' +
-      '<span data-a="ndelitem" data-arg="' + esc(id + "|" + it.id) + '" style="padding:4px 8px;cursor:pointer">✕</span></div>').join("") +
-      '<div class="li"><span class="ico">＋</span><input class="inp" id="nadd" data-nid="' + esc(id) + '" placeholder="Add an item, then Return" style="flex:1;border:none;background:transparent;padding:4px" enterkeyhint="done"></div></div>';
-  } else {
-    h += '<textarea class="inp" data-nfield="body" data-nid="' + esc(id) + '" placeholder="Write here…" style="height:300px;margin-top:8px">' + esc(n.body) + "</textarea>";
-  }
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + (n.photos || []).map((ph) => '<img data-ph="' + esc(ph) + '" data-a="nview" data-arg="' + esc(ph) + '" style="width:84px;height:84px;object-fit:cover;border:2px inset #fff;background:#ddd">').join("") +
-    '<label class="btn raised" style="width:84px;height:84px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px">📷<br>Add photo<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label></div>';
-  h += '<div class="row">' + (n.binned ? '<button class="btn raised main" style="flex:1" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</button>' :
-    '<button class="btn raised" style="flex:1" data-a="npin" data-arg="' + esc(id) + '">' + (n.pinned ? "📌 Unpin" : "📌 Pin") + '</button><button class="btn raised" style="flex:1" data-a="nbin" data-arg="' + esc(id) + '">🗑 Bin</button>') + "</div>";
-  return h + notesStatus();
+  const d = new Date(n.updated || Date.now());
+  return '<div class="nt nt-ed"><div class="nt-top"><span>' + esc(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) + " at " + d.toTimeString().slice(0, 5)) + (n.folder ? " · 📁 " + esc(n.folder) : "") +
+    (n.pinned ? " · 📌" : "") + '</span><span class="nt-btn" data-a="nmenu" data-arg="' + esc(id) + '">⋯</span></div>' +
+    (n.binned ? '<div class="nt-binned">In the bin. <span class="nt-btn" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</span></div>' : "") +
+    '<div id="nted" class="nt-page" contenteditable="' + (n.binned ? "false" : "true") + '" data-nid="' + esc(id) + '" spellcheck="true">' + n.blocks.map(nBlockHtml).join("") + "</div>" +
+    (n.binned ? "" : '<div class="nt-tools" id="ntools"><span class="nt-btn" data-a="naa">Aa</span><span class="nt-btn" data-a="ncheck">☑︎</span><label class="nt-btn">📷<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label><span class="nt-c" style="flex:1;text-align:center">' + nStatus() + '</span><span class="nt-btn nt-done" data-a="ndone">Done</span></div>') + "</div>";
 }
 async function fillPhotos() {
   for (const img of document.querySelectorAll("img[data-ph]:not([src])")) {
@@ -1003,39 +1092,193 @@ function photoToJpeg(file) {
     im.src = url;
   });
 }
+
+// the editor: each line is a block (div.nb); read back into blocks as you type
+function nMake(t) {
+  const el = document.createElement("div"); el.className = "nb nb-" + t; el.dataset.t = t;
+  if (t === "check") { const cb = document.createElement("span"); cb.className = "nt-cb"; cb.contentEditable = "false"; el.appendChild(cb); }
+  return el;
+}
+function nSetType(el, t) {
+  if (!el || el.dataset.t === "img") return;
+  const cb = el.querySelector(".nt-cb");
+  if (t === "check" && !cb) { const c = document.createElement("span"); c.className = "nt-cb"; c.contentEditable = "false"; el.insertBefore(c, el.firstChild); }
+  if (t !== "check" && cb) cb.remove();
+  el.dataset.t = t; el.className = "nb nb-" + t;
+  if (!el.textContent && !el.querySelector("br")) el.appendChild(document.createElement("br"));
+}
+function nCur() {
+  const ed = $("nted"), sel = getSelection();
+  if (!ed || !sel.rangeCount) return null;
+  let node = sel.anchorNode;
+  if (node === ed) node = ed.childNodes[Math.min(sel.anchorOffset, ed.childNodes.length - 1)];
+  const el = node && (node.nodeType === 1 ? node : node.parentElement);
+  const b = el && el.closest(".nb");
+  return b && ed.contains(b) ? b : null;
+}
+function nCaret(el, atStart) {
+  const r = document.createRange(), sel = getSelection();
+  const cb = el.querySelector(".nt-cb");
+  if (atStart) { r.setStart(el, cb ? 1 : 0); r.collapse(true); } else { r.selectNodeContents(el); r.collapse(false); }
+  sel.removeAllRanges(); sel.addRange(r);
+}
+function nTidy(ed) {                           // keep every line a proper block (browsers add stray text/br/div)
+  [...ed.childNodes].forEach((c) => {
+    if (c.nodeType === 3 || (c.nodeType === 1 && !c.classList.contains("nb"))) {
+      if (c.nodeType === 1 && c.tagName === "BR" && ed.childNodes.length > 1) { c.remove(); return; }
+      const b = nMake("p"); ed.insertBefore(b, c); b.appendChild(c);
+    }
+  });
+  ed.querySelectorAll(".nb").forEach((b) => {
+    if (b.parentElement !== ed) { ed.insertBefore(b, b.parentElement.closest(".nb") ? b.parentElement.closest(".nb").nextSibling : null); }
+    if (!b.dataset.t) { b.dataset.t = "p"; b.className = "nb nb-p"; }
+    if (b.dataset.t === "check" && !b.querySelector(".nt-cb")) nSetType(b, "check");
+    b.querySelectorAll(".nt-cb").forEach((c, i) => { if (i > 0 || b.dataset.t !== "check") c.remove(); });
+  });
+  if (!ed.children.length) { const b = nMake("p"); b.appendChild(document.createElement("br")); ed.appendChild(b); }
+}
+function nRead(ed) {
+  return [...ed.children].map((el) => {
+    const t = el.dataset.t || "p";
+    if (t === "img") return { t: "img", id: el.dataset.id };
+    let text = ""; el.childNodes.forEach((c) => { if (!(c.nodeType === 1 && c.classList.contains("nt-cb"))) text += c.textContent; });
+    text = text.replace(/ /g, " ").replace(/\n/g, " ");
+    return t === "check" ? { t: t, text: text, done: el.classList.contains("done") } : { t: t, text: text };
+  }).filter((b) => b.t !== "img" || b.id);
+}
+function nSaveNow() {
+  clearTimeout(nSaveT);
+  const ed = $("nted"); if (!ed || ed.getAttribute("contenteditable") !== "true") return;
+  const n = NOTES[ed.dataset.nid]; if (!n) return;
+  const blocks = nRead(ed);
+  if (JSON.stringify(blocks) === JSON.stringify(n.blocks) && !n._new) return;
+  if (n._new && !blocks.some((b) => b.t === "img" || b.text.trim())) return;   // an untouched new note isn't kept
+  n.blocks = blocks; noteTouch(n);
+}
 document.addEventListener("input", (e) => {
   const t = e.target;
   if (t.id === "nq") { nSearch = t.value; const pos = t.selectionStart; render(); const el = $("nq"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
-  if (t.dataset.nfield) { const n = NOTES[t.dataset.nid]; if (n) { n[t.dataset.nfield] = t.value; noteTouch(n); } return; }
-  if (t.dataset.nitem) { const [id, iid] = t.dataset.nitem.split("|"), n = NOTES[id], it = n && n.items.find((x) => x.id === iid); if (it) { it.text = t.value; noteTouch(n); } }
+  if (t.id === "nted") { nTidy(t); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400); }
 });
+document.addEventListener("selectionchange", () => { const b = nCur(); if (b) nLastBlock = b; });
 document.addEventListener("keydown", (e) => {
-  if (e.target.id !== "nadd" || e.key !== "Enter") return;
-  e.preventDefault();
-  const n = NOTES[e.target.dataset.nid], v = e.target.value.trim();
-  if (!n || !v) return;
-  n.items = (n.items || []).concat([{ id: nId("it"), text: v, done: false }]); noteTouch(n, true);
-  const el = $("nadd"); if (el) el.focus();
+  const ed = $("nted");
+  if (!ed || !ed.contains(e.target) || e.isComposing) return;
+  const blk = nCur(); if (!blk) return;
+  const t = blk.dataset.t, empty = !blk.textContent.trim();
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if ((t === "check" || t === "li") && empty) { nSetType(blk, "p"); nCaret(blk, true); }
+    else {
+      const sel = getSelection(), r = sel.getRangeAt(0); r.deleteContents();
+      const tail = document.createRange(); tail.setStart(r.endContainer, r.endOffset); tail.setEnd(blk, blk.childNodes.length);
+      const frag = tail.extractContents(); frag.querySelectorAll && frag.querySelectorAll(".nt-cb").forEach((c) => c.remove());
+      const nb = nMake(t === "check" || t === "li" ? t : "p"); nb.appendChild(frag);
+      if (!nb.textContent) nb.appendChild(document.createElement("br"));
+      if (!blk.textContent) nSetType(blk, t);
+      blk.after(nb); nCaret(nb, true);
+    }
+    clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400);
+  } else if (e.key === "Backspace" && (t === "check" || t === "li" || t === "h") && getSelection().isCollapsed) {
+    const r = getSelection().getRangeAt(0), pre = document.createRange(); pre.setStart(blk, 0); pre.setEnd(r.startContainer, r.startOffset);
+    if (!pre.toString().length) { e.preventDefault(); nSetType(blk, "p"); nCaret(blk, true); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400); }
+  }
 });
+document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest("#ntools, .nt-pop")) e.preventDefault(); });   // keep the keyboard up
+document.addEventListener("click", (e) => {
+  const cb = e.target.closest && e.target.closest(".nt-cb");
+  if (!cb) return;
+  e.stopPropagation();
+  const b = cb.closest(".nb"), ed = $("nted"); if (!b || !ed || ed.getAttribute("contenteditable") !== "true") return;
+  b.classList.toggle("done"); cb.textContent = b.classList.contains("done") ? "✓" : ""; nSaveNow();
+}, true);
 document.addEventListener("change", async (e) => {
   if (e.target.id !== "nphotoin" || !e.target.files || !e.target.files[0]) return;
-  const n = NOTES[e.target.dataset.nid]; if (!n) return;
+  const ed = $("nted"), n = NOTES[e.target.dataset.nid]; if (!n || !ed) return;
   try {
     const data = await photoToJpeg(e.target.files[0]), id = nId("ph");
     await idbPut({ id: id, data: data, pending: true });
-    n.photos = (n.photos || []).concat([id]); noteTouch(n, true);
+    const box = document.createElement("div"); box.className = "nb nb-img"; box.contentEditable = "false"; box.dataset.t = "img"; box.dataset.id = id;
+    box.innerHTML = '<img data-ph="' + id + '" data-a="nview" data-arg="' + id + '">';
+    const after = nLastBlock && ed.contains(nLastBlock) ? nLastBlock : ed.lastElementChild;
+    after.after(box); const p = nMake("p"); p.appendChild(document.createElement("br")); box.after(p);
+    n.blocks = nRead(ed); noteTouch(n); fillPhotos();
   } catch (err) { toast("⚠ " + err.message); }
 });
-function noteAct(a, arg) {
-  if (a === "opennote") return open_("note", arg);
-  if (a === "newnote") { const n = { id: nId("n"), kind: arg, title: "", body: "", items: [], photos: [], pinned: false, binned: false, created: Date.now(), updated: Date.now() }; noteTouch(n); return open_("note", n.id); }
+// folders: hold to rename
+let nHoldT = null;
+document.addEventListener("pointerdown", (e) => {
+  const row = e.target.closest && e.target.closest("[data-folder]"); if (!row) return;
+  nHoldT = setTimeout(() => { nHoldT = "held"; nRenameFolder(row.dataset.folder); }, 700);
+});
+["pointerup", "pointercancel", "pointerleave"].forEach((ev) => document.addEventListener(ev, () => { if (nHoldT && nHoldT !== "held") clearTimeout(nHoldT); setTimeout(() => { nHoldT = null; }, 50); }, true));
+function nRenameFolder(f) {
+  dialog('<label class="field">Folder name</label><input class="inp" id="nfn" value="' + esc(f) + '">', [["Rename", () => {
+    const v = $("nfn").value.trim().slice(0, 60); if (!v || v === f) return;
+    nLive().filter((n) => n.folder === f).forEach((n) => { n.folder = v; noteTouch(n); });
+    NFOLDERS = NFOLDERS.map((x) => (x === f ? v : x)); notesSave(); render();
+  }, 1], ["Cancel"]], "📁", { title: "Rename folder" });
+}
+// swipe: left = bin, right = pin
+let nSw = null;
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest && e.target.closest(".nt-note"); if (!el) return;
+  nSw = { el: el, x: e.clientX, y: e.clientY, dx: 0, on: false };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!nSw) return;
+  const dx = e.clientX - nSw.x, dy = e.clientY - nSw.y;
+  if (!nSw.on && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) nSw.on = true;
+  if (nSw.on) { nSw.dx = dx; nSw.el.style.transform = "translateX(" + Math.max(-140, Math.min(140, dx)) + "px)"; }
+});
+document.addEventListener("pointerup", () => {
+  if (!nSw) return;
+  const s = nSw; nSw = null;
+  if (!s.on) return;
+  s.el.style.transition = "transform .15s"; s.el.style.transform = "";
+  s.el.dataset.swiped = "1"; setTimeout(() => { delete s.el.dataset.swiped; }, 300);
+  const n = NOTES[s.el.dataset.arg]; if (!n) return;
+  if (s.dx < -90 && !n.binned) { n.binned = true; n.pinned = false; noteTouch(n, true); setTimeout(() => dialog("Moved to the bin.", [["Undo", () => { n.binned = false; noteTouch(n, true); }], ["OK", null, 1]], "🗑"), 0); }
+  else if (s.dx > 90 && !n.binned) { n.pinned = !n.pinned; noteTouch(n, true); }
+});
+document.addEventListener("pointercancel", () => { if (nSw) { nSw.el.style.transform = ""; nSw = null; } });
+function nMoveTo(n) {
+  const fs = nFolders();
+  dialog('<div class="lv sunk">' + [["", "📝 Notes (no folder)"]].concat(fs.map((f) => [f, "📁 " + f])).map(([f, l]) => '<div class="li" data-mf="' + esc(f) + '" style="cursor:pointer' + ((n.folder || "") === f ? ";font-weight:700" : "") + '">' + esc(l) + "</div>").join("") + "</div>" +
+    '<label class="field">Or a new folder</label><input class="inp" id="nnf" placeholder="Folder name">', [["Move to new folder", () => {
+      const v = $("nnf").value.trim().slice(0, 60); if (!v) return false;
+      if (!NFOLDERS.includes(v)) NFOLDERS.push(v); n.folder = v; noteTouch(n, true);
+    }], ["Cancel"]], "📁", { title: "Move to folder" });
+  document.querySelectorAll("[data-mf]").forEach((el) => el.onclick = () => { n.folder = el.dataset.mf; noteTouch(n, true); $("dlg").innerHTML = ""; });
+}
+function noteAct(a, arg, el) {
+  if (a === "nfolder") { if (nHoldT === "held") return; nSearch = ""; return open_("nlist", arg); }
+  if (a === "opennote") { if (el && el.dataset.swiped) return; return open_("note", arg); }
+  if (a === "nnewfolder") return dialog('<label class="field">Folder name</label><input class="inp" id="nfn" placeholder="e.g. Tattoo ideas">', [["Create", () => {
+    const v = $("nfn").value.trim().slice(0, 60); if (!v) return false;
+    if (!NFOLDERS.includes(v)) NFOLDERS.push(v); notesSave(); setTimeout(() => open_("nlist", v), 0);
+  }, 1], ["Cancel"]], "📁", { title: "New folder" });
+  if (a === "newnote") {
+    const n = { id: nId("n"), kind: "note", folder: arg && arg[0] !== "*" && arg[0] !== "#" ? arg : "", blocks: [{ t: "title", text: "" }], title: "", body: "", items: [], photos: [], pinned: false, binned: false, created: Date.now(), updated: Date.now(), _new: true };
+    NOTES[n.id] = n; open_("note", n.id); setTimeout(() => { const ed = $("nted"); if (ed) { ed.focus(); nCaret(ed.firstElementChild, false); } }, 50); return;
+  }
   if (a === "nview") { const img = document.querySelector('img[data-ph="' + arg + '"]'); if (img && img.src) dialog('<img src="' + img.src + '" style="max-width:100%;display:block;margin:0 auto">', [["Close", null, 1]], null, { title: "Photo" }); return; }
-  const [id, iid] = String(arg).split("|"), n = NOTES[id]; if (!n) return;
-  if (a === "ntick") { const it = n.items.find((x) => x.id === iid); if (it) { it.done = !it.done; noteTouch(n, true); } }
-  else if (a === "ndelitem") { n.items = n.items.filter((x) => x.id !== iid); noteTouch(n, true); }
-  else if (a === "npin") { n.pinned = !n.pinned; noteTouch(n, true); }
-  else if (a === "nbin") { n.binned = true; n.pinned = false; noteTouch(n); back(); toast("Moved to the notes bin. You can restore it from there."); }
-  else if (a === "nrestore") { n.binned = false; noteTouch(n); back(); }
+  if (a === "ndone") { nSaveNow(); if (document.activeElement) document.activeElement.blur(); return; }
+  if (a === "ncheck") { const b = nLastBlock && $("nted") && $("nted").contains(nLastBlock) ? nLastBlock : null; if (b) { nSetType(b, b.dataset.t === "check" ? "p" : "check"); nCaret(b, false); nSaveNow(); } return; }
+  if (a === "naa") {
+    const old = document.querySelector(".nt-pop"); if (old) { old.remove(); return; }
+    const pop = document.createElement("div"); pop.className = "nt-pop";
+    pop.innerHTML = [["title", "Title"], ["h", "Heading"], ["p", "Body"], ["li", "• Bulleted list"]].map(([t, l]) => '<span class="nt-btn nt-st-' + t + '" data-a="nstyle" data-arg="' + t + '">' + l + "</span>").join("");
+    $("ntools").before(pop); return;
+  }
+  if (a === "nstyle") { const b = nLastBlock && $("nted") && $("nted").contains(nLastBlock) ? nLastBlock : null; if (b) { nSetType(b, arg); nCaret(b, false); nSaveNow(); } const p = document.querySelector(".nt-pop"); if (p) p.remove(); return; }
+  const n = NOTES[arg]; if (!n) return;
+  if (a === "nmenu") {
+    nSaveNow();
+    return dialog("", [[n.pinned ? "📌 Unpin" : "📌 Pin", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["📁 Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
+      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }], ["Cancel"]], "📝", { title: "Note" });
+  }
+  if (a === "nrestore") { n.binned = false; noteTouch(n, true); }
 }
 
 // ── 📅 change a client's date (or not decided yet) ──
@@ -1125,8 +1368,8 @@ function winTitle(w) {
   if (w.kind === "photo") return "Photo";
   if (w.kind === "outbox") return "Outbox";
   if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
-  if (w.kind === "note") { const n = NOTES[w.arg]; return n && n.title ? n.title : (n && n.kind === "list" ? "Checklist" : "Note"); }
-  if (w.kind === "notesbin") return "Notes bin";
+  if (w.kind === "note") { const n = NOTES[w.arg]; return n ? (n.folder || "Notes") : "Note"; }
+  if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
 }
 function badge(kind) {
@@ -1146,6 +1389,7 @@ function render() {
     $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
     const w = stack[stack.length - 1];
+    if (w.kind === "note" && nEditing()) { drawCharts(); beanDraw(); boxBadge(); return; }
     let body = "";
     try { body = D ? winBody(w) : '<div class="card sunk">Loading…</div>'; } catch (e) { body = '<div class="card sunk bad">⚠ ' + esc(e.message) + "</div>"; }
     $("main").innerHTML = '<div class="win raised"><div class="title">' + (stack.length > 1 ? '<button class="btn raised tb" data-a="back" aria-label="Back">←</button>' : "") +
@@ -1157,7 +1401,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, note: winNote, notesbin: winNotesBin }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1731,6 +1975,7 @@ function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
   if (pref("bean") === false) { el.innerHTML = ""; return; }
+  if (stack.length && ["note", "nlist"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -1857,7 +2102,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
-  else if (["opennote", "newnote", "nview", "ntick", "ndelitem", "npin", "nbin", "nrestore"].includes(a)) noteAct(a, arg);
+  else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore"].includes(a)) noteAct(a, arg, t);
   else if (a === "hstest") {
     const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
     if (!serverUrl()) return toast("⚠ Type the home server address first.");
