@@ -5,7 +5,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 .nt{margin:-10px;background:#fff;min-height:calc(100vh - 120px);display:flex;flex-direction:column;font-family:-apple-system,system-ui,"Segoe UI",sans-serif}
-.nt-bar{margin-top:auto}.nt-ed .nt-page{flex:1}
+.nt-bar{margin-top:auto}.nt-ed{min-height:0}.nt-ed .nt-tools{top:0;bottom:auto;box-shadow:0 1px #808080;border-top:0;border-bottom:1px solid #fff}
+.nt-ed .nt-pop{top:39px;bottom:auto}
 .nt-g{font:700 12px Tahoma,sans-serif;color:#000080;padding:12px 12px 4px;background:#f3f3f3;border-bottom:1px solid #ddd}
 .nt-box{background:#fff;border-bottom:1px solid #ddd}
 .nt-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #eee;cursor:pointer;user-select:none;-webkit-user-select:none}
@@ -28,9 +29,9 @@ html{-webkit-text-size-adjust:100%}
 .nt-done{font-weight:700}
 .nt-top{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:12px;color:#888;border-bottom:1px solid #eee}
 .nt-binned{background:#fff4c2;padding:6px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
-.nt-page{min-height:55vh;padding:12px 16px 90px;outline:none;font-size:17px;line-height:1.45;color:#111;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
+.nt-page{min-height:30vh;padding:10px 14px 40px;outline:none;font-size:17px;line-height:1.45;color:#111;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
 .nt-page .nb{min-height:1.45em}
-.nt-page .nb:first-child,.nb-title{font-size:26px;font-weight:700;line-height:1.25;margin-bottom:4px}
+.nt-page .nb:first-child,.nb-title{font-size:22px;font-weight:700;line-height:1.25;margin-bottom:4px}
 .nb-h{font-size:20px;font-weight:700;margin-top:8px}
 .nb-li{padding-left:22px;position:relative}.nb-li:before{content:"•";position:absolute;left:7px}
 .nb-check{padding-left:30px;position:relative}
@@ -39,6 +40,24 @@ html{-webkit-text-size-adjust:100%}
 .nb-img{margin:8px 0}.nb-img img{max-width:100%;display:block;border:1px solid #ccc;cursor:pointer}
 .nt-pop{position:sticky;bottom:40px;z-index:6;display:flex;gap:6px;flex-wrap:wrap;background:#c0c0c0;padding:6px 8px;border-top:1px solid #fff}
 .nt-st-title{font-weight:700;font-size:16px}.nt-st-h{font-weight:700}
+.rf-chips{display:flex;gap:6px;overflow-x:auto;padding:8px;background:#f3f3f3;border-bottom:1px solid #ddd;-webkit-overflow-scrolling:touch}
+.rf-chip{flex:none;white-space:nowrap}.nt-btn.on{background:#000080;color:#fff;border-color:#404040 #fff #fff #404040}
+.rf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:2px;padding:2px}
+.rf-cell{position:relative;aspect-ratio:1;background:#e2e2e2;overflow:hidden;cursor:pointer}
+.rf-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.rf-cell i{position:absolute;right:5px;bottom:3px;color:#fff;font-style:normal;text-shadow:0 0 3px #000}
+#rv{position:fixed;inset:0;z-index:300;background:#151515;display:flex;flex-direction:column;touch-action:none;-webkit-user-select:none;user-select:none}
+.rv-top,.rv-tools{display:flex;flex-direction:column;gap:5px;padding:6px 8px;background:#c0c0c0}
+.rv-top{flex-direction:row;align-items:center;padding-top:max(6px,env(safe-area-inset-top));border-bottom:1px solid #808080}
+.rv-tools{padding-bottom:max(6px,env(safe-area-inset-bottom));border-top:1px solid #fff}
+.rv-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.rv-sl{font:12px Tahoma,sans-serif}.rv-sl input{flex:1;min-width:90px}
+.rv-n{flex:1;text-align:center;font:13px Tahoma,sans-serif}
+.rv-stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#rvin{transform-origin:center center;will-change:transform}
+.rv-img{position:relative}.rv-img canvas{width:100%;height:100%;display:block}
+.rv-img svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+body.rv-open{overflow:hidden}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:110px;overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
@@ -606,7 +625,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["notes", "📝", "Notes"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
   ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -926,9 +945,14 @@ function editQr(i) {
 
 // ── 📝 Notes: kept on the home server + this phone (never Google). Works like Apple Notes. Newest edit wins. ──
 let NOTES = store.get("notes", {}), NQ = store.get("notesq", []), nState = { since: store.get("notesSince", 0), last: store.get("notesLast", 0), err: "" };
-let nSearch = "", nBusy = false, nAgain = false, NFOLDERS = store.get("nfolders", []), nLastBlock = null, nSaveT = null;
+let nSearch = "", nBusy = false, nAgain = false, NFOLDERS = store.get("nfolders", []), nLastBlock = null, nSaveT = null, NDEL = store.get("notesdel", []);
 const nId = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-function notesSave() { store.set("notes", NOTES); store.set("notesq", NQ); store.set("nfolders", NFOLDERS); }
+function notesSave() { store.set("notes", NOTES); store.set("notesq", NQ); store.set("nfolders", NFOLDERS); store.set("notesdel", NDEL); }
+function nForget(id) {                         // gone for good: off this device too, photos included
+  const n = NOTES[id]; delete NOTES[id]; NQ = NQ.filter((x) => x !== id);
+  ((n && n.blocks) || []).filter((b) => b.t === "img").map((b) => b.id).concat((n && n.photos) || []).forEach((pid) => idbDo("readwrite", (st) => st.delete(pid)));
+}
+function nKill(ids) { ids.forEach((id) => { nForget(id); if (!NDEL.includes(id)) NDEL.push(id); }); notesSave(); setTimeout(notesSync, 100); }
 function nBlocks(n) {                          // old notes (title/body/items) become blocks, nothing lost
   if (Array.isArray(n.blocks) && n.blocks.length) return n.blocks;
   const b = [{ t: "title", text: n.title || "" }];
@@ -961,8 +985,8 @@ async function nsrv(path, body, ms) {
     return j;
   } finally { clearTimeout(t); }
 }
-const idb = () => new Promise((ok, no) => { const r = indexedDB.open("fm95", 1); r.onupgradeneeded = () => r.result.createObjectStore("photos", { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
-async function idbDo(mode, fn) { const db = await idb(); return new Promise((ok) => { const tx = db.transaction("photos", mode), q = fn(tx.objectStore("photos")); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ok(null); }); }
+const idb = () => idb.p || (idb.p = new Promise((ok, no) => { const r = indexedDB.open("fm95", 2); r.onupgradeneeded = () => { ["photos", "refs"].forEach((n) => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: "id" }); }); }; r.onsuccess = () => ok(r.result); r.onerror = () => { idb.p = null; no(r.error); }; }));
+async function idbDo(mode, fn, store) { const db = await idb(); return new Promise((ok) => { const tx = db.transaction(store || "photos", mode), q = fn(tx.objectStore(store || "photos")); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ok(null); }); }
 const idbGet = (id) => idbDo("readonly", (st) => st.get(id));
 const idbPut = (v) => idbDo("readwrite", (st) => st.put(v));
 const idbAll = () => idbDo("readonly", (st) => st.getAll());
@@ -972,11 +996,13 @@ async function notesSync() {
   if (nBusy) { nAgain = true; return; }        // a sync is running: go again as soon as it finishes
   nBusy = true; nAgain = false; let ok = false;
   try {
+    if (NDEL.length) { const ids = NDEL.slice(); await nsrv("/notes/delete", { ids: ids }); NDEL = NDEL.filter((x) => !ids.includes(x)); notesSave(); }
     for (const ph of (await idbAll()) || []) if (ph.pending) { await nsrv("/notes/photo/put", { id: ph.id, data: ph.data }, 30000); ph.pending = false; await idbPut(ph); }
     for (const id of NQ.slice()) {
       if (!NOTES[id]) { NQ = NQ.filter((x) => x !== id); continue; }
       const sentAt = NOTES[id].updated, r = await nsrv("/notes/save", { note: NOTES[id] });
       if (!r.note || r.note.id !== id) throw new Error("odd answer from the server");
+      if (r.note.deleted) { nForget(id); notesSave(); continue; }
       if (!r.note.blocks && NOTES[id].blocks && r.note.updated === NOTES[id].updated) { r.note.blocks = NOTES[id].blocks; r.note.folder = NOTES[id].folder; }   // an older server that doesn't keep blocks yet
       if (NOTES[id].updated === sentAt) { NOTES[id] = r.note; NQ = NQ.filter((x) => x !== id); }   // edited again meanwhile: send that next round
       notesSave();
@@ -984,6 +1010,7 @@ async function notesSync() {
     const l = await nsrv("/notes/list", { since: nState.since });
     if (!Array.isArray(l.notes) || !l.now) throw new Error("odd answer from the server");
     l.notes.filter((n) => n && n.id).forEach((n) => {
+      if (n.deleted) { nForget(n.id); return; }
       const mine = NOTES[n.id];
       if (mine && !n.blocks && mine.blocks && mine.updated === n.updated) { n.blocks = mine.blocks; n.folder = mine.folder; }
       if (!mine || (!NQ.includes(n.id) && (mine.updated || 0) <= n.updated)) NOTES[n.id] = n;
@@ -1051,8 +1078,8 @@ function winNList(f) {
   return '<div class="nt"><input class="nt-search" id="nq" placeholder="🔎 Search" value="' + esc(nSearch) + '" autocomplete="off">' +
     (groups.length ? groups.map(([name, ns]) => '<div class="nt-g">' + esc(name) + '</div><div class="nt-list">' + ns.map(nRow).join("") + "</div>").join("") :
       '<div class="nt-empty">' + (q ? "Nothing matches that." : bin ? "The bin is empty." : "No notes yet.") + "</div>") +
-    (bin ? '<div class="nt-hint">Open a note to restore it. Nothing in the bin is ever deleted.</div>' : '<div class="nt-hint">Swipe a note left to bin it, right to pin it.</div>') +
-    '<div class="nt-bar"><span class="nt-c">' + pool.length + " note" + (pool.length === 1 ? "" : "s") + " · " + nStatus() + "</span>" + (bin ? "" : '<span class="nt-btn" data-a="newnote" data-arg="' + esc(f) + '">✏️ New</span>') + "</div></div>";
+    (bin ? '<div class="nt-hint">Open a note to restore it or delete it for good.</div>' : '<div class="nt-hint">Swipe a note left to bin it, right to pin it.</div>') +
+    '<div class="nt-bar"><span class="nt-c">' + pool.length + " note" + (pool.length === 1 ? "" : "s") + " · " + nStatus() + "</span>" + (bin ? (pool.length ? '<span class="nt-btn" data-a="nempty">Empty bin</span>' : "") : '<span class="nt-btn" data-a="newnote" data-arg="' + esc(f) + '">✏️ New</span>') + "</div></div>";
 }
 function nBlockHtml(b) {
   if (b.t === "img") return '<div class="nb nb-img" contenteditable="false" data-t="img" data-id="' + esc(b.id) + '"><img data-ph="' + esc(b.id) + '" data-a="nview" data-arg="' + esc(b.id) + '"></div>';
@@ -1068,9 +1095,9 @@ function winNote(id) {
   const d = new Date(n.updated || Date.now());
   return '<div class="nt nt-ed"><div class="nt-top"><span>' + esc(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) + " at " + d.toTimeString().slice(0, 5)) + (n.folder ? " · 📁 " + esc(n.folder) : "") +
     (n.pinned ? " · 📌" : "") + '</span><span class="nt-btn" data-a="nmenu" data-arg="' + esc(id) + '">⋯</span></div>' +
-    (n.binned ? '<div class="nt-binned">In the bin. <span class="nt-btn" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</span></div>' : "") +
-    '<div id="nted" class="nt-page" contenteditable="' + (n.binned ? "false" : "true") + '" data-nid="' + esc(id) + '" spellcheck="true">' + n.blocks.map(nBlockHtml).join("") + "</div>" +
-    (n.binned ? "" : '<div class="nt-tools" id="ntools"><span class="nt-btn" data-a="naa">Aa</span><span class="nt-btn" data-a="ncheck">☑︎</span><label class="nt-btn">📷<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label><span class="nt-c" style="flex:1;text-align:center">' + nStatus() + '</span><span class="nt-btn nt-done" data-a="ndone">Done</span></div>') + "</div>";
+    (n.binned ? '<div class="nt-binned">In the bin. <span><span class="nt-btn" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</span> <span class="nt-btn" data-a="nkill" data-arg="' + esc(id) + '">Delete forever</span></span></div>' : "") +
+    (n.binned ? "" : '<div class="nt-tools" id="ntools"><span class="nt-btn" data-a="naa">Aa</span><span class="nt-btn" data-a="ncheck">☑︎</span><label class="nt-btn">📷<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label><span class="nt-c" style="flex:1;text-align:center">' + nStatus() + '</span><span class="nt-btn nt-done" data-a="ndone">Done</span></div>') +
+    '<div id="nted" class="nt-page" contenteditable="' + (n.binned ? "false" : "true") + '" data-nid="' + esc(id) + '" spellcheck="true">' + n.blocks.map(nBlockHtml).join("") + "</div></div>";
 }
 async function fillPhotos() {
   for (const img of document.querySelectorAll("img[data-ph]:not([src])")) {
@@ -1079,14 +1106,14 @@ async function fillPhotos() {
     if (ph && img.isConnected) img.src = ph.data;
   }
 }
-function photoToJpeg(file) {
+function photoToJpeg(file, maxPx) {
   return new Promise((ok, no) => {
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
-      const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+      const k = Math.min(1, (maxPx || 1600) / Math.max(im.width, im.height)), c = document.createElement("canvas");
       c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
       c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-      ok(c.toDataURL("image/jpeg", 0.8));
+      ok(c.toDataURL("image/jpeg", maxPx ? 0.9 : 0.8));
     };
     im.onerror = () => no(new Error("couldn't read that picture"));
     im.src = url;
@@ -1185,6 +1212,14 @@ document.addEventListener("keydown", (e) => {
   }
 });
 document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest("#ntools, .nt-pop")) e.preventDefault(); });   // keep the keyboard up
+function nPlaceTools() {                       // iPhone keyboard up: pin the tools to the top of what you can actually see
+  const t = $("ntools"), vv = window.visualViewport; if (!t || !vv) return;
+  const kb = vv.height < window.innerHeight - 120 && nEditing();
+  if (kb) { t.style.position = "fixed"; t.style.left = vv.offsetLeft + "px"; t.style.width = vv.width + "px"; t.style.top = vv.offsetTop + "px"; t.style.boxSizing = "border-box"; }
+  else { t.style.position = ""; t.style.left = ""; t.style.width = ""; t.style.top = ""; }
+}
+if (window.visualViewport) { visualViewport.addEventListener("resize", nPlaceTools); visualViewport.addEventListener("scroll", nPlaceTools); }
+document.addEventListener("focusin", () => setTimeout(nPlaceTools, 300)); document.addEventListener("focusout", () => setTimeout(nPlaceTools, 300));
 document.addEventListener("click", (e) => {
   const cb = e.target.closest && e.target.closest(".nt-cb");
   if (!cb) return;
@@ -1269,17 +1304,206 @@ function noteAct(a, arg, el) {
     const old = document.querySelector(".nt-pop"); if (old) { old.remove(); return; }
     const pop = document.createElement("div"); pop.className = "nt-pop";
     pop.innerHTML = [["title", "Title"], ["h", "Heading"], ["p", "Body"], ["li", "• Bulleted list"]].map(([t, l]) => '<span class="nt-btn nt-st-' + t + '" data-a="nstyle" data-arg="' + t + '">' + l + "</span>").join("");
-    $("ntools").before(pop); return;
+    $("ntools").after(pop); return;
   }
   if (a === "nstyle") { const b = nLastBlock && $("nted") && $("nted").contains(nLastBlock) ? nLastBlock : null; if (b) { nSetType(b, arg); nCaret(b, false); nSaveNow(); } const p = document.querySelector(".nt-pop"); if (p) p.remove(); return; }
+  if (a === "nempty") {
+    const ids = Object.values(NOTES).filter((x) => x.binned).map((x) => x.id);
+    return dialog("Delete all " + ids.length + " note" + (ids.length === 1 ? "" : "s") + " in the bin for good? This can't be undone.", [["Empty bin", () => { nKill(ids); render(); }], ["Cancel", null, 1]], "⚠️", { title: "Are you sure?" });
+  }
   const n = NOTES[arg]; if (!n) return;
   if (a === "nmenu") {
     nSaveNow();
     return dialog("", [[n.pinned ? "📌 Unpin" : "📌 Pin", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["📁 Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
-      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }], ["Cancel"]], "📝", { title: "Note" });
+      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }]].concat(n.binned ? [["⚠️ Delete forever", () => setTimeout(() => noteAct("nkill", n.id), 0)]] : []).concat([["Cancel"]]), "📝", { title: "Note" });
   }
   if (a === "nrestore") { n.binned = false; noteTouch(n, true); }
+  if (a === "nkill") return dialog("Delete this note for good? This can't be undone. It goes from your phone, laptop and server.", [["Delete forever", () => { nKill([n.id]); setTimeout(back, 0); }], ["Cancel", null, 1]], "⚠️", { title: "Are you sure?" });
 }
+
+// ── 🖼 Refs: drawing references, kept in Immich on the home server ──
+let REFS = store.get("refs", { albums: [], lists: {} }), refAlbum = store.get("refAlbum", ""), refBusy = false, refErr = "", refLoaded = 0, RV = null;
+let RO = Object.assign({ grid: 0, gcol: "#000000", grey: false, values: 0, xerox: 0, contrast: 100, flip: false, rot: 0 }, store.get("refopt", {}));
+const refSave = () => { store.set("refs", REFS); store.set("refAlbum", refAlbum); };
+const refItems = () => REFS.lists[refAlbum] || [];
+async function refsLoad() {
+  if (!STANDALONE || !serverUrl() || refBusy) return;
+  refBusy = true;
+  try {
+    const a = await nsrv("/refs/albums", {}, 20000);
+    REFS.albums = a.albums || [];
+    if (!refAlbum || (refAlbum !== "#fav" && !REFS.albums.some((x) => x.id === refAlbum))) refAlbum = (REFS.albums.find((x) => x.name === "Drawing refs") || REFS.albums[0] || {}).id || "";
+    if (refAlbum) { const l = await nsrv("/refs/list", { album: refAlbum }, 20000); REFS.lists[refAlbum] = l.items || []; }
+    refErr = ""; refLoaded = Date.now(); refSave();
+  } catch (e) { refErr = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
+  finally { refBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "refs") render(); }
+}
+setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "refs" && !RV) refsLoad(); }, 60000);
+async function refImg(id, size) {               // a picture as a blob URL, kept on this device for next time
+  const key = size + ":" + id; refImg.mem = refImg.mem || {};
+  if (refImg.mem[key]) return refImg.mem[key];
+  let rec = await idbDo("readonly", (st) => st.get(key), "refs");
+  if (!rec) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
+    try {
+      const r = await fetch(serverUrl() + "/refs/img", { method: "POST", body: JSON.stringify({ k: KEY, id: id, size: size }), signal: ctl.signal });
+      if (!r.ok) throw new Error("picture didn't load");
+      rec = { id: key, blob: await r.blob(), at: Date.now() };
+      await idbDo("readwrite", (st) => st.put(rec), "refs");
+    } finally { clearTimeout(t); }
+  }
+  return (refImg.mem[key] = URL.createObjectURL(rec.blob));
+}
+function refThumbs() {                         // the first screenful straight away, the rest as you scroll
+  const imgs = [...document.querySelectorAll("img[data-rt]:not([src])")]; if (!imgs.length) return;
+  const get = (img) => refImg(img.dataset.rt, "thumb").then((u) => { if (img.isConnected) img.src = u; }).catch(() => { img.alt = "⚠"; });
+  imgs.slice(0, 30).forEach(get);
+  if (imgs.length <= 30) return;
+  if (!("IntersectionObserver" in window)) { imgs.slice(30).forEach(get); return; }
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); get(e.target); } }), { rootMargin: "400px" });
+  imgs.slice(30).forEach((i) => io.observe(i));
+}
+function winRefs() {
+  if (!serverUrl()) return '<div class="card sunk">Refs come from Immich on your home server. Add its address in ⚙️ Settings → Home server first.</div><button class="btn raised" data-a="open" data-arg="settings">Open Settings</button>';
+  if (Date.now() - refLoaded > 60000) setTimeout(refsLoad, 0);
+  setTimeout(refThumbs, 0);
+  const items = refItems();
+  const chip = (id, label) => '<span class="nt-btn rf-chip' + (id === refAlbum ? " on" : "") + '" data-a="refalbum" data-arg="' + esc(id) + '">' + esc(label) + "</span>";
+  return '<div class="nt rf"><div class="rf-chips">' + REFS.albums.map((a) => chip(a.id, a.name + " · " + a.count)).join("") + chip("#fav", "♥ Favourites") + "</div>" +
+    (items.length ? '<div class="rf-grid">' + items.map((it, i) => '<div class="rf-cell" data-a="refopen" data-arg="' + i + '"><img data-rt="' + esc(it.id) + '" alt="">' + (it.fav ? "<i>♥</i>" : "") + "</div>").join("") + "</div>"
+      : '<div class="nt-empty">' + (refBusy || !refLoaded ? "Loading…" : "No pictures here yet.<br><br>On your phone: Pinterest or Photos → Share → <b>Immich</b> → add to <b>Drawing refs</b>. Or tap ＋ Add below.") + "</div>") +
+    '<div class="nt-bar"><span class="nt-c">' + items.length + " ref" + (items.length === 1 ? "" : "s") + " · " + (refErr ? "⚠ " + esc(refErr) : refLoaded ? "updated " + esc(ago(new Date(refLoaded).toISOString())) : "loading…") + "</span>" +
+    '<label class="nt-btn">＋ Add<input type="file" accept="image/*" multiple id="refadd" style="display:none"></label></div></div>';
+}
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "refadd" || !e.target.files || !e.target.files.length) return;
+  const files = [...e.target.files], album = refAlbum !== "#fav" ? refAlbum : ((REFS.albums.find((x) => x.name === "Drawing refs") || {}).id || "");
+  let done = 0;
+  for (const f of files) {
+    setStatus("adding refs " + (done + 1) + "/" + files.length + "…");
+    try { await nsrv("/refs/upload", { album: album, data: await photoToJpeg(f, 2400) }, 120000); done++; } catch (err) { toast("⚠ " + err.message); break; }
+  }
+  setStatus("✓ added " + done + " ref" + (done === 1 ? "" : "s")); refLoaded = 0; refsLoad();
+});
+
+// the viewer: full screen, with drawing aids that never change the picture itself
+function refOpen(i) {
+  const items = refItems(); if (!items[i]) return;
+  RV = { i: i, items: items, z: 1, x: 0, y: 0, img: null };
+  let el = $("rv"); if (!el) { el = document.createElement("div"); el.id = "rv"; document.body.appendChild(el); }
+  el.innerHTML = '<div class="rv-top"><span class="nt-btn" data-rv="close">✕</span><span class="nt-btn" data-rv="prev">‹</span><span class="rv-n" id="rvn"></span><span class="nt-btn" data-rv="next">›</span><span class="nt-btn" data-rv="fav" id="rvfav">♡</span><span class="nt-btn" data-rv="immich">↗</span></div>' +
+    '<div class="rv-stage" id="rvstage"><div id="rvin"><div class="rv-img" id="rvimg"><canvas id="rvc"></canvas><svg id="rvg"></svg></div></div></div><div class="rv-tools" id="rvtools"></div>';
+  document.body.classList.add("rv-open");
+  refTools(); refShow();
+}
+function refClose() { const el = $("rv"); if (el) el.remove(); RV = null; document.body.classList.remove("rv-open"); }
+function refTools() {
+  const b = (k, label, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-rv="' + k + '">' + label + "</span>";
+  const col = { "#000000": "⚫", "#ffffff": "⚪", "#ff2020": "🔴" }[RO.gcol] || "⚫";
+  $("rvtools").innerHTML = '<div class="rv-row">' + b("grid", "▦ " + (RO.grid ? RO.grid + "×" + RO.grid : "Grid"), RO.grid) + (RO.grid ? b("gcol", col) : "") + b("grey", "◐ Grey", RO.grey) +
+    b("values", "Values" + (RO.values ? " " + RO.values : ""), RO.values) + b("xerox", "Xerox", RO.xerox) + b("flip", "⇋ Flip", RO.flip) + b("rot", "⟳ " + RO.rot + "°", RO.rot) + b("reset", "Reset") + "</div>" +
+    '<div class="rv-row rv-sl">Contrast <input type="range" min="50" max="200" value="' + RO.contrast + '" data-rvs="contrast">' +
+    (RO.xerox ? ' Grain <input type="range" min="1" max="100" value="' + RO.xerox + '" data-rvs="xerox">' : "") + "</div>";
+}
+async function refShow() {
+  if (!RV) return;
+  const it = RV.items[RV.i]; RV.z = 1; RV.x = 0; RV.y = 0;
+  $("rvn").textContent = (RV.i + 1) + " / " + RV.items.length; $("rvfav").textContent = it.fav ? "♥" : "♡";
+  const load = (u) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = u; });
+  try { const th = await load(await refImg(it.id, "thumb")); if (RV && RV.items[RV.i] === it && !RV.img) { RV.img = th; refDraw(); } } catch (e) {}
+  try { const pv = await load(await refImg(it.id, "preview")); if (RV && RV.items[RV.i] === it) { RV.img = pv; refDraw(); } } catch (e) { setStatus("⚠ couldn't load that picture"); }
+  const nx = RV && RV.items[RV.i + 1]; if (nx) refImg(nx.id, "preview").catch(() => {});
+}
+function refGrain(w, h, seed) {
+  const g = Math.max(2, Math.round(Math.max(w, h) / 260)), gw = Math.ceil(w / g), gh = Math.ceil(h / g);
+  let s = seed >>> 0 || 1; const rand = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  const c = document.createElement("canvas"); c.width = gw; c.height = gh; const cx = c.getContext("2d"), id = cx.createImageData(gw, gh);
+  for (let i = 0; i < gw * gh; i++) { const v = rand() * 256 | 0; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
+  cx.putImageData(id, 0, 0);
+  const f = document.createElement("canvas"); f.width = w; f.height = h; const fx = f.getContext("2d"); fx.imageSmoothingEnabled = true; fx.drawImage(c, 0, 0, w, h);
+  return fx.getImageData(0, 0, w, h).data;
+}
+function refDraw() {
+  if (!RV || !RV.img) return;
+  const im = RV.img, k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k);
+  const c = $("rvc"); c.width = w; c.height = h; const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(im, 0, 0, w, h);
+  if (RO.grey || RO.values || RO.xerox) {
+    const d = cx.getImageData(0, 0, w, h), p = d.data, N = RO.values, amp = RO.xerox / 100 * 1.6, grain = RO.xerox ? refGrain(w, h, 1337) : null;
+    for (let i = 0; i < p.length; i += 4) {
+      let v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
+      if (grain) { const blend = Math.max(0, Math.min(255, 128 + (grain[i] - 128) * amp)); v = v < 128 ? (2 * v * blend) / 255 : 255 - (2 * (255 - v) * (255 - blend)) / 255; v = v < 128 ? 0 : 255; }
+      else if (N) v = Math.round(v / 255 * (N - 1)) * 255 / (N - 1);
+      p[i] = p[i + 1] = p[i + 2] = v;
+    }
+    cx.putImageData(d, 0, 0);
+  }
+  c.style.filter = RO.contrast !== 100 ? "contrast(" + RO.contrast + "%)" : "";
+  const st = $("rvstage"), sw = st.clientWidth - 8, sh = st.clientHeight - 8, side = RO.rot % 180 !== 0;
+  const fit = Math.min(sw / (side ? h : w), sh / (side ? w : h));
+  const box = $("rvimg"); box.style.width = Math.round(w * fit) + "px"; box.style.height = Math.round(h * fit) + "px";
+  box.style.transform = "rotate(" + RO.rot + "deg) scaleX(" + (RO.flip ? -1 : 1) + ")";
+  const g = $("rvg"); g.setAttribute("viewBox", "0 0 " + w + " " + h); g.setAttribute("preserveAspectRatio", "none");
+  let lines = "";
+  if (RO.grid) for (let n = 1; n < RO.grid; n++) { const x = (w * n / RO.grid).toFixed(1), y = (h * n / RO.grid).toFixed(1); lines += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + h + '"/><line x1="0" y1="' + y + '" x2="' + w + '" y2="' + y + '"/>'; }
+  g.innerHTML = '<g stroke="' + RO.gcol + '" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity=".85">' + lines + "</g>";
+  refPan();
+}
+function refPan() { const el = $("rvin"); if (el && RV) el.style.transform = "translate(" + RV.x + "px," + RV.y + "px) scale(" + RV.z + ")"; }
+function refGo(d) { if (!RV) return; const i = RV.i + d; if (i < 0 || i >= RV.items.length) return; RV.i = i; RV.img = null; refShow(); }
+function refOpt(k, v) { RO[k] = v; store.set("refopt", RO); refTools(); refDraw(); }
+document.addEventListener("click", (e) => {
+  const b = e.target.closest && e.target.closest("[data-rv]"); if (!b || !RV) return;
+  const k = b.dataset.rv, it = RV.items[RV.i];
+  if (k === "close") refClose();
+  else if (k === "prev") refGo(-1); else if (k === "next") refGo(1);
+  else if (k === "grid") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]);
+  else if (k === "gcol") refOpt("gcol", ["#000000", "#ffffff", "#ff2020"][(["#000000", "#ffffff", "#ff2020"].indexOf(RO.gcol) + 1) % 3]);
+  else if (k === "grey") refOpt("grey", !RO.grey);
+  else if (k === "values") refOpt("values", [0, 3, 4, 5][([0, 3, 4, 5].indexOf(RO.values) + 1) % 4]);
+  else if (k === "xerox") refOpt("xerox", RO.xerox ? 0 : 50);
+  else if (k === "flip") refOpt("flip", !RO.flip);
+  else if (k === "rot") refOpt("rot", (RO.rot + 90) % 360);
+  else if (k === "reset") { RO = { grid: 0, gcol: RO.gcol, grey: false, values: 0, xerox: 0, contrast: 100, flip: false, rot: 0 }; refOpt("grid", 0); }
+  else if (k === "fav") { const on = !it.fav; it.fav = on; $("rvfav").textContent = on ? "♥" : "♡"; refSave(); nsrv("/refs/fav", { id: it.id, on: on }).catch(() => { it.fav = !on; $("rvfav").textContent = it.fav ? "♥" : "♡"; toast("⚠ Couldn't reach Immich to save that ♥."); }); }
+  else if (k === "immich") { const u = new URL(serverUrl()); window.open(u.protocol + "//" + u.hostname + "/photos/" + it.id, "_blank"); }
+});
+document.addEventListener("input", (e) => { const k = e.target.dataset && e.target.dataset.rvs; if (k && RV) { RO[k] = Number(e.target.value); store.set("refopt", RO); clearTimeout(refOpt.t); refOpt.t = setTimeout(refDraw, 60); } });
+document.addEventListener("keydown", (e) => {
+  if (!RV) return;
+  if (e.key === "Escape") refClose(); else if (e.key === "ArrowRight") refGo(1); else if (e.key === "ArrowLeft") refGo(-1);
+  else if (e.key === "g") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]); else if (e.key === "x") refOpt("xerox", RO.xerox ? 0 : 50);
+});
+// pinch / drag / wheel zoom, swipe for next/previous
+const rvPts = new Map(); let rvStart = null;
+document.addEventListener("pointerdown", (e) => {
+  if (!RV || !e.target.closest("#rvstage")) return;
+  rvPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const pts = [...rvPts.values()];
+  rvStart = { z: RV.z, x: RV.x, y: RV.y, pts: pts.map((p) => ({ x: p.x, y: p.y })), t: Date.now() };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!RV || !rvPts.has(e.pointerId) || !rvStart) return;
+  rvPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const pts = [...rvPts.values()];
+  if (pts.length >= 2 && rvStart.pts.length >= 2) {
+    const d0 = Math.hypot(rvStart.pts[0].x - rvStart.pts[1].x, rvStart.pts[0].y - rvStart.pts[1].y), d1 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    RV.z = Math.max(1, Math.min(8, rvStart.z * d1 / (d0 || 1))); refPan();
+  } else if (pts.length === 1 && RV.z > 1) { RV.x = rvStart.x + pts[0].x - rvStart.pts[0].x; RV.y = rvStart.y + pts[0].y - rvStart.pts[0].y; refPan(); }
+});
+const rvUp = (e) => {
+  if (!RV || !rvPts.has(e.pointerId)) return;
+  const p = rvPts.get(e.pointerId); rvPts.delete(e.pointerId);
+  if (rvStart && rvStart.pts.length === 1 && RV.z === 1) {
+    const dx = p.x - rvStart.pts[0].x, dy = p.y - rvStart.pts[0].y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) refGo(dx < 0 ? 1 : -1);
+  }
+  if (!rvPts.size) { if (RV.z <= 1.02) { RV.z = 1; RV.x = 0; RV.y = 0; refPan(); } rvStart = null; }
+  else rvStart = { z: RV.z, x: RV.x, y: RV.y, pts: [...rvPts.values()].map((q) => ({ x: q.x, y: q.y })) };
+};
+document.addEventListener("pointerup", rvUp); document.addEventListener("pointercancel", rvUp);
+document.addEventListener("dblclick", (e) => { if (!RV || !e.target.closest("#rvstage")) return; RV.z = RV.z > 1 ? 1 : 2.5; RV.x = 0; RV.y = 0; refPan(); });
+document.addEventListener("wheel", (e) => { if (!RV || !e.target.closest("#rvstage")) return; e.preventDefault(); RV.z = Math.max(1, Math.min(8, RV.z * Math.exp(-e.deltaY / 300))); if (RV.z === 1) { RV.x = 0; RV.y = 0; } refPan(); }, { passive: false });
+window.addEventListener("resize", () => { if (RV) refDraw(); });
 
 // ── 📅 change a client's date (or not decided yet) ──
 function startSlot(r) {
@@ -1401,7 +1625,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1975,7 +2199,7 @@ function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
   if (pref("bean") === false) { el.innerHTML = ""; return; }
-  if (stack.length && ["note", "nlist"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
+  if (stack.length && ["note", "nlist", "notes", "refs"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -2102,7 +2326,9 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
-  else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore"].includes(a)) noteAct(a, arg, t);
+  else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
+  else if (a === "refalbum") { refAlbum = arg; refSave(); render(); refsLoad(); }
+  else if (a === "refopen") refOpen(Number(arg));
   else if (a === "hstest") {
     const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
     if (!serverUrl()) return toast("⚠ Type the home server address first.");
