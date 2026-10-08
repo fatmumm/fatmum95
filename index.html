@@ -326,6 +326,7 @@ async function syncOnce(force) {
       store.set("todoq", pendingTodo);
     }
     save(); lastSync = Date.now(); render(); beanSay(true);
+    notesSync();
     if (d.officeError) retryLater("✓ bookings synced, office busy");
     else { backoff = 0; setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5) + via); }
   } catch (e) {
@@ -570,7 +571,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["notes", "📝", "Notes"],
   ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -888,6 +889,155 @@ function editQr(i) {
     "💬", { title: list[i] ? "Quick reply" : "New quick reply" });
 }
 
+// ── 📝 Notes: kept on the home server + this phone (never Google). Newest edit wins. ──
+let NOTES = store.get("notes", {}), NQ = store.get("notesq", []), nState = { since: store.get("notesSince", 0), last: store.get("notesLast", 0), err: "" }, nSearch = "", nBusy = false;
+const nId = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function notesSave() { store.set("notes", NOTES); store.set("notesq", NQ); }
+function noteTouch(n, redraw) {
+  n.updated = Math.max(Date.now(), (n.updated || 0) + 1);       // always newer than the version it was edited from
+  NOTES[n.id] = n; if (!NQ.includes(n.id)) NQ.push(n.id); notesSave();
+  clearTimeout(noteTouch.t); noteTouch.t = setTimeout(notesSync, 600);
+  if (redraw) render();
+}
+async function nsrv(path, body, ms) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 8000);
+  try {
+    const j = await fetch(serverUrl() + path, { method: "POST", body: JSON.stringify(Object.assign({ k: KEY }, body)), signal: ctl.signal }).then((r) => r.json());
+    if (!j.ok) throw new Error(j.error || "no answer");
+    return j;
+  } finally { clearTimeout(t); }
+}
+const idb = () => new Promise((ok, no) => { const r = indexedDB.open("fm95", 1); r.onupgradeneeded = () => r.result.createObjectStore("photos", { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+async function idbDo(mode, fn) { const db = await idb(); return new Promise((ok) => { const tx = db.transaction("photos", mode), q = fn(tx.objectStore("photos")); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ok(null); }); }
+const idbGet = (id) => idbDo("readonly", (st) => st.get(id));
+const idbPut = (v) => idbDo("readwrite", (st) => st.put(v));
+const idbAll = () => idbDo("readonly", (st) => st.getAll());
+async function notesSync() {
+  if (!STANDALONE || !serverUrl() || nBusy) return;
+  nBusy = true;
+  try {
+    for (const ph of (await idbAll()) || []) if (ph.pending) { await nsrv("/notes/photo/put", { id: ph.id, data: ph.data }, 30000); ph.pending = false; await idbPut(ph); }
+    for (const id of NQ.slice()) {
+      if (!NOTES[id]) { NQ = NQ.filter((x) => x !== id); continue; }
+      const sentAt = NOTES[id].updated, r = await nsrv("/notes/save", { note: NOTES[id] });
+      if (!r.note || r.note.id !== id) throw new Error("odd answer from the server");
+      if (NOTES[id].updated === sentAt) { NOTES[id] = r.note; NQ = NQ.filter((x) => x !== id); }   // edited again meanwhile: send that next round
+      notesSave();
+    }
+    const l = await nsrv("/notes/list", { since: nState.since });
+    if (!Array.isArray(l.notes) || !l.now) throw new Error("odd answer from the server");
+    l.notes.filter((n) => n && n.id).forEach((n) => { const mine = NOTES[n.id]; if (!mine || (!NQ.includes(n.id) && (mine.updated || 0) <= n.updated)) NOTES[n.id] = n; });
+    nState.since = l.now; nState.last = Date.now(); nState.err = "";
+    store.set("notesSince", nState.since); store.set("notesLast", nState.last);
+  } catch (e) { nState.err = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
+  finally {
+    nBusy = false; notesSave();
+    const top = stack[stack.length - 1];
+    if (top && ["notes", "notesbin"].includes(top.kind)) render();
+    else if (!stack.length) render();
+  }
+}
+window.addEventListener("online", () => setTimeout(notesSync, 1500));
+function noteLine(n) {
+  const items = n.items || [], done = items.filter((i) => i.done).length;
+  const first = n.kind === "list" ? items.filter((i) => !i.done).slice(0, 3).map((i) => i.text).join(", ") : String(n.body || "").split("\n").find((x) => x.trim()) || "";
+  return '<div class="li" data-a="opennote" data-arg="' + esc(n.id) + '"><span class="ico">' + (n.pinned ? "📌" : n.kind === "list" ? "☑️" : "📝") + '</span><span class="lab"><b>' + esc(n.title || (n.kind === "list" ? "Checklist" : "Untitled")) + "</b>" +
+    '<div class="dim">' + esc(first.slice(0, 90)) + "</div></span>" + '<span class="st dimst">' + (n.kind === "list" ? "☑ " + done + "/" + items.length + " " : "") + ((n.photos || []).length ? "📷 " : "") + (NQ.includes(n.id) ? "📤" : "") + "</span></div>";
+}
+function notesStatus() {
+  if (!serverUrl()) return "";
+  return '<div class="dim" style="margin-top:10px">' + (NQ.length ? "📤 " + NQ.length + " waiting to sync" + (nState.err ? " (" + esc(nState.err) + ")" : "") : nState.last ? "✓ synced " + esc(ago(new Date(nState.last).toISOString())) : "Not synced yet") + " · kept on your home server, never Google.</div>";
+}
+function winNotes() {
+  if (!serverUrl()) return '<div class="card sunk">Notes live on your home server. Add its address in ⚙️ Settings → Home server first.</div><button class="btn raised" data-a="open" data-arg="settings">Open Settings</button>';
+  if (!nState.last || Date.now() - nState.last > 60000) setTimeout(notesSync, 0);
+  const q = nSearch.trim().toLowerCase();
+  const all = Object.values(NOTES).filter((n) => !n.binned && (!q || [n.title, n.body].concat((n.items || []).map((i) => i.text)).join(" ").toLowerCase().includes(q)))
+    .sort((x, y) => (y.pinned - x.pinned) || (y.updated - x.updated));
+  return '<div class="row" style="margin-top:0"><button class="btn raised" style="flex:1" data-a="newnote" data-arg="note">＋ Note</button><button class="btn raised" style="flex:1" data-a="newnote" data-arg="list">＋ Checklist</button></div>' +
+    '<input class="inp" id="nq" placeholder="🔎 Search notes" value="' + esc(nSearch) + '" autocomplete="off" style="margin:8px 0">' +
+    (all.length ? '<div class="lv sunk">' + all.map(noteLine).join("") + "</div>" : '<div class="card sunk">' + (q ? "Nothing matches that." : "No notes yet.") + "</div>") +
+    '<a class="link" data-a="open" data-arg="notesbin">🗑 Bin (' + Object.values(NOTES).filter((n) => n.binned).length + ")</a>" + notesStatus();
+}
+function winNotesBin() {
+  const b = Object.values(NOTES).filter((n) => n.binned).sort((x, y) => y.updated - x.updated);
+  return (b.length ? '<div class="lv sunk">' + b.map(noteLine).join("") + "</div>" : '<div class="card sunk">The bin is empty.</div>') + '<div class="dim" style="margin-top:8px">Open a note here to restore it. Nothing in the bin is ever deleted.</div>';
+}
+function winNote(id) {
+  const n = NOTES[id];
+  if (!n) return '<div class="card sunk">That note isn\'t here.</div>';
+  setTimeout(fillPhotos, 0);
+  const items = (n.items || []).slice().sort((x, y) => x.done - y.done);
+  let h = '<input class="inp" data-nfield="title" data-nid="' + esc(id) + '" value="' + esc(n.title) + '" placeholder="Title" style="font-weight:700">';
+  if (n.kind === "list") {
+    h += '<div class="lv sunk" style="margin-top:8px">' + items.map((it) => '<div class="li"><span class="bx sunk" data-a="ntick" data-arg="' + esc(id + "|" + it.id) + '" style="width:22px;height:22px;display:inline-block;text-align:center;line-height:18px;font-weight:700;flex:none;cursor:pointer">' + (it.done ? "✓" : "") + "</span>" +
+      '<input class="inp" data-nitem="' + esc(id + "|" + it.id) + '" value="' + esc(it.text) + '" style="flex:1;border:none;background:transparent;padding:4px;' + (it.done ? "text-decoration:line-through;opacity:.55" : "") + '">' +
+      '<span data-a="ndelitem" data-arg="' + esc(id + "|" + it.id) + '" style="padding:4px 8px;cursor:pointer">✕</span></div>').join("") +
+      '<div class="li"><span class="ico">＋</span><input class="inp" id="nadd" data-nid="' + esc(id) + '" placeholder="Add an item, then Return" style="flex:1;border:none;background:transparent;padding:4px" enterkeyhint="done"></div></div>';
+  } else {
+    h += '<textarea class="inp" data-nfield="body" data-nid="' + esc(id) + '" placeholder="Write here…" style="height:300px;margin-top:8px">' + esc(n.body) + "</textarea>";
+  }
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + (n.photos || []).map((ph) => '<img data-ph="' + esc(ph) + '" data-a="nview" data-arg="' + esc(ph) + '" style="width:84px;height:84px;object-fit:cover;border:2px inset #fff;background:#ddd">').join("") +
+    '<label class="btn raised" style="width:84px;height:84px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px">📷<br>Add photo<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label></div>';
+  h += '<div class="row">' + (n.binned ? '<button class="btn raised main" style="flex:1" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</button>' :
+    '<button class="btn raised" style="flex:1" data-a="npin" data-arg="' + esc(id) + '">' + (n.pinned ? "📌 Unpin" : "📌 Pin") + '</button><button class="btn raised" style="flex:1" data-a="nbin" data-arg="' + esc(id) + '">🗑 Bin</button>') + "</div>";
+  return h + notesStatus();
+}
+async function fillPhotos() {
+  for (const img of document.querySelectorAll("img[data-ph]:not([src])")) {
+    const id = img.dataset.ph; let ph = await idbGet(id);
+    if (!ph && serverUrl()) { try { const r = await nsrv("/notes/photo/get", { id: id }, 20000); ph = { id: id, data: "data:image/jpeg;base64," + r.data, pending: false }; await idbPut(ph); } catch (e) {} }
+    if (ph && img.isConnected) img.src = ph.data;
+  }
+}
+function photoToJpeg(file) {
+  return new Promise((ok, no) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+      c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok(c.toDataURL("image/jpeg", 0.8));
+    };
+    im.onerror = () => no(new Error("couldn't read that picture"));
+    im.src = url;
+  });
+}
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.id === "nq") { nSearch = t.value; const pos = t.selectionStart; render(); const el = $("nq"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
+  if (t.dataset.nfield) { const n = NOTES[t.dataset.nid]; if (n) { n[t.dataset.nfield] = t.value; noteTouch(n); } return; }
+  if (t.dataset.nitem) { const [id, iid] = t.dataset.nitem.split("|"), n = NOTES[id], it = n && n.items.find((x) => x.id === iid); if (it) { it.text = t.value; noteTouch(n); } }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.id !== "nadd" || e.key !== "Enter") return;
+  e.preventDefault();
+  const n = NOTES[e.target.dataset.nid], v = e.target.value.trim();
+  if (!n || !v) return;
+  n.items = (n.items || []).concat([{ id: nId("it"), text: v, done: false }]); noteTouch(n, true);
+  const el = $("nadd"); if (el) el.focus();
+});
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "nphotoin" || !e.target.files || !e.target.files[0]) return;
+  const n = NOTES[e.target.dataset.nid]; if (!n) return;
+  try {
+    const data = await photoToJpeg(e.target.files[0]), id = nId("ph");
+    await idbPut({ id: id, data: data, pending: true });
+    n.photos = (n.photos || []).concat([id]); noteTouch(n, true);
+  } catch (err) { toast("⚠ " + err.message); }
+});
+function noteAct(a, arg) {
+  if (a === "opennote") return open_("note", arg);
+  if (a === "newnote") { const n = { id: nId("n"), kind: arg, title: "", body: "", items: [], photos: [], pinned: false, binned: false, created: Date.now(), updated: Date.now() }; noteTouch(n); return open_("note", n.id); }
+  if (a === "nview") { const img = document.querySelector('img[data-ph="' + arg + '"]'); if (img && img.src) dialog('<img src="' + img.src + '" style="max-width:100%;display:block;margin:0 auto">', [["Close", null, 1]], null, { title: "Photo" }); return; }
+  const [id, iid] = String(arg).split("|"), n = NOTES[id]; if (!n) return;
+  if (a === "ntick") { const it = n.items.find((x) => x.id === iid); if (it) { it.done = !it.done; noteTouch(n, true); } }
+  else if (a === "ndelitem") { n.items = n.items.filter((x) => x.id !== iid); noteTouch(n, true); }
+  else if (a === "npin") { n.pinned = !n.pinned; noteTouch(n, true); }
+  else if (a === "nbin") { n.binned = true; n.pinned = false; noteTouch(n); back(); toast("Moved to the notes bin. You can restore it from there."); }
+  else if (a === "nrestore") { n.binned = false; noteTouch(n); back(); }
+}
+
 // ── 📅 change a client's date (or not decided yet) ──
 function startSlot(r) {
   const av = ((O() && O().avail && O().avail.days) || []).slice(0, 14);
@@ -975,6 +1125,8 @@ function winTitle(w) {
   if (w.kind === "photo") return "Photo";
   if (w.kind === "outbox") return "Outbox";
   if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
+  if (w.kind === "note") { const n = NOTES[w.arg]; return n && n.title ? n.title : (n && n.kind === "list" ? "Checklist" : "Note"); }
+  if (w.kind === "notesbin") return "Notes bin";
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
 }
 function badge(kind) {
@@ -982,6 +1134,7 @@ function badge(kind) {
   if (kind === "admin") return adminItems().length;
   if (kind === "today") return live().filter((r) => r.iso === todayISO()).length;
   if (kind === "inbox") return waitingThreads(0).length;
+  if (kind === "notes") return NQ.length;
   if (kind === "todo") { const v = todoView(); return v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0; }
   return 0;
 }
@@ -1004,7 +1157,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, note: winNote, notesbin: winNotesBin }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1704,6 +1857,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
+  else if (["opennote", "newnote", "nview", "ntick", "ndelitem", "npin", "nbin", "nrestore"].includes(a)) noteAct(a, arg);
   else if (a === "hstest") {
     const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
     if (!serverUrl()) return toast("⚠ Type the home server address first.");
