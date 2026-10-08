@@ -1332,7 +1332,9 @@ async function refsLoad() {
   try {
     const a = await nsrv("/refs/albums", {}, 20000);
     REFS.albums = a.albums || [];
-    if (!refAlbum || (refAlbum !== "#fav" && !REFS.albums.some((x) => x.id === refAlbum))) refAlbum = (REFS.albums.find((x) => x.name === "Drawing refs") || REFS.albums[0] || {}).id || "";
+    const pin = REFS.albums.find((x) => /^pinterest$/i.test(x.name.trim()));
+    if (pin && !store.get("refPicked", false)) refAlbum = pin.id;          // Pinterest first, until he picks another album himself
+    if (!refAlbum || (refAlbum !== "#fav" && !REFS.albums.some((x) => x.id === refAlbum))) refAlbum = ((pin || REFS.albums.find((x) => x.name === "Drawing refs") || REFS.albums[0]) || {}).id || "";
     if (refAlbum) { const l = await nsrv("/refs/list", { album: refAlbum }, 20000); REFS.lists[refAlbum] = l.items || []; }
     refErr = ""; refLoaded = Date.now(); refSave();
   } catch (e) { refErr = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
@@ -1369,9 +1371,9 @@ function winRefs() {
   setTimeout(refThumbs, 0);
   const items = refItems();
   const chip = (id, label) => '<span class="nt-btn rf-chip' + (id === refAlbum ? " on" : "") + '" data-a="refalbum" data-arg="' + esc(id) + '">' + esc(label) + "</span>";
-  return '<div class="nt rf"><div class="rf-chips">' + REFS.albums.map((a) => chip(a.id, a.name + " · " + a.count)).join("") + chip("#fav", "♥ Favourites") + "</div>" +
+  return '<div class="nt rf"><div class="rf-chips">' + REFS.albums.slice().sort((x, y) => (/^pinterest$/i.test(y.name.trim())) - (/^pinterest$/i.test(x.name.trim()))).map((a) => chip(a.id, a.name + " · " + a.count)).join("") + chip("#fav", "♥ Favourites") + "</div>" +
     (items.length ? '<div class="rf-grid">' + items.map((it, i) => '<div class="rf-cell" data-a="refopen" data-arg="' + i + '"><img data-rt="' + esc(it.id) + '" alt="">' + (it.fav ? "<i>♥</i>" : "") + "</div>").join("") + "</div>"
-      : '<div class="nt-empty">' + (refBusy || !refLoaded ? "Loading…" : "No pictures here yet.<br><br>On your phone: Pinterest or Photos → Share → <b>Immich</b> → add to <b>Drawing refs</b>. Or tap ＋ Add below.") + "</div>") +
+      : '<div class="nt-empty">' + (refBusy || !refLoaded ? "Loading…" : "No pictures here yet.<br><br>On your phone: in Pinterest tap ⋯ → <b>Download image</b>. The Immich app backs up your Pinterest album (turn on <b>Sync albums</b> in its backup settings) and it appears here. Or tap ＋ Add below.") + "</div>") +
     '<div class="nt-bar"><span class="nt-c">' + items.length + " ref" + (items.length === 1 ? "" : "s") + " · " + (refErr ? "⚠ " + esc(refErr) : refLoaded ? "updated " + esc(ago(new Date(refLoaded).toISOString())) : "loading…") + "</span>" +
     '<label class="nt-btn">＋ Add<input type="file" accept="image/*" multiple id="refadd" style="display:none"></label></div></div>';
 }
@@ -2327,7 +2329,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
   else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
-  else if (a === "refalbum") { refAlbum = arg; refSave(); render(); refsLoad(); }
+  else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") refOpen(Number(arg));
   else if (a === "hstest") {
     const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
