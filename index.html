@@ -4,8 +4,7 @@
 @font-face{font-family:"FMDigits";src:url(https://fonts.gstatic.com/s/vt323/v18/pxiKyp0ihIEF2isfFJXUdVNF.woff2) format("woff2");unicode-range:U+0030-0039;size-adjust:125%;font-display:swap}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
-.nt{margin:-10px;background:#fff;min-height:calc(100vh - 120px);display:flex;flex-direction:column;font-family:-apple-system,system-ui,"Segoe UI",sans-serif}
-.nt-bar{margin-top:auto}.nt-ed{min-height:0}.nt-ed .nt-tools{top:0;bottom:auto;box-shadow:0 1px #808080;border-top:0;border-bottom:1px solid #fff}
+.nt{margin:-8px;background:#fff;font-family:-apple-system,system-ui,"Segoe UI",sans-serif}.nt-ed{min-height:0}.nt-ed .nt-tools{top:0;bottom:auto;box-shadow:0 1px #808080;border-top:0;border-bottom:1px solid #fff}
 .nt-ed .nt-pop{top:39px;bottom:auto}
 .nt-g{font:700 12px Tahoma,sans-serif;color:#000080;padding:12px 12px 4px;background:#f3f3f3;border-bottom:1px solid #ddd}
 .nt-box{background:#fff;border-bottom:1px solid #ddd}
@@ -23,13 +22,13 @@ html{-webkit-text-size-adjust:100%}
 .nt-tx span{display:block;font-size:13px;color:#7a7a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .nt-th{width:40px;height:40px;object-fit:cover;border:1px solid #ccc;flex:none}
 .nt-q{font-style:normal;color:#000080;font-size:10px}
-.nt-bar,.nt-tools{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#c0c0c0;border-top:1px solid #fff;box-shadow:0 -1px #808080;padding:5px 8px}
+.nt-bar,.nt-tools{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#c0c0c0;border-bottom:1px solid #808080;box-shadow:0 1px #fff;padding:5px 8px}
 .nt-btn{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 9px;background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;font:13px Tahoma,sans-serif;color:#000;cursor:pointer;user-select:none;-webkit-user-select:none;box-sizing:border-box}
 .nt-btn:active{border-color:#404040 #fff #fff #404040}
 .nt-done{font-weight:700}
 .nt-top{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:12px;color:#888;border-bottom:1px solid #eee}
 .nt-binned{background:#fff4c2;padding:6px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
-.nt-page{min-height:30vh;padding:10px 14px 40px;outline:none;font-size:17px;line-height:1.45;color:#111;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
+.nt-page{min-height:22vh;padding:10px 14px 40px;outline:none;font-size:17px;line-height:1.45;color:#111;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
 .nt-page .nb{min-height:1.45em}
 .nt-page .nb:first-child,.nb-title{font-size:22px;font-weight:700;line-height:1.25;margin-bottom:4px}
 .nb-h{font-size:20px;font-weight:700;margin-top:8px}
@@ -46,49 +45,49 @@ html{-webkit-text-size-adjust:100%}
 .rf-cell{position:relative;aspect-ratio:1;background:#e2e2e2;overflow:hidden;cursor:pointer}
 .rf-cell img{width:100%;height:100%;object-fit:cover;display:block}
 .rf-cell i{position:absolute;right:5px;bottom:3px;color:#fff;font-style:normal;text-shadow:0 0 3px #000}
-#rv{position:fixed;inset:0;z-index:300;background:#151515;display:flex;flex-direction:column;touch-action:none;-webkit-user-select:none;user-select:none}
-.rv-top,.rv-tools{display:flex;flex-direction:column;gap:5px;padding:6px 8px;background:#c0c0c0}
-.rv-top{flex-direction:row;align-items:center;padding-top:max(6px,env(safe-area-inset-top));border-bottom:1px solid #808080}
-.rv-tools{padding-bottom:max(6px,env(safe-area-inset-bottom));border-top:1px solid #fff}
+.rf-chips{position:sticky;top:0;z-index:4}.rf-dim{opacity:.55}.rf-add{margin-left:auto}
+.rf-off{background:#ececec}.rf-off:after{content:"📵";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.45}
+.rf-view{margin:-8px;background:#fff;padding:8px}
+.rf-vtop{display:flex;align-items:center;gap:6px;margin-bottom:8px}.rf-vtop .nt-c{flex:1;text-align:center}
+.rf-frame{position:relative;height:min(56vh,calc(100vw - 16px) * 1.35);min-height:220px;margin:0 6px;background:#d8d8d8;border:1px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #404040;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none}
+@media (min-width:700px){.rf-frame{height:min(68vh,760px)}}
+#rvin{transform-origin:center center;will-change:transform}
+.rv-img{position:relative;box-shadow:0 1px 6px rgba(0,0,0,.35)}.rv-img canvas{width:100%;height:100%;display:block}
+.rv-img svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.rf-tools{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:6px;background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff}
 .rv-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .rv-sl{font:12px Tahoma,sans-serif}.rv-sl input{flex:1;min-width:90px}
-.rv-n{flex:1;text-align:center;font:13px Tahoma,sans-serif}
-.rv-stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-#rvin{transform-origin:center center;will-change:transform}
-.rv-img{position:relative}.rv-img canvas{width:100%;height:100%;display:block}
-.rv-img svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-body.rv-open{overflow:hidden}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
-body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:110px;overflow-x:hidden}
+body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom));overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .px,.title,.btn,.icon span,.big,.h,.chip,.tbar{font-family:"FMDigits","Pixelify Sans",Tahoma,sans-serif}
 .raised{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf}
 .sunk{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
-.tbar{display:flex;gap:4px;align-items:center;padding:4px;position:relative;z-index:8;margin-top:calc(10px + env(safe-area-inset-top))}
+.tbar{display:flex;gap:4px;align-items:center;padding:4px;position:relative;z-index:8;margin-top:calc(14px + env(safe-area-inset-top))}
 .tbar .btn{min-height:38px;padding:2px 10px}
 .spacer{flex:1}
 .tray{padding:7px 9px;font-size:14px;white-space:nowrap}
 .sync{font-size:12px;color:#333;font-family:Tahoma,sans-serif;white-space:nowrap;overflow:hidden;flex:1;min-width:0}
 .sync span{display:inline-block}.sync.roll span{padding-left:100%;animation:roll 9s linear infinite}
 @keyframes roll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-.menu{position:absolute;left:4px;top:calc(56px + env(safe-area-inset-top));width:min(270px,92vw);z-index:12;display:flex}
+.menu{position:absolute;left:4px;top:calc(60px + env(safe-area-inset-top));width:min(270px,92vw);z-index:12;display:flex}
 .menu .side{background:linear-gradient(0deg,#000080,#1084d0);color:#c0c0c0;writing-mode:vertical-rl;transform:rotate(180deg);padding:8px 4px;font-family:"FMDigits","Pixelify Sans",sans-serif;font-weight:600;letter-spacing:2px}
 .menu .items{flex:1}.menu .it{padding:12px;cursor:pointer}.menu .it:active{background:#000080;color:#fff}
-.desk{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:14px 6px;padding:18px 8px}
-.icon{text-align:center;color:#fff;cursor:pointer;min-width:0;height:96px;position:relative}
+.desk{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px 6px;padding:12px 8px}
+.icon{text-align:center;color:#fff;cursor:pointer;min-width:0;height:88px;position:relative}
 .icon .ic{width:52px;height:52px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf}
 .icon .ic>i{font-style:normal;display:block;width:32px;height:32px;line-height:32px;font-size:28px;text-align:center;overflow:hidden}
 .icon span{display:inline-block;max-width:100%;margin-top:4px;padding:1px 4px;font-size:14px;line-height:1.15;text-shadow:1px 1px #000;overflow-wrap:anywhere}
 .icon:active span{background:#000080;outline:1px dotted #fff;text-shadow:none}
 .badge{position:absolute;top:0;left:calc(50% + 12px);background:#ff0;color:#000;border:1px solid #000;font-size:11px;line-height:15px;min-width:17px;padding:0 3px;text-shadow:none;font-family:Tahoma,sans-serif}
 .win{margin:4px}
-.title{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:600;font-size:16px;padding:3px;display:flex;align-items:center;gap:6px;min-height:34px}
+.title{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:600;font-size:15px;padding:3px;display:flex;align-items:center;gap:6px;min-height:32px}
 .title .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
 .tb{width:30px;height:26px;min-height:0!important;padding:0!important;font-size:15px;font-weight:600;line-height:20px;flex:none}
-.body{padding:10px;min-height:60vh}
-.btn{font-size:16px;padding:8px 12px;min-height:44px;cursor:pointer;border-radius:0}
+.body{padding:8px}
+.btn{font-size:15px;padding:6px 10px;min-height:38px;cursor:pointer;border-radius:0}
 .btn:active,.btn.on{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px #808080}
-.btn.main{width:100%;margin:12px 0 4px;font-size:18px;font-weight:600;min-height:52px;outline:1px solid #000;outline-offset:-5px}
+.btn.main{width:100%;margin:10px 0 4px;font-size:17px;font-weight:600;min-height:44px;outline:1px solid #000;outline-offset:-5px}
 .btn.wide{width:100%;margin-top:8px}
 .btn.small{min-height:34px;padding:4px 10px;font-size:14px}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.row .btn{flex:1 1 0;min-width:0}
@@ -104,7 +103,7 @@ button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .details{margin-top:10px;border-top:1px solid #ddd;padding-top:8px;display:grid;grid-template-columns:76px minmax(0,1fr);gap:5px 10px;font-size:14px}
 .details b{color:#555;font-weight:normal}.details span{overflow-wrap:anywhere}
 .lv{padding:0}
-.li{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #e3e3e3;min-height:46px}
+.li{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #e3e3e3;min-height:40px}
 .li:last-child{border-bottom:0}
 .li[data-a]{cursor:pointer}.li[data-a]:active{background:#000080;color:#fff}.li[data-a]:active .st,.li[data-a]:active .dim{color:#fff}
 .li .ico{width:22px;text-align:center;font-size:17px;flex:none}
@@ -122,7 +121,7 @@ button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .prog{height:14px;margin:2px 4px;padding:2px}.prog i{display:block;height:100%;width:30%;background:repeating-linear-gradient(90deg,#000080 0 10px,transparent 10px 12px);animation:p 1s linear infinite}
 @keyframes p{from{margin-left:0}to{margin-left:70%}}
 .veil{position:absolute;left:0;right:0;top:0;min-height:100%;background:rgba(0,0,0,.3);z-index:19}
-.dialog{position:absolute;left:8px;right:8px;z-index:20;max-width:560px;margin:0 auto}
+.dialog{position:absolute;left:8px;right:8px;z-index:20;max-width:560px;margin:calc(14px + env(safe-area-inset-top)) auto 0}
 .dialog .msg{padding:12px;font-size:15px}
 .dialog .btns{padding:0 12px 12px}
 .field{display:block;margin:8px 0 2px;font-size:13px;color:#333}
@@ -154,7 +153,7 @@ textarea.inp{height:190px;font-size:14px;line-height:1.35}
 .task.done .tt{text-decoration:line-through;color:#888}
 .task .more{display:none;gap:4px;flex-wrap:wrap;margin-top:6px}.task.open .more{display:flex}
 .task .tt{overflow-wrap:anywhere}
-#bean{position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:15;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:min(320px,calc(100vw - 16px))}
+#bean{position:fixed;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:15;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:min(320px,calc(100vw - 16px))}
 #bean canvas{width:64px;height:64px;image-rendering:pixelated;cursor:pointer;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.4))}
 .bubble{background:#ffffe1;border:1px solid #000;padding:10px;font-size:14px;box-shadow:2px 2px 0 rgba(0,0,0,.35);position:relative}
 .bubble:after{content:"";position:absolute;right:24px;bottom:-9px;border:8px solid transparent;border-top-color:#000;border-bottom:0}
@@ -977,13 +976,18 @@ function noteTouch(n, redraw) {
   clearTimeout(noteTouch.t); noteTouch.t = setTimeout(notesSync, 600);
   if (redraw) render();
 }
+let srvDownUntil = 0;                          // home server unreachable: stop knocking for 30s instead of hanging
+const srvDown = () => !navigator.onLine || Date.now() < srvDownUntil;
+function srvFail(e) { if (e && (e.name === "AbortError" || e instanceof TypeError)) srvDownUntil = Date.now() + 30000; }
+window.addEventListener("online", () => { srvDownUntil = 0; });
 async function nsrv(path, body, ms) {
+  if (srvDown()) throw new TypeError("server not reachable");
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 8000);
   try {
     const j = await fetch(serverUrl() + path, { method: "POST", body: JSON.stringify(Object.assign({ k: KEY }, body)), signal: ctl.signal }).then((r) => r.json());
     if (!j.ok) throw new Error(j.error || "no answer");
     return j;
-  } finally { clearTimeout(t); }
+  } catch (e) { srvFail(e); throw e; } finally { clearTimeout(t); }
 }
 const idb = () => idb.p || (idb.p = new Promise((ok, no) => { const r = indexedDB.open("fm95", 2); r.onupgradeneeded = () => { ["photos", "refs"].forEach((n) => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: "id" }); }); }; r.onsuccess = () => ok(r.result); r.onerror = () => { idb.p = null; no(r.error); }; }));
 async function idbDo(mode, fn, store) { const db = await idb(); return new Promise((ok) => { const tx = db.transaction(store || "photos", mode), q = fn(tx.objectStore(store || "photos")); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ok(null); }); }
@@ -993,6 +997,7 @@ const idbAll = () => idbDo("readonly", (st) => st.getAll());
 const nEditing = () => { const ed = $("nted"); return !!(ed && ed.contains(document.activeElement)); };
 async function notesSync() {
   if (!STANDALONE || !serverUrl()) return;
+  if (srvDown()) { nState.err = "server not reachable"; return; }
   if (nBusy) { nAgain = true; return; }        // a sync is running: go again as soon as it finishes
   nBusy = true; nAgain = false; let ok = false;
   try {
@@ -1045,6 +1050,7 @@ function nGroup(n) {
   return d.toLocaleString("en-GB", d.getFullYear() === t.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
 }
 function nStatus() {
+  if (srvDown()) return "📵 Offline" + (NQ.length ? " · " + NQ.length + " waiting" : " · all saved on this phone");
   return NQ.length ? "📤 " + NQ.length + " waiting" + (nState.err ? " · " + esc(nState.err) : "") : nState.last ? "✓ synced " + esc(ago(new Date(nState.last).toISOString())) : "not synced yet";
 }
 function winNotes() {                          // Folders
@@ -1053,9 +1059,9 @@ function winNotes() {                          // Folders
   Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
   const live = nLive(), binned = Object.values(NOTES).filter((n) => n.binned).length;
   const row = (key, icon, label, count) => '<div class="nt-row" data-a="nfolder" data-arg="' + esc(key) + '"' + (key && key[0] !== "*" && key[0] !== "#" ? ' data-folder="' + esc(key) + '"' : "") + '><span class="nt-ic">' + icon + '</span><span class="nt-l">' + esc(label) + '</span><span class="nt-c">' + count + " ›</span></div>";
-  return '<div class="nt"><div class="nt-g">Folders</div><div class="nt-box">' + row("*", "🗂", "All notes", live.length) + row("", "📝", "Notes", live.filter((n) => !n.folder).length) +
+  return '<div class="nt"><div class="nt-bar"><span class="nt-btn" data-a="nnewfolder">📁＋ New folder</span><span class="nt-c">' + nStatus() + '</span></div><div class="nt-g">Folders</div><div class="nt-box">' + row("*", "🗂", "All notes", live.length) + row("", "📝", "Notes", live.filter((n) => !n.folder).length) +
     nFolders().map((f) => row(f, "📁", f, live.filter((n) => n.folder === f).length)).join("") + '</div><div class="nt-box">' + row("#bin", "🗑", "Bin", binned) + "</div>" +
-    '<div class="nt-hint">Hold a folder to rename it.</div><div class="nt-bar"><span class="nt-btn" data-a="nnewfolder">📁＋ New folder</span><span class="nt-c">' + nStatus() + "</span></div></div>";
+    '<div class="nt-hint">Hold a folder to rename it.</div></div>';
 }
 function nRow(n) {
   const b = nBlocks(n), txt = b.filter((x) => x.t !== "img" && x.text.trim()), img = b.find((x) => x.t === "img");
@@ -1076,10 +1082,10 @@ function winNList(f) {
   pool.forEach((n) => { const name = n.pinned && !bin ? "📌 Pinned" : nGroup(n); let g = groups.find((x) => x[0] === name); if (!g) groups.push(g = [name, []]); g[1].push(n); });
   groups.sort((x, y) => (y[0] === "📌 Pinned") - (x[0] === "📌 Pinned"));
   return '<div class="nt"><input class="nt-search" id="nq" placeholder="🔎 Search" value="' + esc(nSearch) + '" autocomplete="off">' +
+    '<div class="nt-bar"><span class="nt-c">' + pool.length + " note" + (pool.length === 1 ? "" : "s") + " · " + nStatus() + "</span>" + (bin ? (pool.length ? '<span class="nt-btn" data-a="nempty">Empty bin</span>' : "") : '<span class="nt-btn" data-a="newnote" data-arg="' + esc(f) + '">✏️ New</span>') + "</div>" +
     (groups.length ? groups.map(([name, ns]) => '<div class="nt-g">' + esc(name) + '</div><div class="nt-list">' + ns.map(nRow).join("") + "</div>").join("") :
       '<div class="nt-empty">' + (q ? "Nothing matches that." : bin ? "The bin is empty." : "No notes yet.") + "</div>") +
-    (bin ? '<div class="nt-hint">Open a note to restore it or delete it for good.</div>' : '<div class="nt-hint">Swipe a note left to bin it, right to pin it.</div>') +
-    '<div class="nt-bar"><span class="nt-c">' + pool.length + " note" + (pool.length === 1 ? "" : "s") + " · " + nStatus() + "</span>" + (bin ? (pool.length ? '<span class="nt-btn" data-a="nempty">Empty bin</span>' : "") : '<span class="nt-btn" data-a="newnote" data-arg="' + esc(f) + '">✏️ New</span>') + "</div></div>";
+    (bin ? '<div class="nt-hint">Open a note to restore it or delete it for good.</div>' : '<div class="nt-hint">Swipe a note left to bin it, right to pin it.</div>') + "</div>";
 }
 function nBlockHtml(b) {
   if (b.t === "img") return '<div class="nb nb-img" contenteditable="false" data-t="img" data-id="' + esc(b.id) + '"><img data-ph="' + esc(b.id) + '" data-a="nview" data-arg="' + esc(b.id) + '"></div>';
@@ -1186,6 +1192,31 @@ document.addEventListener("input", (e) => {
   const t = e.target;
   if (t.id === "nq") { nSearch = t.value; const pos = t.selectionStart; render(); const el = $("nq"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (t.id === "nted") { nTidy(t); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400); }
+});
+document.addEventListener("paste", (e) => {     // paste as plain text: first line where you are, the rest as normal lines
+  const ed = $("nted"); if (!ed || !ed.contains(e.target)) return;
+  e.preventDefault();
+  const text = ((e.clipboardData || window.clipboardData).getData("text/plain") || "").replace(/\r/g, "");
+  if (!text) return;
+  const lines = text.split("\n"), blk = nCur(); if (!blk) return;
+  const sel = getSelection(), r = sel.getRangeAt(0); r.deleteContents();
+  if (lines.length === 1) { r.insertNode(document.createTextNode(lines[0])); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+  else {
+    const tail = document.createRange(); tail.setStart(r.endContainer, r.endOffset); tail.setEnd(blk, blk.childNodes.length);
+    const rest = tail.extractContents(); rest.querySelectorAll && rest.querySelectorAll(".nt-cb").forEach((c) => c.remove());
+    blk.appendChild(document.createTextNode(lines[0]));
+    const t = blk.dataset.t, kind = t === "check" || t === "li" ? t : "p";
+    let last = blk;
+    lines.slice(1).forEach((ln) => {
+      const m = ln.match(/^\s*(?:[-*•]\s+|\[( |x|X)\]\s*)/), nb = nMake(m ? (m[1] !== undefined ? "check" : "li") : kind);
+      if (m && m[1] && m[1].toLowerCase() === "x") nb.classList.add("done");
+      nb.appendChild(document.createTextNode(m ? ln.slice(m[0].length) : ln));
+      if (!nb.textContent) nb.appendChild(document.createElement("br"));
+      last.after(nb); last = nb;
+    });
+    last.appendChild(rest); nCaret(last, false);
+  }
+  nTidy(ed); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 300);
 });
 document.addEventListener("selectionchange", () => { const b = nCur(); if (b) nLastBlock = b; });
 document.addEventListener("keydown", (e) => {
@@ -1322,43 +1353,48 @@ function noteAct(a, arg, el) {
 }
 
 // ── 🖼 Refs: drawing references, kept in Immich on the home server ──
+const REF_TABS = [["pinterest", "Pinterest"], ["camera roll", "Camera roll"]];
 let REFS = store.get("refs", { albums: [], lists: {} }), refAlbum = store.get("refAlbum", ""), refBusy = false, refErr = "", refLoaded = 0, RV = null;
-let RO = Object.assign({ grid: 0, gcol: "#000000", grey: false, values: 0, xerox: 0, contrast: 100, flip: false, rot: 0 }, store.get("refopt", {}));
+let RO = Object.assign({ grid: 0, gcol: "#000000", grey: false, values: false, vn: 4, contrast: 100, flip: false, rot: 0 }, store.get("refopt", {}));
+if (typeof RO.values === "number") { RO.vn = RO.values || 4; RO.values = RO.values > 0; } delete RO.xerox;
 const refSave = () => { store.set("refs", REFS); store.set("refAlbum", refAlbum); };
 const refItems = () => REFS.lists[refAlbum] || [];
+const refTab = (k) => REFS.albums.find((a) => a.name.trim().toLowerCase() === k);
 async function refsLoad() {
   if (!STANDALONE || !serverUrl() || refBusy) return;
+  if (srvDown()) { refErr = "offline"; return; }
   refBusy = true;
   try {
-    const a = await nsrv("/refs/albums", {}, 20000);
+    const a = await nsrv("/refs/albums", {}, 8000);
     REFS.albums = a.albums || [];
-    const pin = REFS.albums.find((x) => /^pinterest$/i.test(x.name.trim()));
-    if (pin && !store.get("refPicked", false)) refAlbum = pin.id;          // Pinterest first, until he picks another album himself
-    if (!refAlbum || (refAlbum !== "#fav" && !REFS.albums.some((x) => x.id === refAlbum))) refAlbum = ((pin || REFS.albums.find((x) => x.name === "Drawing refs") || REFS.albums[0]) || {}).id || "";
-    if (refAlbum) { const l = await nsrv("/refs/list", { album: refAlbum }, 20000); REFS.lists[refAlbum] = l.items || []; }
+    const pin = refTab("pinterest"), cam = refTab("camera roll");
+    if (pin && !store.get("refPicked", false)) refAlbum = pin.id;          // Pinterest first, until he picks a tab himself
+    if (![pin, cam].some((x) => x && x.id === refAlbum)) refAlbum = ((pin || cam) || {}).id || "";
+    if (refAlbum) { const l = await nsrv("/refs/list", { album: refAlbum }, 8000); REFS.lists[refAlbum] = l.items || []; }
     refErr = ""; refLoaded = Date.now(); refSave();
-  } catch (e) { refErr = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
+  } catch (e) { refErr = srvDown() ? "offline" : e.message; }
   finally { refBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "refs") render(); }
 }
-setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "refs" && !RV) refsLoad(); }, 60000);
-async function refImg(id, size) {               // a picture as a blob URL, kept on this device for next time
+setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "refs" && !srvDown()) refsLoad(); }, 60000);
+async function refImg(id, size) {               // a picture as a blob URL; kept on this device so it opens offline next time
   const key = size + ":" + id; refImg.mem = refImg.mem || {};
   if (refImg.mem[key]) return refImg.mem[key];
   let rec = await idbDo("readonly", (st) => st.get(key), "refs");
   if (!rec) {
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
+    if (srvDown()) throw new Error("offline");
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), size === "thumb" ? 6000 : 12000);
     try {
       const r = await fetch(serverUrl() + "/refs/img", { method: "POST", body: JSON.stringify({ k: KEY, id: id, size: size }), signal: ctl.signal });
       if (!r.ok) throw new Error("picture didn't load");
       rec = { id: key, blob: await r.blob(), at: Date.now() };
       await idbDo("readwrite", (st) => st.put(rec), "refs");
-    } finally { clearTimeout(t); }
+    } catch (e) { srvFail(e); throw e; } finally { clearTimeout(t); }
   }
   return (refImg.mem[key] = URL.createObjectURL(rec.blob));
 }
 function refThumbs() {                         // the first screenful straight away, the rest as you scroll
   const imgs = [...document.querySelectorAll("img[data-rt]:not([src])")]; if (!imgs.length) return;
-  const get = (img) => refImg(img.dataset.rt, "thumb").then((u) => { if (img.isConnected) img.src = u; }).catch(() => { img.alt = "⚠"; });
+  const get = (img) => refImg(img.dataset.rt, "thumb").then((u) => { if (img.isConnected) img.src = u; }).catch(() => { if (img.isConnected) img.parentElement.classList.add("rf-off"); });
   imgs.slice(0, 30).forEach(get);
   if (imgs.length <= 30) return;
   if (!("IntersectionObserver" in window)) { imgs.slice(30).forEach(get); return; }
@@ -1367,80 +1403,71 @@ function refThumbs() {                         // the first screenful straight a
 }
 function winRefs() {
   if (!serverUrl()) return '<div class="card sunk">Refs come from Immich on your home server. Add its address in ⚙️ Settings → Home server first.</div><button class="btn raised" data-a="open" data-arg="settings">Open Settings</button>';
-  if (Date.now() - refLoaded > 60000) setTimeout(refsLoad, 0);
+  if (Date.now() - refLoaded > 60000 && !srvDown()) setTimeout(refsLoad, 0);
   setTimeout(refThumbs, 0);
   const items = refItems();
-  const chip = (id, label) => '<span class="nt-btn rf-chip' + (id === refAlbum ? " on" : "") + '" data-a="refalbum" data-arg="' + esc(id) + '">' + esc(label) + "</span>";
-  return '<div class="nt rf"><div class="rf-chips">' + REFS.albums.slice().sort((x, y) => (/^pinterest$/i.test(y.name.trim())) - (/^pinterest$/i.test(x.name.trim()))).map((a) => chip(a.id, a.name + " · " + a.count)).join("") + chip("#fav", "♥ Favourites") + "</div>" +
+  const tabs = REF_TABS.map(([k, label]) => { const al = refTab(k); return al ? '<span class="nt-btn rf-chip' + (al.id === refAlbum ? " on" : "") + '" data-a="refalbum" data-arg="' + esc(al.id) + '">' + esc(label) + " · " + al.count + "</span>"
+    : '<span class="nt-btn rf-chip rf-dim" data-a="refhow" data-arg="' + k + '">' + esc(label) + "</span>"; }).join("");
+  const st = srvDown() || refErr === "offline" ? "📵 Offline · showing saved pictures" : refErr ? "⚠ " + esc(refErr) : refLoaded ? items.length + " ref" + (items.length === 1 ? "" : "s") + " · updated " + esc(ago(new Date(refLoaded).toISOString())) : "Loading…";
+  return '<div class="nt rf"><div class="rf-chips">' + tabs + '<label class="nt-btn rf-add">＋ Add<input type="file" accept="image/*" multiple id="refadd" style="display:none"></label></div><div class="nt-hint">' + st + "</div>" +
     (items.length ? '<div class="rf-grid">' + items.map((it, i) => '<div class="rf-cell" data-a="refopen" data-arg="' + i + '"><img data-rt="' + esc(it.id) + '" alt="">' + (it.fav ? "<i>♥</i>" : "") + "</div>").join("") + "</div>"
-      : '<div class="nt-empty">' + (refBusy || !refLoaded ? "Loading…" : "No pictures here yet.<br><br>On your phone: in Pinterest tap ⋯ → <b>Download image</b>. The Immich app backs up your Pinterest album (turn on <b>Sync albums</b> in its backup settings) and it appears here. Or tap ＋ Add below.") + "</div>") +
-    '<div class="nt-bar"><span class="nt-c">' + items.length + " ref" + (items.length === 1 ? "" : "s") + " · " + (refErr ? "⚠ " + esc(refErr) : refLoaded ? "updated " + esc(ago(new Date(refLoaded).toISOString())) : "loading…") + "</span>" +
-    '<label class="nt-btn">＋ Add<input type="file" accept="image/*" multiple id="refadd" style="display:none"></label></div></div>';
+      : '<div class="nt-empty">' + (refBusy || (!refLoaded && !srvDown()) ? "Loading…" : "No pictures here yet. Tap ＋ Add to put some in Camera roll.") + "</div>") + "</div>";
 }
 document.addEventListener("change", async (e) => {
   if (e.target.id !== "refadd" || !e.target.files || !e.target.files.length) return;
-  const files = [...e.target.files], album = refAlbum !== "#fav" ? refAlbum : ((REFS.albums.find((x) => x.name === "Drawing refs") || {}).id || "");
-  let done = 0;
+  const cam = refTab("camera roll");
+  if (!cam) return toast("⚠ The Camera roll album isn't on the server yet. Ask the server's Claude to make it.");
+  const files = [...e.target.files]; let done = 0;
   for (const f of files) {
     setStatus("adding refs " + (done + 1) + "/" + files.length + "…");
-    try { await nsrv("/refs/upload", { album: album, data: await photoToJpeg(f, 2400) }, 120000); done++; } catch (err) { toast("⚠ " + err.message); break; }
+    try { await nsrv("/refs/upload", { album: cam.id, data: await photoToJpeg(f, 2400) }, 120000); done++; } catch (err) { toast(srvDown() ? "📵 You're offline. Add it again when you're back online." : "⚠ " + err.message); break; }
   }
-  setStatus("✓ added " + done + " ref" + (done === 1 ? "" : "s")); refLoaded = 0; refsLoad();
+  if (done) { setStatus("✓ added " + done + " to Camera roll"); refAlbum = cam.id; store.set("refPicked", true); refLoaded = 0; refsLoad(); }
 });
 
-// the viewer: full screen, with drawing aids that never change the picture itself
-function refOpen(i) {
-  const items = refItems(); if (!items[i]) return;
-  RV = { i: i, items: items, z: 1, x: 0, y: 0, img: null };
-  let el = $("rv"); if (!el) { el = document.createElement("div"); el.id = "rv"; document.body.appendChild(el); }
-  el.innerHTML = '<div class="rv-top"><span class="nt-btn" data-rv="close">✕</span><span class="nt-btn" data-rv="prev">‹</span><span class="rv-n" id="rvn"></span><span class="nt-btn" data-rv="next">›</span><span class="nt-btn" data-rv="fav" id="rvfav">♡</span><span class="nt-btn" data-rv="immich">↗</span></div>' +
-    '<div class="rv-stage" id="rvstage"><div id="rvin"><div class="rv-img" id="rvimg"><canvas id="rvc"></canvas><svg id="rvg"></svg></div></div></div><div class="rv-tools" id="rvtools"></div>';
-  document.body.classList.add("rv-open");
-  refTools(); refShow();
+// one picture, bigger, inside the normal window. Drawing aids never change the picture itself.
+function winRef(i) {
+  i = Number(i); const items = refItems();
+  if (!items[i]) return '<div class="card sunk">That picture isn\'t here.</div>';
+  if (!RV || RV.i !== i || RV.items !== items) RV = { i: i, items: items, z: 1, x: 0, y: 0, img: null };
+  setTimeout(refShow, 0);
+  return '<div class="rf-view"><div class="rf-vtop"><span class="nt-btn" data-a="refgo" data-arg="-1">‹</span><span class="nt-c" id="rvn">' + (i + 1) + " / " + items.length + '</span><span class="nt-btn" data-a="refgo" data-arg="1">›</span><span class="nt-btn" data-a="reffav" id="rvfav">' + (items[i].fav ? "♥" : "♡") + "</span></div>" +
+    '<div class="rf-frame" id="rvstage"><div id="rvin"><div class="rv-img" id="rvimg"><canvas id="rvc"></canvas><svg id="rvg"></svg></div></div></div>' +
+    '<div class="nt-c" id="rvnote" style="text-align:center;min-height:16px"></div><div class="rf-tools" id="rvtools">' + refToolsHtml() + "</div></div>";
 }
-function refClose() { const el = $("rv"); if (el) el.remove(); RV = null; document.body.classList.remove("rv-open"); }
-function refTools() {
-  const b = (k, label, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-rv="' + k + '">' + label + "</span>";
+function refToolsHtml() {
+  const b = (k, label, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-a="reftool" data-arg="' + k + '">' + label + "</span>";
   const col = { "#000000": "⚫", "#ffffff": "⚪", "#ff2020": "🔴" }[RO.gcol] || "⚫";
-  $("rvtools").innerHTML = '<div class="rv-row">' + b("grid", "▦ " + (RO.grid ? RO.grid + "×" + RO.grid : "Grid"), RO.grid) + (RO.grid ? b("gcol", col) : "") + b("grey", "◐ Grey", RO.grey) +
-    b("values", "Values" + (RO.values ? " " + RO.values : ""), RO.values) + b("xerox", "Xerox", RO.xerox) + b("flip", "⇋ Flip", RO.flip) + b("rot", "⟳ " + RO.rot + "°", RO.rot) + b("reset", "Reset") + "</div>" +
-    '<div class="rv-row rv-sl">Contrast <input type="range" min="50" max="200" value="' + RO.contrast + '" data-rvs="contrast">' +
-    (RO.xerox ? ' Grain <input type="range" min="1" max="100" value="' + RO.xerox + '" data-rvs="xerox">' : "") + "</div>";
+  return '<div class="rv-row">' + b("grid", "▦ " + (RO.grid ? RO.grid + "×" + RO.grid : "Grid"), RO.grid) + (RO.grid ? b("gcol", col) : "") + b("grey", "◐ Grey", RO.grey) + b("values", "Values", RO.values) +
+    b("flip", "⇋ Flip", RO.flip) + b("rot", "⟳ " + RO.rot + "°", RO.rot) + b("reset", "Reset") + "</div>" +
+    (RO.values ? '<div class="rv-row rv-sl">Values <b id="rvvn">' + RO.vn + '</b><input type="range" min="2" max="15" step="1" value="' + RO.vn + '" data-rvs="vn"></div>' : "") +
+    '<div class="rv-row rv-sl">Contrast <input type="range" min="50" max="200" value="' + RO.contrast + '" data-rvs="contrast"></div>';
 }
 async function refShow() {
-  if (!RV) return;
-  const it = RV.items[RV.i]; RV.z = 1; RV.x = 0; RV.y = 0;
-  $("rvn").textContent = (RV.i + 1) + " / " + RV.items.length; $("rvfav").textContent = it.fav ? "♥" : "♡";
+  if (!RV || !$("rvc")) return;
+  const it = RV.items[RV.i], note = $("rvnote");
   const load = (u) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = u; });
-  try { const th = await load(await refImg(it.id, "thumb")); if (RV && RV.items[RV.i] === it && !RV.img) { RV.img = th; refDraw(); } } catch (e) {}
-  try { const pv = await load(await refImg(it.id, "preview")); if (RV && RV.items[RV.i] === it) { RV.img = pv; refDraw(); } } catch (e) { setStatus("⚠ couldn't load that picture"); }
-  const nx = RV && RV.items[RV.i + 1]; if (nx) refImg(nx.id, "preview").catch(() => {});
-}
-function refGrain(w, h, seed) {
-  const g = Math.max(2, Math.round(Math.max(w, h) / 260)), gw = Math.ceil(w / g), gh = Math.ceil(h / g);
-  let s = seed >>> 0 || 1; const rand = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
-  const c = document.createElement("canvas"); c.width = gw; c.height = gh; const cx = c.getContext("2d"), id = cx.createImageData(gw, gh);
-  for (let i = 0; i < gw * gh; i++) { const v = rand() * 256 | 0; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
-  cx.putImageData(id, 0, 0);
-  const f = document.createElement("canvas"); f.width = w; f.height = h; const fx = f.getContext("2d"); fx.imageSmoothingEnabled = true; fx.drawImage(c, 0, 0, w, h);
-  return fx.getImageData(0, 0, w, h).data;
+  if (!RV.img) { try { const th = await load(await refImg(it.id, "thumb")); if (RV && RV.items[RV.i] === it && !RV.img) { RV.img = th; RV.full = false; refDraw(); } } catch (e) {} }
+  if (RV && RV.full && RV.img) { refDraw(); return; }
+  try { const pv = await load(await refImg(it.id, "preview")); if (RV && RV.items[RV.i] === it) { RV.img = pv; RV.full = true; refDraw(); if (note) note.textContent = ""; } }
+  catch (e) { if (note) note.textContent = RV && RV.img ? "📵 Full size when you're back online." : "📵 This one isn't saved on this device yet."; }
+  const nx = RV && RV.items[RV.i + 1]; if (nx && !srvDown()) refImg(nx.id, "preview").catch(() => {});
 }
 function refDraw() {
-  if (!RV || !RV.img) return;
+  if (!RV || !RV.img || !$("rvc")) return;
   const im = RV.img, k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k);
   const c = $("rvc"); c.width = w; c.height = h; const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(im, 0, 0, w, h);
-  if (RO.grey || RO.values || RO.xerox) {
-    const d = cx.getImageData(0, 0, w, h), p = d.data, N = RO.values, amp = RO.xerox / 100 * 1.6, grain = RO.xerox ? refGrain(w, h, 1337) : null;
+  if (RO.grey || RO.values) {
+    const d = cx.getImageData(0, 0, w, h), p = d.data, N = RO.values ? Math.max(2, Math.min(15, RO.vn)) : 0;
     for (let i = 0; i < p.length; i += 4) {
       let v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
-      if (grain) { const blend = Math.max(0, Math.min(255, 128 + (grain[i] - 128) * amp)); v = v < 128 ? (2 * v * blend) / 255 : 255 - (2 * (255 - v) * (255 - blend)) / 255; v = v < 128 ? 0 : 255; }
-      else if (N) v = Math.round(v / 255 * (N - 1)) * 255 / (N - 1);
+      if (N) v = Math.round(v / 255 * (N - 1)) * 255 / (N - 1);
       p[i] = p[i + 1] = p[i + 2] = v;
     }
     cx.putImageData(d, 0, 0);
   }
   c.style.filter = RO.contrast !== 100 ? "contrast(" + RO.contrast + "%)" : "";
-  const st = $("rvstage"), sw = st.clientWidth - 8, sh = st.clientHeight - 8, side = RO.rot % 180 !== 0;
+  const st = $("rvstage"), sw = st.clientWidth - 16, sh = st.clientHeight - 16, side = RO.rot % 180 !== 0;
   const fit = Math.min(sw / (side ? h : w), sh / (side ? w : h));
   const box = $("rvimg"); box.style.width = Math.round(w * fit) + "px"; box.style.height = Math.round(h * fit) + "px";
   box.style.transform = "rotate(" + RO.rot + "deg) scaleX(" + (RO.flip ? -1 : 1) + ")";
@@ -1451,37 +1478,44 @@ function refDraw() {
   refPan();
 }
 function refPan() { const el = $("rvin"); if (el && RV) el.style.transform = "translate(" + RV.x + "px," + RV.y + "px) scale(" + RV.z + ")"; }
-function refGo(d) { if (!RV) return; const i = RV.i + d; if (i < 0 || i >= RV.items.length) return; RV.i = i; RV.img = null; refShow(); }
-function refOpt(k, v) { RO[k] = v; store.set("refopt", RO); refTools(); refDraw(); }
-document.addEventListener("click", (e) => {
-  const b = e.target.closest && e.target.closest("[data-rv]"); if (!b || !RV) return;
-  const k = b.dataset.rv, it = RV.items[RV.i];
-  if (k === "close") refClose();
-  else if (k === "prev") refGo(-1); else if (k === "next") refGo(1);
-  else if (k === "grid") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]);
+function refGo(d) {
+  if (!RV) return; const i = RV.i + d; if (i < 0 || i >= RV.items.length) return;
+  RV = { i: i, items: RV.items, z: 1, x: 0, y: 0, img: null };
+  const top = stack[stack.length - 1]; if (top && top.kind === "ref") top.arg = i;
+  $("rvn").textContent = (i + 1) + " / " + RV.items.length; $("rvfav").textContent = RV.items[i].fav ? "♥" : "♡"; $("rvnote").textContent = "";
+  const c = $("rvc"); c.getContext("2d").clearRect(0, 0, c.width, c.height); refShow();
+}
+function refOpt(k, v) { RO[k] = v; store.set("refopt", RO); $("rvtools").innerHTML = refToolsHtml(); refDraw(); }
+function refTool(k) {
+  if (k === "grid") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]);
   else if (k === "gcol") refOpt("gcol", ["#000000", "#ffffff", "#ff2020"][(["#000000", "#ffffff", "#ff2020"].indexOf(RO.gcol) + 1) % 3]);
   else if (k === "grey") refOpt("grey", !RO.grey);
-  else if (k === "values") refOpt("values", [0, 3, 4, 5][([0, 3, 4, 5].indexOf(RO.values) + 1) % 4]);
-  else if (k === "xerox") refOpt("xerox", RO.xerox ? 0 : 50);
+  else if (k === "values") refOpt("values", !RO.values);
   else if (k === "flip") refOpt("flip", !RO.flip);
   else if (k === "rot") refOpt("rot", (RO.rot + 90) % 360);
-  else if (k === "reset") { RO = { grid: 0, gcol: RO.gcol, grey: false, values: 0, xerox: 0, contrast: 100, flip: false, rot: 0 }; refOpt("grid", 0); }
-  else if (k === "fav") { const on = !it.fav; it.fav = on; $("rvfav").textContent = on ? "♥" : "♡"; refSave(); nsrv("/refs/fav", { id: it.id, on: on }).catch(() => { it.fav = !on; $("rvfav").textContent = it.fav ? "♥" : "♡"; toast("⚠ Couldn't reach Immich to save that ♥."); }); }
-  else if (k === "immich") { const u = new URL(serverUrl()); window.open(u.protocol + "//" + u.hostname + "/photos/" + it.id, "_blank"); }
+  else if (k === "reset") { RO = { grid: 0, gcol: RO.gcol, grey: false, values: false, vn: RO.vn, contrast: 100, flip: false, rot: 0 }; refOpt("grid", 0); }
+}
+function refFav() {
+  if (!RV) return; const it = RV.items[RV.i], on = !it.fav;
+  it.fav = on; $("rvfav").textContent = on ? "♥" : "♡"; refSave();
+  nsrv("/refs/fav", { id: it.id, on: on }).catch(() => { it.fav = !on; const f = $("rvfav"); if (f) f.textContent = it.fav ? "♥" : "♡"; toast(srvDown() ? "📵 You're offline. ♥ it again when you're back online." : "⚠ Couldn't save that ♥."); });
+}
+document.addEventListener("input", (e) => {
+  const k = e.target.dataset && e.target.dataset.rvs; if (!k || !RV) return;
+  RO[k] = Number(e.target.value); store.set("refopt", RO);
+  if (k === "vn" && $("rvvn")) $("rvvn").textContent = RO.vn;
+  clearTimeout(refOpt.t); refOpt.t = setTimeout(refDraw, 60);
 });
-document.addEventListener("input", (e) => { const k = e.target.dataset && e.target.dataset.rvs; if (k && RV) { RO[k] = Number(e.target.value); store.set("refopt", RO); clearTimeout(refOpt.t); refOpt.t = setTimeout(refDraw, 60); } });
 document.addEventListener("keydown", (e) => {
-  if (!RV) return;
-  if (e.key === "Escape") refClose(); else if (e.key === "ArrowRight") refGo(1); else if (e.key === "ArrowLeft") refGo(-1);
-  else if (e.key === "g") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]); else if (e.key === "x") refOpt("xerox", RO.xerox ? 0 : 50);
+  const top = stack[stack.length - 1]; if (!top || top.kind !== "ref" || /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName)) return;
+  if (e.key === "Escape") back(); else if (e.key === "ArrowRight") refGo(1); else if (e.key === "ArrowLeft") refGo(-1); else if (e.key === "g") refTool("grid"); else if (e.key === "v") refTool("values");
 });
-// pinch / drag / wheel zoom, swipe for next/previous
+// pinch / drag / wheel zoom inside the picture box, swipe for next/previous
 const rvPts = new Map(); let rvStart = null;
 document.addEventListener("pointerdown", (e) => {
-  if (!RV || !e.target.closest("#rvstage")) return;
+  if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return;
   rvPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  const pts = [...rvPts.values()];
-  rvStart = { z: RV.z, x: RV.x, y: RV.y, pts: pts.map((p) => ({ x: p.x, y: p.y })), t: Date.now() };
+  rvStart = { z: RV.z, x: RV.x, y: RV.y, pts: [...rvPts.values()].map((p) => ({ x: p.x, y: p.y })) };
 });
 document.addEventListener("pointermove", (e) => {
   if (!RV || !rvPts.has(e.pointerId) || !rvStart) return;
@@ -1499,13 +1533,13 @@ const rvUp = (e) => {
     const dx = p.x - rvStart.pts[0].x, dy = p.y - rvStart.pts[0].y;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) refGo(dx < 0 ? 1 : -1);
   }
-  if (!rvPts.size) { if (RV.z <= 1.02) { RV.z = 1; RV.x = 0; RV.y = 0; refPan(); } rvStart = null; }
+  if (!rvPts.size) { if (RV && RV.z <= 1.02) { RV.z = 1; RV.x = 0; RV.y = 0; refPan(); } rvStart = null; }
   else rvStart = { z: RV.z, x: RV.x, y: RV.y, pts: [...rvPts.values()].map((q) => ({ x: q.x, y: q.y })) };
 };
 document.addEventListener("pointerup", rvUp); document.addEventListener("pointercancel", rvUp);
-document.addEventListener("dblclick", (e) => { if (!RV || !e.target.closest("#rvstage")) return; RV.z = RV.z > 1 ? 1 : 2.5; RV.x = 0; RV.y = 0; refPan(); });
-document.addEventListener("wheel", (e) => { if (!RV || !e.target.closest("#rvstage")) return; e.preventDefault(); RV.z = Math.max(1, Math.min(8, RV.z * Math.exp(-e.deltaY / 300))); if (RV.z === 1) { RV.x = 0; RV.y = 0; } refPan(); }, { passive: false });
-window.addEventListener("resize", () => { if (RV) refDraw(); });
+document.addEventListener("dblclick", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; RV.z = RV.z > 1 ? 1 : 2.5; RV.x = 0; RV.y = 0; refPan(); });
+document.addEventListener("wheel", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; e.preventDefault(); RV.z = Math.max(1, Math.min(8, RV.z * Math.exp(-e.deltaY / 300))); if (RV.z === 1) { RV.x = 0; RV.y = 0; } refPan(); }, { passive: false });
+window.addEventListener("resize", () => { if (RV && $("rvc")) refDraw(); });
 
 // ── 📅 change a client's date (or not decided yet) ──
 function startSlot(r) {
@@ -1595,6 +1629,7 @@ function winTitle(w) {
   if (w.kind === "outbox") return "Outbox";
   if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
   if (w.kind === "note") { const n = NOTES[w.arg]; return n ? (n.folder || "Notes") : "Note"; }
+  if (w.kind === "ref") return "Refs";
   if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
 }
@@ -1615,7 +1650,7 @@ function render() {
     $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
     const w = stack[stack.length - 1];
-    if (w.kind === "note" && nEditing()) { drawCharts(); beanDraw(); boxBadge(); return; }
+    if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
     let body = "";
     try { body = D ? winBody(w) : '<div class="card sunk">Loading…</div>'; } catch (e) { body = '<div class="card sunk bad">⚠ ' + esc(e.message) + "</div>"; }
     $("main").innerHTML = '<div class="win raised"><div class="title">' + (stack.length > 1 ? '<button class="btn raised tb" data-a="back" aria-label="Back">←</button>' : "") +
@@ -1627,7 +1662,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -2201,7 +2236,7 @@ function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
   if (pref("bean") === false) { el.innerHTML = ""; return; }
-  if (stack.length && ["note", "nlist", "notes", "refs"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
+  if (stack.length && ["note", "nlist", "notes", "refs", "ref"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -2330,7 +2365,11 @@ document.addEventListener("click", async (e) => {
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
   else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
-  else if (a === "refopen") refOpen(Number(arg));
+  else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
+  else if (a === "refgo") refGo(Number(arg));
+  else if (a === "reffav") refFav();
+  else if (a === "reftool") refTool(arg);
+  else if (a === "refhow") toast(arg === "pinterest" ? "Your Pinterest album isn't on the server yet. In the Immich app: Backup → tick your Pinterest album and turn on Sync albums. Then Pinterest downloads appear here." : "The Camera roll album gets made on the server. If it's missing, ask the server's Claude.");
   else if (a === "hstest") {
     const el = document.querySelector('[data-pref="server"]'); if (el) setPref("server", el.value.trim());
     if (!serverUrl()) return toast("⚠ Type the home server address first.");
