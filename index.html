@@ -82,6 +82,10 @@ html{-webkit-text-size-adjust:100%}
 .hk-cs{background:#fff;padding:4px 12px 10px;font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.4}
 .hk-cs h4{margin:12px 0 4px;color:#000080;font-size:14px}.hk-cs p,.hk-cs ul,.hk-cs ol{margin:0 0 4px}.hk-cs ul,.hk-cs ol{padding-left:20px}
 .hk-row{align-items:flex-start}.hk-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:150px;flex:none}
+.nt-page{counter-reset:ol}.nt-page .nb:not(.nb-ol){counter-reset:ol}
+.nb-ol{counter-increment:ol;padding-left:28px;position:relative}.nb-ol:before{content:counter(ol) ".";position:absolute;left:4px;font-variant-numeric:tabular-nums}
+.nt-emo{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;font-size:24px;text-align:center}.nt-emo span{cursor:pointer;padding:4px 0;border:1px solid transparent}.nt-emo span:active{border-color:#000080;background:#e8ecf8}
+.nt-tx mark{background:#fff27a;color:inherit;padding:0}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom));overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
@@ -1034,7 +1038,7 @@ async function notesSync() {
       const sentAt = NOTES[id].updated, r = await nsrv("/notes/save", { note: NOTES[id] });
       if (!r.note || r.note.id !== id) throw new Error("odd answer from the server");
       if (r.note.deleted) { nForget(id); notesSave(); continue; }
-      if (!r.note.blocks && NOTES[id].blocks && r.note.updated === NOTES[id].updated) { r.note.blocks = NOTES[id].blocks; r.note.folder = NOTES[id].folder; }   // an older server that doesn't keep blocks yet
+      if (NOTES[id].blocks && r.note.updated === NOTES[id].updated && JSON.stringify(r.note.blocks || []) !== JSON.stringify(NOTES[id].blocks)) { r.note.blocks = NOTES[id].blocks; r.note.folder = NOTES[id].folder; }   // an older server that doesn't keep blocks yet
       if (NOTES[id].updated === sentAt) { NOTES[id] = r.note; NQ = NQ.filter((x) => x !== id); }   // edited again meanwhile: send that next round
       notesSave();
     }
@@ -1067,7 +1071,7 @@ window.addEventListener("online", () => setTimeout(notesSync, 1500));
 setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && ["notes", "nlist", "note"].includes(top.kind)) notesSync(); }, 30000);
 
 // list helpers
-const nLive = () => Object.values(NOTES).filter((n) => !n.binned && !n._new && n.folder !== "My hooks");
+const nLive = () => Object.values(NOTES).filter((n) => !n.binned && !n._new && n.folder !== "My hooks" && n.folder !== "__meta");
 function nFolders() { const s = new Set(NFOLDERS); nLive().forEach((n) => { if (n.folder) s.add(n.folder); }); return [...s].sort((a, b) => a.localeCompare(b)); }
 function nGroup(n) {
   const d = new Date(n.updated), t = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
@@ -1084,17 +1088,17 @@ function winNotes() {                          // Folders
   if (!nState.last || Date.now() - nState.last > 30000) setTimeout(notesSync, 0);
   Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
   const live = nLive(), binned = Object.values(NOTES).filter((n) => n.binned).length;
-  const row = (key, icon, label, count) => '<div class="nt-row" data-a="nfolder" data-arg="' + esc(key) + '"' + (key && key[0] !== "*" && key[0] !== "#" ? ' data-folder="' + esc(key) + '"' : "") + '><span class="nt-ic">' + icon + '</span><span class="nt-l">' + esc(label) + '</span><span class="nt-c">' + count + " ›</span></div>";
+  const row = (key, icon, label, count) => '<div class="nt-row" data-a="nfolder" data-arg="' + esc(key) + '"' + (key !== "#bin" ? ' data-folder="' + esc(key) + '" data-flabel="' + esc(label) + '"' : "") + '><span class="nt-ic">' + (key === "#bin" ? icon : esc(folderIcon(key, icon))) + '</span><span class="nt-l">' + esc(label) + '</span><span class="nt-c">' + count + " ›</span></div>";
   return '<div class="nt"><div class="nt-bar"><span class="nt-btn" data-a="nnewfolder">📁＋ New folder</span><span class="nt-c">' + nStatus() + '</span></div><div class="nt-g">Folders</div><div class="nt-box">' + row("*", "🗂", "All notes", live.length) + row("", "📝", "Notes", live.filter((n) => !n.folder).length) +
     nFolders().map((f) => row(f, "📁", f, live.filter((n) => n.folder === f).length)).join("") + '</div><div class="nt-box">' + row("#bin", "🗑", "Bin", binned) + "</div>" +
-    '<div class="nt-hint">Hold a folder to rename it.</div></div>';
+    '<div class="nt-hint">Hold a folder to change its icon or rename it.</div></div>';
 }
 function nRow(n) {
   const b = nBlocks(n), txt = b.filter((x) => x.t !== "img" && x.text.trim()), img = b.find((x) => x.t === "img");
   const prev = txt.slice(1).map((x) => (x.t === "check" ? (x.done ? "☑ " : "☐ ") : "") + x.text).join("  ").slice(0, 100);
   const d = new Date(n.updated), when = nGroup(n) === "Today" ? d.toTimeString().slice(0, 5) : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   return '<div class="nt-sw"><div class="nt-swl">' + (n.pinned ? "Unpin" : "📌 Pin") + '</div><div class="nt-swr">Bin 🗑</div><div class="nt-note" data-a="opennote" data-arg="' + esc(n.id) + '">' +
-    '<div class="nt-tx"><b>' + esc(txt.length ? txt[0].text : "New note") + "</b><span>" + esc(when) + "&nbsp;&nbsp;" + esc(prev || "No additional text") + "</span></div>" +
+    '<div class="nt-tx"><b>' + nHl(txt.length ? txt[0].text : "New note") + "</b><span>" + esc(when) + "&nbsp;&nbsp;" + nHl(prev || "No additional text") + "</span></div>" +
     (img ? '<img class="nt-th" data-ph="' + esc(img.id) + '">' : "") + (NQ.includes(n.id) ? '<i class="nt-q" title="waiting to sync">●</i>' : "") + "</div></div>";
 }
 function winNList(f) {
@@ -1102,7 +1106,7 @@ function winNList(f) {
   Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
   setTimeout(fillPhotos, 0);
   const q = nSearch.trim().toLowerCase(), bin = f === "#bin";
-  const pool = Object.values(NOTES).filter((n) => !n._new && !n.deleted && (bin ? n.binned : !n.binned && n.folder !== "My hooks" && (f === "*" || (n.folder || "") === f)))
+  const pool = Object.values(NOTES).filter((n) => !n._new && !n.deleted && (bin ? n.binned : !n.binned && n.folder !== "My hooks" && n.folder !== "__meta" && (f === "*" || (n.folder || "") === f)))
     .filter((n) => !q || nBlocks(n).map((x) => x.text || "").join(" ").toLowerCase().includes(q)).sort((x, y) => y.updated - x.updated);
   const groups = [];
   pool.forEach((n) => { const name = n.pinned && !bin ? "📌 Pinned" : nGroup(n); let g = groups.find((x) => x[0] === name); if (!g) groups.push(g = [name, []]); g[1].push(n); });
@@ -1125,10 +1129,10 @@ function winNote(id) {
   if (!Array.isArray(n.blocks) || !n.blocks.length) n.blocks = nBlocks(n);
   setTimeout(fillPhotos, 0);
   const d = new Date(n.updated || Date.now());
-  return '<div class="nt nt-ed"><div class="nt-top"><span>' + esc(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) + " at " + d.toTimeString().slice(0, 5)) + (n.folder ? " · 📁 " + esc(n.folder) : "") +
+  return '<div class="nt nt-ed"><div class="nt-top"><span>' + esc(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) + " at " + d.toTimeString().slice(0, 5)) + (n.folder ? " · 📁 " + esc(n.folder) : "") + ' · <span id="nwc">' + (noteText(n).match(/\S+/g) || []).length + " words</span>" +
     (n.pinned ? " · 📌" : "") + '</span><span class="nt-btn" data-a="nmenu" data-arg="' + esc(id) + '">⋯</span></div>' +
     (n.binned ? '<div class="nt-binned">In the bin. <span><span class="nt-btn" data-a="nrestore" data-arg="' + esc(id) + '">♻️ Restore</span> <span class="nt-btn" data-a="nkill" data-arg="' + esc(id) + '">Delete forever</span></span></div>' : "") +
-    (n.binned ? "" : '<div class="nt-tools" id="ntools"><span class="nt-btn" data-a="naa">Aa</span><span class="nt-btn" data-a="ncheck">☑︎</span><label class="nt-btn">📷<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label><span class="nt-c" style="flex:1;text-align:center">' + nStatus() + '</span><span class="nt-btn nt-done" data-a="ndone">Done</span></div>') +
+    (n.binned ? "" : '<div class="nt-tools" id="ntools"><span class="nt-btn" data-a="naa">Aa</span><span class="nt-btn" data-a="ncheck">☑︎</span><span class="nt-btn" data-a="nbul">•</span><span class="nt-btn" data-a="nnum">1.</span><label class="nt-btn">📷<input type="file" accept="image/*" id="nphotoin" data-nid="' + esc(id) + '" style="display:none"></label><span class="nt-c" style="flex:1;text-align:center">' + nStatus() + '</span><span class="nt-btn nt-done" data-a="ndone">Done</span></div>') +
     '<div id="nted" class="nt-page" contenteditable="' + (n.binned ? "false" : "true") + '" data-nid="' + esc(id) + '" spellcheck="true">' + n.blocks.map(nBlockHtml).join("") + "</div></div>";
 }
 async function fillPhotos() {
@@ -1213,38 +1217,41 @@ function nSaveNow() {
   if (JSON.stringify(blocks) === JSON.stringify(n.blocks) && !n._new) return;
   if (n._new && !blocks.some((b) => b.t === "img" || b.text.trim())) return;   // an untouched new note isn't kept
   n.blocks = blocks; noteTouch(n);
+  const wc = $("nwc"); if (wc) wc.textContent = (noteText(n).match(/\S+/g) || []).length + " words";
 }
 document.addEventListener("input", (e) => {
   const t = e.target;
   if (t.id === "nq") { nSearch = t.value; const pos = t.selectionStart; render(); const el = $("nq"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
-  if (t.id === "nted") { nTidy(t); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400); }
+  if (t.id === "nted") {
+    const b = nCur();
+    if (b && b.dataset.t === "p") {                // Apple-Notes-style shortcuts at the start of a line
+      const tx = b.textContent, m = tx.match(/^([-*•] |\d{1,2}[.)] |\[ ?\] )/);
+      if (m) { const kind = /^\d/.test(m[1]) ? "ol" : m[1][0] === "[" ? "check" : "li"; b.textContent = tx.slice(m[1].length); nSetType(b, kind); nCaret(b, false); }
+    }
+    nTidy(t); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400);
+  }
 });
-document.addEventListener("paste", (e) => {     // paste as plain text: first line where you are, the rest as normal lines
+document.addEventListener("paste", (e) => {     // keeps Mac Notes formatting; first line goes where the cursor is
   const ed = $("nted"); if (!ed || !ed.contains(e.target)) return;
   e.preventDefault();
-  const text = ((e.clipboardData || window.clipboardData).getData("text/plain") || "").replace(/\r/g, "");
-  if (!text) return;
-  const lines = text.split("\n"), blk = nCur(); if (!blk) return;
-  const sel = getSelection(), r = sel.getRangeAt(0); r.deleteContents();
-  if (lines.length === 1) { r.insertNode(document.createTextNode(lines[0])); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
-  else {
-    const tail = document.createRange(); tail.setStart(r.endContainer, r.endOffset); tail.setEnd(blk, blk.childNodes.length);
-    const rest = tail.extractContents(); rest.querySelectorAll && rest.querySelectorAll(".nt-cb").forEach((c) => c.remove());
-    blk.appendChild(document.createTextNode(lines[0]));
-    const t = blk.dataset.t, kind = t === "check" || t === "li" ? t : "p";
-    let last = blk;
-    lines.slice(1).forEach((ln) => {
-      const m = ln.match(/^\s*(?:[-*•]\s+|\[( |x|X)\]\s*)/), nb = nMake(m ? (m[1] !== undefined ? "check" : "li") : kind);
-      if (m && m[1] && m[1].toLowerCase() === "x") nb.classList.add("done");
-      nb.appendChild(document.createTextNode(m ? ln.slice(m[0].length) : ln));
-      if (!nb.textContent) nb.appendChild(document.createElement("br"));
-      last.after(nb); last = nb;
-    });
-    last.appendChild(rest); nCaret(last, false);
-  }
-  nTidy(ed); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 300);
+  const items = nPasteBlocks(e.clipboardData || window.clipboardData); if (!items.length) return;
+  const blk = nCur() || nTarget(); if (!blk) return;
+  const sel = getSelection(); if (!sel.rangeCount) nCaret(blk, false);
+  const r = sel.getRangeAt(0); r.deleteContents();
+  const tail = document.createRange(); tail.setStart(r.endContainer, r.endOffset); tail.setEnd(blk, blk.childNodes.length);
+  const rest = tail.extractContents(); rest.querySelectorAll && rest.querySelectorAll(".nt-cb").forEach((c) => c.remove());
+  const first = items[0], emptyHere = !blk.textContent.trim();
+  if (emptyHere && blk.dataset.t !== "title" && first.t !== "title") nSetType(blk, first.t);
+  if (first.t === "check" && first.done && blk.dataset.t === "check") blk.classList.add("done");
+  blk.querySelectorAll("br").forEach((x) => x.remove());
+  blk.appendChild(document.createTextNode(first.text));
+  let last = blk;
+  items.slice(1).forEach((it) => { const nb = nBuild(it.t === "title" ? Object.assign({}, it, { t: "h" }) : it); last.after(nb); last = nb; });
+  if (rest.textContent) { last.querySelectorAll("br").forEach((x) => x.remove()); last.appendChild(rest); }
+  if (!blk.textContent && !blk.querySelector("br")) blk.appendChild(document.createElement("br"));
+  nCaret(last, false); nTidy(ed); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 300);
 });
-document.addEventListener("selectionchange", () => { const b = nCur(); if (b) nLastBlock = b; });
+document.addEventListener("selectionchange", () => { const b = nCur(); if (b) { nLastBlock = b; nLastIdx = [...$("nted").children].indexOf(b); } });
 document.addEventListener("keydown", (e) => {
   const ed = $("nted");
   if (!ed || !ed.contains(e.target) || e.isComposing) return;
@@ -1252,18 +1259,18 @@ document.addEventListener("keydown", (e) => {
   const t = blk.dataset.t, empty = !blk.textContent.trim();
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
-    if ((t === "check" || t === "li") && empty) { nSetType(blk, "p"); nCaret(blk, true); }
+    if ((t === "check" || t === "li" || t === "ol") && empty) { nSetType(blk, "p"); nCaret(blk, true); }
     else {
       const sel = getSelection(), r = sel.getRangeAt(0); r.deleteContents();
       const tail = document.createRange(); tail.setStart(r.endContainer, r.endOffset); tail.setEnd(blk, blk.childNodes.length);
       const frag = tail.extractContents(); frag.querySelectorAll && frag.querySelectorAll(".nt-cb").forEach((c) => c.remove());
-      const nb = nMake(t === "check" || t === "li" ? t : "p"); nb.appendChild(frag);
+      const nb = nMake(t === "check" || t === "li" || t === "ol" ? t : "p"); nb.appendChild(frag);
       if (!nb.textContent) nb.appendChild(document.createElement("br"));
       if (!blk.textContent) nSetType(blk, t);
       blk.after(nb); nCaret(nb, true);
     }
     clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400);
-  } else if (e.key === "Backspace" && (t === "check" || t === "li" || t === "h") && getSelection().isCollapsed) {
+  } else if (e.key === "Backspace" && (t === "check" || t === "li" || t === "ol" || t === "h") && getSelection().isCollapsed) {
     const r = getSelection().getRangeAt(0), pre = document.createRange(); pre.setStart(blk, 0); pre.setEnd(r.startContainer, r.startOffset);
     if (!pre.toString().length) { e.preventDefault(); nSetType(blk, "p"); nCaret(blk, true); clearTimeout(nSaveT); nSaveT = setTimeout(nSaveNow, 400); }
   }
@@ -1301,7 +1308,7 @@ document.addEventListener("change", async (e) => {
 let nHoldT = null;
 document.addEventListener("pointerdown", (e) => {
   const row = e.target.closest && e.target.closest("[data-folder]"); if (!row) return;
-  nHoldT = setTimeout(() => { nHoldT = "held"; nRenameFolder(row.dataset.folder); }, 700);
+  nHoldT = setTimeout(() => { nHoldT = "held"; nFolderMenu(row.dataset.folder, row.dataset.flabel || row.dataset.folder); }, 650);
 });
 ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => document.addEventListener(ev, () => { if (nHoldT && nHoldT !== "held") clearTimeout(nHoldT); setTimeout(() => { nHoldT = null; }, 50); }, true));
 function nRenameFolder(f) {
@@ -1356,14 +1363,16 @@ function noteAct(a, arg, el) {
   }
   if (a === "nview") { const img = document.querySelector('img[data-ph="' + arg + '"]'); if (img && img.src) dialog('<img src="' + img.src + '" style="max-width:100%;display:block;margin:0 auto">', [["Close", null, 1]], null, { title: "Photo" }); return; }
   if (a === "ndone") { nSaveNow(); if (document.activeElement) document.activeElement.blur(); return; }
-  if (a === "ncheck") { const b = nLastBlock && $("nted") && $("nted").contains(nLastBlock) ? nLastBlock : null; if (b) { nSetType(b, b.dataset.t === "check" ? "p" : "check"); nCaret(b, false); nSaveNow(); } return; }
+  if (a === "ncheck") return nApply("check", true);
+  if (a === "nbul") return nApply("li", true);
+  if (a === "nnum") return nApply("ol", true);
   if (a === "naa") {
     const old = document.querySelector(".nt-pop"); if (old) { old.remove(); return; }
     const pop = document.createElement("div"); pop.className = "nt-pop";
-    pop.innerHTML = [["title", "Title"], ["h", "Heading"], ["p", "Body"], ["li", "• Bulleted list"]].map(([t, l]) => '<span class="nt-btn nt-st-' + t + '" data-a="nstyle" data-arg="' + t + '">' + l + "</span>").join("");
+    pop.innerHTML = [["title", "Title"], ["h", "Heading"], ["p", "Body"], ["li", "• Bullets"], ["ol", "1. Numbers"]].map(([t, l]) => '<span class="nt-btn nt-st-' + t + '" data-a="nstyle" data-arg="' + t + '">' + l + "</span>").join("");
     $("ntools").after(pop); return;
   }
-  if (a === "nstyle") { const b = nLastBlock && $("nted") && $("nted").contains(nLastBlock) ? nLastBlock : null; if (b) { nSetType(b, arg); nCaret(b, false); nSaveNow(); } const p = document.querySelector(".nt-pop"); if (p) p.remove(); return; }
+  if (a === "nstyle") { nApply(arg, false); const p = document.querySelector(".nt-pop"); if (p) p.remove(); return; }
   if (a === "nempty") {
     const ids = Object.values(NOTES).filter((x) => x.binned).map((x) => x.id);
     return dialog("Delete all " + ids.length + " note" + (ids.length === 1 ? "" : "s") + " in the bin for good? This can't be undone.", [["Empty bin", () => { nKill(ids); render(); }], ["Cancel", null, 1]], "⚠️", { title: "Are you sure?" });
@@ -1371,8 +1380,12 @@ function noteAct(a, arg, el) {
   const n = NOTES[arg]; if (!n) return;
   if (a === "nmenu") {
     nSaveNow();
-    return dialog("", [[n.pinned ? "📌 Unpin" : "📌 Pin", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["📁 Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
-      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }]].concat(n.binned ? [["⚠️ Delete forever", () => setTimeout(() => noteAct("nkill", n.id), 0)]] : []).concat([["Cancel"]]), "📝", { title: "Note" });
+    const hasTicked = nBlocks(n).some((b) => b.t === "check" && b.done);
+    return dialog("", [["📋 Copy note", () => setTimeout(() => copyText(noteText(n), "Note"), 0)],
+      ["📤 Share", () => { const t = noteText(n); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else setTimeout(() => copyText(t, "Note"), 0); }]]
+      .concat(hasTicked ? [["⬇️ Ticked items to the bottom", () => tickedToBottom(n)]] : [])
+      .concat([[n.pinned ? "📌 Unpin" : "📌 Pin", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["📁 Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
+      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }]].concat(n.binned ? [["⚠️ Delete forever", () => setTimeout(() => noteAct("nkill", n.id), 0)]] : []).concat([["Cancel"]])), "📝", { title: "Note" });
   }
   if (a === "nrestore") { n.binned = false; noteTouch(n, true); }
   if (a === "nkill") return dialog("Delete this note for good? This can't be undone. It goes from your phone, laptop and server.", [["Delete forever", () => { nKill([n.id]); setTimeout(back, 0); }], ["Cancel", null, 1]], "⚠️", { title: "Are you sure?" });
@@ -1581,6 +1594,112 @@ document.addEventListener("pointerup", rvUp); document.addEventListener("pointer
 document.addEventListener("dblclick", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; RV.z = RV.z > 1 ? 1 : 2.5; RV.x = 0; RV.y = 0; refPan(); });
 document.addEventListener("wheel", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; e.preventDefault(); RV.z = Math.max(1, Math.min(8, RV.z * Math.exp(-e.deltaY / 300))); if (RV.z === 1) { RV.x = 0; RV.y = 0; } refPan(); }, { passive: false });
 window.addEventListener("resize", () => { if (RV && $("rvc")) refDraw(); });
+
+// ── Notes extras: a toolbar that always has a line to act on, Mac-Notes-friendly paste, folder icons, copy/share ──
+let nLastIdx = -1;
+function nTarget() {                           // the line to change: cursor line → last line he was on → last line
+  const ed = $("nted"); if (!ed) return null;
+  const c = nCur(); if (c) return c;
+  if (nLastBlock && ed.contains(nLastBlock)) return nLastBlock;
+  const kids = [...ed.children];
+  if (nLastIdx >= 0 && kids[nLastIdx] && kids[nLastIdx].dataset.t !== "img") return kids[nLastIdx];
+  let last = ed.lastElementChild;
+  if (!last || last.dataset.t === "img") { last = nMake("p"); last.appendChild(document.createElement("br")); ed.appendChild(last); }
+  return last;
+}
+function nApply(t, toggle) {
+  const ed = $("nted"), b = nTarget(); if (!b || !ed) return;
+  nSetType(b, toggle && b.dataset.t === t ? "p" : t);
+  ed.focus(); nCaret(b, false); nLastBlock = b; nSaveNow();
+}
+function nLineBlock(ln) {                      // "- x", "1. x", "[ ] x", "☑ x" at the start of a pasted/typed line
+  let m;
+  if ((m = ln.match(/^\s*[-*•‣◦▪]\s+(.*)$/))) return { t: "li", text: m[1] };
+  if ((m = ln.match(/^\s*\d{1,3}[.)]\s+(.*)$/))) return { t: "ol", text: m[1] };
+  if ((m = ln.match(/^\s*\[( |x|X)?\]\s*(.*)$/))) return { t: "check", text: m[2], done: /x/i.test(m[1] || "") };
+  if ((m = ln.match(/^\s*([☐☑✓✔])\s*(.*)$/))) return { t: "check", text: m[2], done: m[1] !== "☐" };
+  return { t: "p", text: ln };
+}
+function nHtmlBlocks(html) {                   // Mac Notes / web pages → our lines (headings, bullets, numbers, tick-boxes)
+  const doc = new DOMParser().parseFromString(html, "text/html"), out = [];
+  const clean = (s) => s.replace(/\u00a0/g, " ").replace(/[\u2028\u2029\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim();
+  const isHead = (el, t) => {
+    const big = [el, ...el.querySelectorAll("*")].some((x) => { const fs = parseFloat((x.getAttribute("style") || "").match(/font-size:\s*([\d.]+)px/i)?.[1] || 0); return fs >= 17; });
+    const b = el.querySelector("b,strong"); return big || (b && clean(b.textContent) === t && t.length < 90);
+  };
+  const BLOCKS = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE|TR|SECTION|ARTICLE|HEADER|FOOTER)$/;
+  const lines = (el) => {                        // a block that only uses <br> for its line breaks
+    el.innerHTML.split(/<br\s*\/?>/i).forEach((part) => { const d = document.createElement("div"); d.innerHTML = part; const t = clean(d.textContent); out.push(t ? (isHead(d, t) ? { t: "h", text: t } : nLineBlock(t)) : { t: "p", text: "" }); });
+  };
+  const walk = (node) => {
+    for (const el of [...node.childNodes]) {
+      if (el.nodeType === 3) { const t = clean(el.textContent); if (t) out.push(nLineBlock(t)); continue; }
+      if (el.nodeType !== 1 || /^(SCRIPT|STYLE|META|TITLE|IMG|SVG|HEAD)$/.test(el.tagName)) continue;
+      const tag = el.tagName;
+      if (tag === "UL" || tag === "OL") {
+        for (const li of el.children) {
+          if (li.tagName !== "LI") continue;
+          const own = li.cloneNode(true); own.querySelectorAll("ul,ol").forEach((x) => x.remove());
+          const cb = li.querySelector('input[type="checkbox"]'), cls = (el.className + " " + li.className).toLowerCase();
+          const t = clean(own.textContent);
+          if (cb || /check|todo|done/.test(cls)) out.push({ t: "check", text: t, done: cb ? (cb.checked || cb.hasAttribute("checked")) : /checked|done/.test(li.className.toLowerCase()) });
+          else if (t) out.push({ t: tag === "OL" ? "ol" : "li", text: t.replace(/^[•\-*]\s+/, "") });
+          li.querySelectorAll(":scope > ul, :scope > ol").forEach((sub) => { const w = document.createElement("div"); w.appendChild(sub.cloneNode(true)); walk(w); });
+        }
+        continue;
+      }
+      if (/^H[1-6]$/.test(tag)) { const t = clean(el.textContent); if (t) out.push({ t: tag === "H1" ? "title" : "h", text: t }); continue; }
+      if (tag === "BR") continue;
+      const hasBlock = [...el.children].some((c) => BLOCKS.test(c.tagName));
+      if (hasBlock) { walk(el); continue; }
+      if (el.querySelector("br")) { lines(el); continue; }
+      const t = clean(el.textContent);
+      if (!t) { if (BLOCKS.test(tag)) out.push({ t: "p", text: "" }); continue; }
+      out.push(BLOCKS.test(tag) && isHead(el, t) ? { t: "h", text: t } : nLineBlock(t));
+    }
+  };
+  walk(doc.body);
+  return out.filter((b, i) => !(b.t === "p" && !b.text && i > 0 && out[i - 1].t === "p" && !out[i - 1].text));   // no double blank lines
+}
+function nPasteBlocks(cd) {
+  const html = cd.getData("text/html");
+  if (html && /<(p|div|br|li|h\d)\b/i.test(html)) { try { const b = nHtmlBlocks(html); if (b.length) return b; } catch (e) {} }
+  return (cd.getData("text/plain") || "").split(/\r\n|\r|\n|\u2028|\u2029/).map(nLineBlock);
+}
+function nBuild(b) { const el = nMake(b.t); if (b.t === "check" && b.done) el.classList.add("done"); el.appendChild(document.createTextNode(b.text)); if (!b.text) el.appendChild(document.createElement("br")); return el; }
+// folder icons, kept in a hidden synced note so phone + laptop match
+const NMETA = "nmeta_folders";
+function folderIcons() { const m = NOTES[NMETA]; try { return JSON.parse(((m && m.blocks) || [])[1].text || "{}"); } catch (e) { return {}; } }
+function folderIcon(key, dflt) { return folderIcons()[key] || dflt; }
+function setFolderIcon(key, emo) {
+  const icons = Object.assign(folderIcons(), { [key]: emo });
+  const m = NOTES[NMETA] || { id: NMETA, kind: "note", folder: "__meta", title: "", body: "", items: [], photos: [], pinned: false, binned: false, created: Date.now(), updated: Date.now() };
+  m.folder = "__meta"; m.blocks = [{ t: "title", text: "folder icons" }, { t: "p", text: JSON.stringify(icons) }];
+  noteTouch(m, true);
+}
+const ICONS = "📁📂🗂📝📒📓📔📕📗📘📙📚🖋✏️🎨🖌🖼✂️📌⭐️🔥💀🐍🦋🌹🌸🌙☀️⚡️💡🧠❤️🖤💌🛒🧾💷📅⏰🏠🎵🎬📷🐈🐕🍄🌿✈️🧳🎁🔒🗝".match(/\p{Extended_Pictographic}️?/gu);
+function nFolderMenu(key, label) {
+  const real = key && key[0] !== "*" && key[0] !== "#";
+  dialog("", [["🎨 Change icon", () => setTimeout(() => nIconPicker(key, label), 0)]].concat(real ? [["✏️ Rename", () => setTimeout(() => nRenameFolder(key), 0)]] : []).concat([["Cancel"]]), folderIcon(key, key === "*" ? "🗂" : key ? "📁" : "📝"), { title: label });
+}
+function nIconPicker(key, label) {
+  dialog('<div class="nt-emo">' + ICONS.map((e) => '<span data-emo="' + e + '">' + e + "</span>").join("") + '</div><label class="field">Or type any emoji</label><input class="inp" id="nemo" maxlength="8" autocomplete="off">',
+    [["Use typed emoji", () => { const v = ($("nemo").value || "").trim(); if (!v) return false; setFolderIcon(key, [...v].slice(0, 2).join("")); }], ["Cancel"]], null, { title: "Icon for " + label });
+  document.querySelectorAll("[data-emo]").forEach((el) => el.onclick = () => { setFolderIcon(key, el.dataset.emo); $("dlg").innerHTML = ""; });
+}
+function noteText(n) {
+  let k = 0;
+  return nBlocks(n).filter((b) => b.t !== "img").map((b) => { k = b.t === "ol" ? k + 1 : 0; return b.t === "li" ? "• " + b.text : b.t === "ol" ? k + ". " + b.text : b.t === "check" ? (b.done ? "☑ " : "☐ ") + b.text : b.text; }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function tickedToBottom(n) {
+  const out = [], run = [];
+  const flush = () => { out.push(...run.filter((b) => !b.done), ...run.filter((b) => b.done)); run.length = 0; };
+  nBlocks(n).forEach((b) => { if (b.t === "check") run.push(b); else { flush(); out.push(b); } });
+  flush(); n.blocks = out;
+  const ed = $("nted"); if (ed) ed.blur();          // let the open editor redraw with the new order
+  noteTouch(n, true);
+}
+function nHl(s) { const q = nSearch.trim(); const e = esc(s); if (!q) return e; const eq = esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return e.replace(new RegExp(eq, "gi"), (m) => "<mark>" + m + "</mark>"); }
 
 // ── 🔥 Habits: own page + home-screen widget. Any past day can be ticked (forgot to tick? fill it in). ──
 function bestStreak(h) {
@@ -2580,7 +2699,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
-  else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
+  else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "nbul", "nnum", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "refgo") refGo(Number(arg));
