@@ -57,7 +57,8 @@ html{-webkit-text-size-adjust:100%}
 .rf-tools{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:6px;background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff}
 .rv-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .rv-sl{font:12px Tahoma,sans-serif}.rv-sl input{flex:1;min-width:90px}
-.hw{margin:10px 8px 0;background:#c0c0c0;padding:0 0 4px}
+.hw-sub{font-size:12px;color:#333;padding:3px 8px 0}
+.hw{margin:4px 8px 0;background:#c0c0c0;padding:0 0 4px}
 .hw-h{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-size:14px;cursor:pointer}
 .hw-h span{font-size:12px}
 .hw-row{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:14px}
@@ -73,6 +74,14 @@ html{-webkit-text-size-adjust:100%}
 .hb-c{height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;border:1px solid #d0d0d0}
 .hb-on{background:#2e8b57;color:#fff;border-color:#2e8b57;font-weight:700;cursor:pointer}.hb-miss{background:#fff;color:#555;cursor:pointer}
 .hb-off{background:#ececec;color:#bbb}.hb-x{background:#f7f7f7;color:#ddd;border-color:#eee}.hb-today{outline:2px solid #000080;outline-offset:-2px}
+.hk-wrap{min-height:0}.hk-tabs{background:#f3f3f3}
+.hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
+.hk-tip{font-size:13px;margin-top:6px;padding:8px}
+.hk-cheat{margin-top:12px;border:1px solid;border-color:#fff #404040 #404040 #fff;background:#c0c0c0}
+.hk-cheat summary{padding:8px 10px;font-weight:700;cursor:pointer;font-size:14px}
+.hk-cs{background:#fff;padding:4px 12px 10px;font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.4}
+.hk-cs h4{margin:12px 0 4px;color:#000080;font-size:14px}.hk-cs p,.hk-cs ul,.hk-cs ol{margin:0 0 4px}.hk-cs ul,.hk-cs ol{padding-left:20px}
+.hk-row{align-items:flex-start}.hk-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:150px;flex:none}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom));overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
@@ -767,7 +776,7 @@ function copyHook(h) {
   if (navigator.clipboard) navigator.clipboard.writeText(h.text).then(done, () => toast("Press and hold the hook text to copy it."));
   else toast("Press and hold the hook text to copy it.");
 }
-function winHooks() {
+function winHookRef() {
   const all = hooksView(), t = todayISO();
   const used = new Set(all.flatMap((h) => h.tags || []));
   const tags = HOOK_TAGS.filter((t) => used.has(t)).concat([...used].filter((t) => !isSrc(t) && !HOOK_TAGS.includes(t)).sort());
@@ -785,7 +794,7 @@ function winHooks() {
     return '<div class="li" style="align-items:flex-start"><button class="btn raised small" data-a="hookstar" data-arg="' + esc(x.id) + '" style="flex:none">' + (x.star ? "⭐" : "☆") + '</button>' +
       '<span class="lab" style="-webkit-user-select:text;user-select:text">' + esc(x.text) + '<div class="dim">' + ((x.tags || []).filter((t) => !isSrc(t)).map(esc).join(" · ") || "no tag") +
       ((x.tags || []).filter(isSrc).map((t) => " · via " + esc(t.slice(1))).join("")) + (last ? " · used " + esc(niceDay(last)) + ((x.used || []).length > 1 ? " (" + x.used.length + "×)" : "") : "") + (x.pending ? " · ⏳" : "") + "</div></span>" +
-      '<span style="display:flex;flex-direction:column;gap:4px;flex:none"><button class="btn raised small" data-a="hookcopy" data-arg="' + esc(x.id) + '">Copy</button><button class="btn raised small" data-a="hookedit" data-arg="' + esc(x.id) + '">✏️</button></span></div>';
+      '<span style="display:flex;flex-direction:column;gap:4px;flex:none"><button class="btn raised small" data-a="hookuse" data-arg="' + esc(x.id) + '">✍️ Use</button><button class="btn raised small" data-a="hookcopy" data-arg="' + esc(x.id) + '">Copy</button><button class="btn raised small" data-a="hookedit" data-arg="' + esc(x.id) + '">✏️</button></span></div>';
   }).join("") || '<div class="li dim">Nothing here with that filter.</div>') + "</div>";
   return h;
 }
@@ -1058,7 +1067,7 @@ window.addEventListener("online", () => setTimeout(notesSync, 1500));
 setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && ["notes", "nlist", "note"].includes(top.kind)) notesSync(); }, 30000);
 
 // list helpers
-const nLive = () => Object.values(NOTES).filter((n) => !n.binned && !n._new);
+const nLive = () => Object.values(NOTES).filter((n) => !n.binned && !n._new && n.folder !== "My hooks");
 function nFolders() { const s = new Set(NFOLDERS); nLive().forEach((n) => { if (n.folder) s.add(n.folder); }); return [...s].sort((a, b) => a.localeCompare(b)); }
 function nGroup(n) {
   const d = new Date(n.updated), t = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
@@ -1093,7 +1102,7 @@ function winNList(f) {
   Object.keys(NOTES).forEach((k) => { if (NOTES[k]._new) delete NOTES[k]; });
   setTimeout(fillPhotos, 0);
   const q = nSearch.trim().toLowerCase(), bin = f === "#bin";
-  const pool = Object.values(NOTES).filter((n) => !n._new && (bin ? n.binned : !n.binned && (f === "*" || (n.folder || "") === f)))
+  const pool = Object.values(NOTES).filter((n) => !n._new && !n.deleted && (bin ? n.binned : !n.binned && n.folder !== "My hooks" && (f === "*" || (n.folder || "") === f)))
     .filter((n) => !q || nBlocks(n).map((x) => x.text || "").join(" ").toLowerCase().includes(q)).sort((x, y) => y.updated - x.updated);
   const groups = [];
   pool.forEach((n) => { const name = n.pinned && !bin ? "📌 Pinned" : nGroup(n); let g = groups.find((x) => x[0] === name); if (!g) groups.push(g = [name, []]); g[1].push(n); });
@@ -1599,9 +1608,25 @@ function winHabits() {
   const v = todoView();
   if (!v) return '<div class="card sunk">Your habits come from todo on the Mac. They show up after the first sync.</div>';
   const t = todayISO(), today = v.habits.filter((h) => scheduled(h, t)), dn = today.filter((h) => (h.log || []).includes(t)).length;
-  return '<div class="nt hb"><div class="nt-bar"><span class="nt-c">' + dn + "/" + today.length + ' done today</span><span class="nt-btn" data-a="habits">✏️ Add / change</span></div>' +
+  const st = allStreak(v), best = Math.max(st, allBest(v));
+  return '<div class="nt hb"><div class="nt-bar"><span class="nt-c">🔥 <b>' + st + " day streak</b> · 🏆 best " + best + " · " + dn + "/" + today.length + ' today</span><span class="nt-btn" data-a="habits">✏️ Add / change</span></div>' +
     (v.habits.length ? v.habits.map((hb) => habitCard(hb, t)).join("") : '<div class="nt-empty">No habits yet. Tap ✏️ Add / change.</div>') +
     '<div class="nt-hint">Forgot to tick a day? Tap it in the calendar to fill it in. Green ✓ = done, white = missed, grey = not a habit day. Ticks reach todo next time the Mac is on.</div></div>';
+}
+function dayAllDone(v, d) {                    // null = nothing was due that day
+  const due = v.habits.filter((h) => scheduled(h, d) && (h.added || "0") <= d);
+  return due.length ? due.every((h) => (h.log || []).includes(d)) : null;
+}
+function habitStart(v) { return v.habits.map((h) => h.added || (h.log || [])[0] || todayISO()).sort()[0] || todayISO(); }
+function allStreak(v) {                         // days in a row where every habit due got done
+  const t = todayISO(), first = habitStart(v); let d = dayAllDone(v, t) === true ? t : addDays(t, -1), n = 0;
+  while (d >= first) { const r = dayAllDone(v, d); if (r === false) break; if (r) n++; d = addDays(d, -1); }
+  return n;
+}
+function allBest(v) {
+  const t = todayISO(); let d = habitStart(v), cur = 0, best = 0, k = 0;
+  while (d <= t && k++ < 4000) { const r = dayAllDone(v, d); if (r === true) { cur++; if (cur > best) best = cur; } else if (r === false && d < t) cur = 0; d = addDays(d, 1); }
+  return best;
 }
 function habitWidget() {
   if (pref("hwidget") === false) return "";
@@ -1609,10 +1634,105 @@ function habitWidget() {
   const t = todayISO(), y = addDays(t, -1), today = v.habits.filter((h) => scheduled(h, t)), dn = today.filter((h) => (h.log || []).includes(t)).length;
   const missed = v.habits.filter((h) => scheduled(h, y) && (h.added || "0") <= y && !(h.log || []).includes(y) && !h.pending).length;
   const rows = today.slice(0, 4).map((h) => { const kept = (h.log || []).includes(t);
-    return '<div class="hw-row"><span class="hw-tick' + (kept ? " on" : "") + '"' + (h.pending ? "" : ' data-a="habit" data-arg="' + esc(habitKey(h)) + '"') + ">" + (kept ? "✓" : "") + '</span><span class="hw-n">' + esc(h.name) + '</span><span class="hw-s">🔥 ' + streak(h, t) + "</span></div>"; }).join("");
-  return '<div class="hw raised"><div class="hw-h" data-a="open" data-arg="habits"><b>🔥 Habits</b><span>' + dn + "/" + today.length + " today ›</span></div>" +
+    return '<div class="hw-row"><span class="hw-tick' + (kept ? " on" : "") + '"' + (h.pending ? "" : ' data-a="habit" data-arg="' + esc(habitKey(h)) + '"') + ">" + (kept ? "✓" : "") + '</span><span class="hw-n">' + esc(h.name) + '</span><span class="hw-s">' + streak(h, t) + " day streak</span></div>"; }).join("");
+  const st = allStreak(v), best = Math.max(st, allBest(v));
+  return '<div class="hw raised"><div class="hw-h" data-a="open" data-arg="habits"><b>🔥 ' + st + " day streak</b><span>" + (st > 1 && st >= best ? "🏆 New high score!" : "🏆 Best: " + best + " day" + (best === 1 ? "" : "s")) + " ›</span></div>" +
+    '<div class="hw-sub">' + dn + "/" + today.length + " done today</div>" +
     (rows || '<div class="hw-row dim">No habits due today.</div>') + (today.length > 4 ? '<div class="hw-more" data-a="open" data-arg="habits">+' + (today.length - 4) + " more ›</div>" : "") +
     (missed ? '<div class="hw-miss" data-a="open" data-arg="habits">⚠ ' + missed + " missed yesterday · tap to fill in</div>" : "") + "</div>";
+}
+
+// ── 🪝 Hooks: ✍️ Maker (with a Breakthrough Advertising cheat sheet) · 📚 Reference · ⭐ My hooks ──
+let hookTab = store.get("hooktab", "make"), HD = Object.assign({ id: "", hook: "", body: "", aw: "" }, store.get("hookdraft", {})), mhSearch = "";
+const isHookNote = (n) => !!n && n.folder === "My hooks";
+const hdSave = () => store.set("hookdraft", HD);
+function myHooks() { return Object.values(NOTES).filter((n) => isHookNote(n) && !n.binned && !n._new && !n.deleted).sort((a, b) => b.updated - a.updated); }
+function hookParts(n) { const b = nBlocks(n), t = b.filter((x) => x.t !== "img"); return { hook: (t[0] && t[0].text) || "", body: t.slice(1).map((x) => x.text).join("\n").replace(/\n+$/, "") }; }
+const AWARE = [
+  ["", "Not sure yet", ""],
+  ["most", "Most aware: they follow you and want one", "Lead with the offer. Books open, a flash drop, a free slot, a price. Short and direct: they're already sold, they just need the moment."],
+  ["product", "Product aware: they know you, not sold yet", "Make the want sharper or show it fresh: a healed photo, a client's reaction, a style they haven't seen from you. Proof beats promises here."],
+  ["solution", "Solution aware: want a tattoo, not sure who", "Lead with the result they're after (the piece, the feeling of wearing it), then show that you're how they get it."],
+  ["problem", "Problem aware: feel the need, don't link it to you", "Name the feeling first: wanting to mark something, hating an old tattoo, being nervous of the chair. Then show the way out."],
+  ["unaware", "Unaware: just scrolling", "Don't mention tattoos yet. Start with them: an identity, a story, a strong image or a question they'll see themselves in. The tattoo comes later in the body."]];
+const CHEAT = '<div class="hk-cs">' +
+  "<h4>1 · The hook has one job</h4><p>Stop the scroll and make them read the next line. That's it. It doesn't have to sell, or even mention the tattoo. Every line after it has the same job: earn the next line.</p>" +
+  "<h4>2 · Channel a want, don't invent one</h4><p>You can't make people want something. Find a want that already exists and point it at your work: to look a certain way, to mark a moment, to belong to something, to feel brave, to be a bit different.</p>" +
+  "<h4>3 · How aware are they? (pick it above)</h4><ul><li><b>Most aware:</b> the offer</li><li><b>Product aware:</b> a new angle or proof</li><li><b>Solution aware:</b> the result first</li><li><b>Problem aware:</b> name the feeling</li><li><b>Unaware:</b> them, not the tattoo</li></ul>" +
+  "<h4>4 · How tired are they of this claim?</h4><ul><li><b>Nobody's said it:</b> say it plainly.</li><li><b>Others say it:</b> say it bigger or more specific.</li><li><b>Everyone says it:</b> show <i>your</i> way, your method, why yours works.</li><li><b>They're numb to it:</b> make it about who they are, not what you do.</li></ul>" +
+  "<h4>5 · Hook angles to try</h4><ul><li>Put a hidden dream into words they haven't said out loud.</li><li>Touch a quiet fear (regret, a bad cover-up, the needle).</li><li>Start with a familiar image, then turn it towards the problem.</li><li>Hint at a want you can't say bluntly.</li><li>Voice a frustration people share.</li><li>Show the win they picture for themselves.</li><li>Show a result people will recognise themselves in.</li></ul>" +
+  "<h4>6 · The body: each line earns the next</h4><ol><li><b>Call them out.</b> \"If you've ever…\" so the right person says \"that's me\".</li><li><b>Grow the want.</b> Picture it, put them in it, show the before, show how it lasts.</li><li><b>Make it believable.</b> Knock down a wrong belief, name your method and say how it works, show proof (healed photos, years, reviews).</li><li><b>Clear the doubts.</b> Show it's easy: what happens, how long, what it costs.</li><li><b>Sum up and ask once.</b> One clear thing to do: DM, link in bio, books open.</li></ol>" +
+  '<p class="dim">From Eugene Schwartz, Breakthrough Advertising (in short, in my words).</p></div>';
+const BODY_TPL = "If you've ever ___ (call them out),\n\n___ (grow the want: picture it, put them in it)\n\n___ (make it believable: your method, healed photos, years, reviews)\n\n___ (clear the doubts: what happens, how long, what it costs)\n\n___ (one clear ask: DM me / link in bio / books open)";
+function copyText(t, what) {
+  if (!t.trim()) return toast("⚠ Nothing to copy yet.");
+  const ok = () => toast(what + " copied ✓ Paste it into Instagram.");
+  const fall = () => { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); let done = false; try { done = document.execCommand("copy"); } catch (e) {} ta.remove(); done ? ok() : toast("Press and hold the text, then Copy."); };
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, fall); else fall();
+}
+function winHooks() {
+  const tabs = [["make", "✍️ Maker"], ["ref", "📚 Reference"], ["mine", "⭐ My hooks · " + myHooks().length]].map(([k, l]) => '<span class="nt-btn rf-chip' + (hookTab === k ? " on" : "") + '" data-a="hooktab" data-arg="' + k + '">' + l + "</span>").join("");
+  const head = '<div class="rf-chips hk-tabs">' + tabs + "</div>";
+  if (hookTab === "ref") return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winHookRef() + "</div></div>";
+  if (hookTab === "mine") return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winMyHooks() + "</div></div>";
+  return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winHookMaker() + "</div></div>";
+}
+function winHookMaker() {
+  const a = AWARE.find((x) => x[0] === HD.aw) || AWARE[0];
+  return (HD.id ? '<div class="nt-hint" style="padding:0 0 6px">✏️ Editing a saved hook · <a class="link" data-a="hknew">start a new one</a></div>' : "") +
+    '<label class="field">Hook (the title)</label><textarea class="inp" id="hkh" rows="2" style="height:64px" placeholder="The first line they see…">' + esc(HD.hook) + "</textarea>" +
+    '<div class="row"><button class="btn raised" data-a="hkcopy" data-arg="hook">📋 Copy hook</button></div>' +
+    '<label class="field">Body (the caption)</label><textarea class="inp" id="hkb" rows="8" style="height:170px" placeholder="Each line earns the next…">' + esc(HD.body) + "</textarea>" +
+    '<div class="row"><button class="btn raised" data-a="hkcopy" data-arg="body">📋 Copy body</button><button class="btn raised" data-a="hktpl">＋ Body template</button></div>' +
+    '<label class="field">Who is it for? (how aware they are)</label><select class="inp" id="hkaw">' + AWARE.map((x) => '<option value="' + x[0] + '"' + (x[0] === HD.aw ? " selected" : "") + ">" + esc(x[1]) + "</option>").join("") + "</select>" +
+    (a[2] ? '<div class="card sunk hk-tip">💡 ' + esc(a[2]) + "</div>" : "") +
+    '<button class="btn raised main" data-a="hksave">💾 ' + (HD.id ? "Save changes" : "Save to My hooks") + "</button>" +
+    '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hknew">New (clear)</button></div>' +
+    '<details class="hk-cheat"' + (store.get("cheatopen", false) ? " open" : "") + '><summary>📘 Cheat sheet: Breakthrough Advertising</summary>' + CHEAT + "</details>";
+}
+function winMyHooks() {
+  const q = mhSearch.trim().toLowerCase(), list = myHooks().filter((n) => { const p = hookParts(n); return !q || (p.hook + " " + p.body).toLowerCase().includes(q); });
+  return '<input class="nt-search" id="mhq" placeholder="🔎 Search my hooks" value="' + esc(mhSearch) + '" autocomplete="off" style="margin:0 0 8px;width:100%">' +
+    (list.length ? '<div class="lv sunk">' + list.map((n) => { const p = hookParts(n);
+      return '<div class="li hk-row"><span class="lab" data-a="hkopen" data-arg="' + esc(n.id) + '" style="cursor:pointer"><b>' + esc(p.hook || "(no hook)") + '</b><div class="dim">' + esc(niceDay(isoOf(new Date(n.updated)))) + (p.body ? " · " + esc((p.body.split("\n").find((x) => x.trim()) || "").slice(0, 80)) : "") + (NQ.includes(n.id) ? " · 📤" : "") + "</div></span>" +
+        '<span class="hk-acts"><span class="nt-btn" data-a="hkc" data-arg="' + esc(n.id) + '|hook">📋 Hook</span><span class="nt-btn" data-a="hkc" data-arg="' + esc(n.id) + '|body">📋 Body</span><span class="nt-btn" data-a="hkdup" data-arg="' + esc(n.id) + '" title="Duplicate">⧉</span><span class="nt-btn" data-a="hkbin" data-arg="' + esc(n.id) + '" title="Bin">🗑</span></span></div>'; }).join("") + "</div>"
+      : '<div class="card sunk">' + (q ? "Nothing matches that." : "No saved hooks yet. Write one in ✍️ Maker and tap Save.") + "</div>") +
+    '<div class="dim" style="margin-top:6px">Kept with your notes on the home server, so they\'re on your phone and laptop. Binned ones go to the Notes bin.</div>';
+}
+function hookSaveNote(id, hook, body) {
+  const n = NOTES[id] || { id: id, kind: "note", folder: "My hooks", title: "", body: "", items: [], photos: [], pinned: false, binned: false, created: Date.now(), updated: Date.now() };
+  n.folder = "My hooks"; n.binned = false;
+  n.blocks = [{ t: "title", text: hook }].concat(body.split("\n").map((l) => ({ t: "p", text: l })));
+  noteTouch(n);
+  return n;
+}
+function hookFresh() { render.noKeep = true; render(); }
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.id === "hkh") { HD.hook = t.value; hdSave(); }
+  else if (t.id === "hkb") { HD.body = t.value; hdSave(); }
+  else if (t.id === "mhq") { mhSearch = t.value; render(); }
+});
+document.addEventListener("change", (e) => { if (e.target.id === "hkaw") { HD.aw = e.target.value; hdSave(); render(); } });
+document.addEventListener("toggle", (e) => { if (e.target.classList && e.target.classList.contains("hk-cheat")) store.set("cheatopen", e.target.open); }, true);
+function hookAct(a, arg) {
+  if (a === "hooktab") { hookTab = arg; store.set("hooktab", arg); return hookFresh(); }
+  if (a === "hknew") { HD = { id: "", hook: "", body: "", aw: HD.aw }; hdSave(); return hookFresh(); }
+  if (a === "hkcopy") return copyText(arg === "hook" ? ($("hkh") ? $("hkh").value : HD.hook) : ($("hkb") ? $("hkb").value : HD.body), arg === "hook" ? "Hook" : "Body");
+  if (a === "hktpl") { const el = $("hkb"); HD.body = (HD.body.trim() ? HD.body.replace(/\s+$/, "") + "\n\n" : "") + BODY_TPL; if (el) el.value = HD.body; hdSave(); return; }
+  if (a === "hksave") {
+    if (!HD.hook.trim()) { toast("⚠ Write the hook first."); return; }
+    hookSaveNote(HD.id || nId("hk"), HD.hook.trim(), HD.body.replace(/\s+$/, ""));
+    HD = { id: "", hook: "", body: "", aw: HD.aw }; hdSave(); hookTab = "mine"; store.set("hooktab", "mine"); hookFresh();
+    return toast("Saved to My hooks ✓");
+  }
+  if (a === "hookuse") { const h = hooksView().find((x) => x.id === arg); if (!h) return; HD = { id: "", hook: h.text, body: HD.id ? "" : HD.body, aw: HD.aw }; hdSave(); hookTab = "make"; store.set("hooktab", "make"); return hookFresh(); }
+  const [id, part] = String(arg).split("|"), n = NOTES[id]; if (!n) return;
+  const p = hookParts(n);
+  if (a === "hkopen") { HD = { id: id, hook: p.hook, body: p.body, aw: HD.aw }; hdSave(); hookTab = "make"; store.set("hooktab", "make"); return hookFresh(); }
+  if (a === "hkc") return copyText(part === "hook" ? p.hook : p.body, part === "hook" ? "Hook" : "Body");
+  if (a === "hkdup") { hookSaveNote(nId("hk"), p.hook + " (copy)", p.body); toast("Duplicated ✓"); return hookFresh(); }
+  if (a === "hkbin") return ask("Move this hook to the bin?", () => { n.binned = true; noteTouch(n); hookFresh(); });
 }
 
 // ── 📅 change a client's date (or not decided yet) ──
@@ -1722,18 +1842,33 @@ function render() {
   setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
   $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
-    $("main").innerHTML = habitWidget() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
+    render.lastKey = null;
+    $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
     let body = "";
     try { body = D ? winBody(w) : '<div class="card sunk">Loading…</div>'; } catch (e) { body = '<div class="card sunk bad">⚠ ' + esc(e.message) + "</div>"; }
+    const wkey = w.kind + "|" + w.arg, keep = render.lastKey === wkey && !render.noKeep ? fieldSnapshot() : null;
+    render.lastKey = wkey; render.noKeep = false;
     $("main").innerHTML = '<div class="win raised"><div class="title">' + (stack.length > 1 ? '<button class="btn raised tb" data-a="back" aria-label="Back">←</button>' : "") +
       '<span class="t">' + esc(winTitle(w)) + '</span><button class="btn raised tb" data-a="home" aria-label="Close">✕</button></div><div class="body">' + body + "</div></div>";
+    if (keep) fieldRestore(keep);
   }
   drawCharts();
   beanDraw();
   boxBadge();
+}
+function fieldSnapshot() {                     // what you're typing survives a background sync redraw
+  const m = $("main"), s = { vals: {} };
+  m.querySelectorAll("input[id],textarea[id],select[id]").forEach((el) => { if (!/^(file|checkbox|range|radio)$/.test(el.type)) s.vals[el.id] = el.value; });
+  const a = document.activeElement;
+  if (a && a.id && m.contains(a)) { s.focus = a.id; try { s.ss = a.selectionStart; s.se = a.selectionEnd; } catch (e) {} }
+  return s;
+}
+function fieldRestore(s) {
+  for (const id in s.vals) { const el = $(id); if (el && el.value !== s.vals[id]) el.value = s.vals[id]; }
+  if (s.focus) { const el = $(s.focus); if (el && document.activeElement !== el) { el.focus({ preventScroll: true }); try { if (s.ss != null) el.setSelectionRange(s.ss, s.se); } catch (e) {} } }
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
@@ -2048,6 +2183,7 @@ function addTodo(today) {
   let due = today ? todayISO() : $("addd").value;
   if (due === "pick") due = $("addp").value || null;
   const n = Number($("addi").value || 3);
+  $("addt").value = "";
   todoChange({ kind: "add", text: t.replace(/\s!([1-5])\b/g, "") + " !" + n, due: due || null, cid: "p" + Date.now().toString(36) });
   toast("Added" + (due ? " for " + niceDay(due) : "") + " ✓");
 }
@@ -2311,7 +2447,7 @@ function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
   if (pref("bean") === false) { el.innerHTML = ""; return; }
-  if (stack.length && ["note", "nlist", "notes", "refs", "ref", "habits"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
+  if (stack.length && ["note", "nlist", "notes", "refs", "ref", "habits", "hooks"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -2404,6 +2540,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
   else if (a === "hooktag") { hookTag = arg; render(); }
   else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
+  else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin"].includes(a)) hookAct(a, arg);
   else if (a === "hookcopy") { const h = hooksView().find((x) => x.id === arg); if (h) copyHook(h); }
   else if (a === "hookedit") { const h = hooksView().find((x) => x.id === arg); if (h) editHook(h); }
   else if (a === "hookrand") {
