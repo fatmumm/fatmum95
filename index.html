@@ -77,7 +77,7 @@ html{-webkit-text-size-adjust:100%}
 .hk-wrap{min-height:0}.hk-tabs{background:#f3f3f3}
 .hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
 .hk-tip{font-size:13px;margin-top:6px;padding:8px}
-.cs-chips{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;-webkit-overflow-scrolling:touch}
+.cs-chips{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;-webkit-overflow-scrolling:touch}.cs-mode{font-size:13px}
 .cs-quick{background:#ffffe1;border:1px solid #808080;padding:6px 8px;margin:0 0 8px;font:13px/1.35 -apple-system,system-ui,sans-serif}.cs-quick>b{display:block;margin-bottom:2px}.cs-quick div{margin:0 0 2px}
 .cs-n{border:1px solid;border-color:#fff #404040 #404040 #fff;background:#c0c0c0;margin:0 0 4px}.cs-n .cs-n{background:#e8e8e8;border-color:#bbb}
 .cs-n>summary{padding:6px 8px;cursor:pointer;font-size:14px;line-height:1.25;list-style-position:inside}.cs-g{display:block;font-weight:400;font-size:12px;color:#333;margin-left:16px}
@@ -1782,7 +1782,7 @@ const CS_QUICK = ["<b>1.</b> The hook only has to earn the next line. Not sell, 
   "<b>2.</b> Find a want people already have and point it at your work. You can't invent wants.",
   "<b>3.</b> Match how aware they are: offer, proof, result, feeling, or just them.",
   "<b>4.</b> If everyone says it, show <i>how</i> yours works or make it about who they are.",
-  "<b>5.</b> Picture the want, then make it believable: method, healed photos, people like them.",
+  "<b>5.</b> Picture the want, then make it believable: your method, real results, people like them.",
   "<b>6.</b> Give more than you ask. Free value first, small yes before big yes.",
   "<b>7.</b> Use what's honestly true: real slots, real reviews, real flaws said early.",
   "<b>8.</b> End with one clear thing to do, and a reason to do it now."];
@@ -1938,17 +1938,104 @@ const CS = [
    d: "Deeper than liking: shared identity (family, place, tribe). Created by <b>belonging together</b> (same city, same scene) and <b>acting together</b> (making something together, going through something together). Ask for <b>advice</b>, not opinions: it pulls people in.",
    ex: "<i>Locals, help me pick the next flash.</i> Let clients co-design. A regulars' wall. Polls framed as <i>which should I draw?</i>",
    ins: [["hook", "Need your advice: which one should I draw next?"]] }] }];
+let csMode = store.get("csmode", "tat");
+const CS2 = {
+ "0.0": { d: "The pulling power comes from the market, not from your caption. Lots of people already want to draw, to have a style that feels like theirs, to make something with their hands in a world of AI and instant results. You can't make anyone want to draw. You can take a want they already carry and point it at your lessons.<br><br>Every want has three sizes: how <b>urgent</b> (a new sketchbook, a new year, feeling burnt out on screens), how <b>lasting</b> (it keeps coming back every time they open a blank page), and how <b>many</b> share it. Build each post on one want only.<br><br>People don't buy exercises. They buy what changes: drawing without dread, a page that finally looks like theirs.",
+   ex: "Same sketchbook page, different wants: <i>I want to stop freezing at the blank page</i>, <i>I want a style</i>, <i>I want my drawings to match my ideas</i>, <i>I want to make something that isn't for anyone</i>. One per post. Your pens and paper are backup, not the headline.",
+   ins: [["body", "Everyone who opens a sketchbook wants ___. Here's the bit nobody says out loud: ___."]] },
+ "0.1": { ex: "Weak: <i>Sketchbook tour, new pens, some studies, lesson in caption, link in bio.</i> Stronger: <i>I drew this badly on purpose.</i>" },
+ "0.2.0": { ex: "<i>The Imperfect Artist Challenge starts Monday. Free. Comment START.</i>", ins: [["hook", "The ___ starts ___. Free. Comment ___ and I'll send it."]] },
+ "0.2.1": { ex: "A new exercise from your workbook. Before and after pages from someone who did the challenge. A lesson in a format they haven't seen from you (a real-time page, a voiceover of your thinking).",
+   ins: [["hook", "Day ___ of drawing badly on purpose. Look what changed."], ["hook", "One exercise from my workbook. Try it tonight."]] },
+ "0.2.2": { ex: "<i>How to find your style without copying anyone.</i> Then proof (your pages, a student's), then your method.",
+   ins: [["hook", "How to make your drawings look like yours."], ["hook", "Your style is already in your margins."]] },
+ "0.2.3": { ex: "<i>Do your drawings never match the idea in your head?</i> then show the gap is normal and what closes it.",
+   ins: [["hook", "Your drawings never match the idea in your head? Same. Here's why."], ["hook", "Frozen at the blank page? Do this first."]] },
+ "0.2.4": { ex: "<i>To the people who say 'I can't even draw a stick figure'.</i> <i>You were drawing every day until about age 9. What happened?</i> This is where your philosophy posts live.",
+   ins: [["hook", "To everyone who thinks they're not creative."], ["hook", "A bad drawing is still a drawing. Here's why that matters."]] },
+ "0.3.0": { ex: "Rare in art teaching: <i>art is worth making even when it's bad.</i> Say it plainly, it's your fresh claim." },
+ "0.3.1": { ex: "<i>Draw better</i> becomes <i>7 days, 10 minutes a day, a sketchbook that actually feels like yours.</i>" },
+ "0.3.2": { ex: "<i>Find your style</i> is said everywhere. Lead with your how: <i>You don't find a style, you notice it. Here's how I spot mine.</i>", ins: [["hook", "You don't find your style, you notice it. Here's how."]] },
+ "0.3.3": { ex: "Make noticing easier: a 3-question page check, a 'likes list' you keep in the back of the book." },
+ "0.3.4": { ex: "This is your brand's home ground: <i>imperfect artists</i>. Not a promise of skill, an identity people want to belong to.", ins: [["hook", "For the people who make art without needing it to be good."]] },
+ "0.4.0": { ins: [["hook", "10 minutes. Same apple. 5 completely different drawings."], ["hook", "Day 1 vs day ___ of drawing every morning."]] },
+ "0.4.1": { ins: [["hook", "\"___\" I thought, the first time I filled a whole page badly."]] },
+ "0.4.2": { ins: [["hook", "My worst drawing taught me more than my best one."], ["hook", "You're not bad at drawing. You've just stopped."]] },
+ "0.4.3": { ins: [["hook", "How to fill a sketchbook when you think you have no ideas."], ["hook", "Don't buy another art course until you've tried this."]] },
+ "0.4.4": { ins: [["hook", "If you only draw when you feel inspired, read this."], ["hook", "For the self-taught artists who still feel like beginners."]] },
+ "0.4.5": { ins: [["hook", "The one exercise that finally made my style click."]] },
+ "0.5.0": { ex: "First night: the page fills and you stop judging it. A week on: you notice you keep drawing the same chunky shapes. A month on: someone says <i>that looks like one of yours</i>.",
+   ins: [["body", "Tonight: ___. In a week: ___. A month from now: ___."]] },
+ "0.5.1": { d: "People also buy who it makes them. <b>Character</b>: someone who makes things, who's curious, who doesn't need permission. <b>Achievement</b>: kept a sketchbook going, finished a challenge, drew something they're proud of. Keep it believable: start from 'I doodle in meetings', bridge to 'I'm someone with a style'.",
+   ex: "Show the kind of person: a messy desk, a sketchbook in a coat pocket, drawing on a train. Not a gallery wall." },
+ "0.5.2": { ins: [["body", "Ever start a sketchbook and give up by page 3? Ever compare your page to someone's highlight reel? Then here's what nobody tells you about ___."]] },
+ "0.5.3": { d: "Three common objections. <b>Too hard</b>: make it small (it isn't 'learning to draw', it's 10 minutes and one subject). <b>Not important enough</b>: escalate (it isn't a hobby, it's time that's yours in a world built to take it). <b>Too pricey</b>: compare to bigger things (one workbook vs. a year of courses you never finish).",
+   ex: "<i>You don't need talent, you need a pen and 10 minutes.</i> <i>Less than one takeaway for a month of exercises.</i>" },
+ "0.5.4": { ex: "<i>I draw the same thing 5 ways, then circle the one I'd defend. The circles are your style.</i>" },
+ "0.5.5": { ex: "Copying tutorials: you learn their style. Waiting to be good: you never start. My way: make a lot, notice what you like, keep that." },
+ "0.5.6": { ins: [["body", "Honest bit: ___ (this won't make you good fast). But ___."]] },
+ "0.6": { ins: [["body", "But that's not the best bit. ___"]] },
+ "1.0": { d: "Followers aren't the goal. Hands up are: someone joining the challenge, replying to an email, asking a question. Your plan already says it: a smaller engaged group beats a big quiet one." },
+ "1.1": { ex: "<b>Your Imperfect Artist Challenge is your lead magnet.</b> Type: one step of a bigger process (style), with a sample of how you teach. Test its name first (story poll: <i>Imperfect Artist Challenge</i> vs <i>7 Days of Bad Drawings</i>). Make it easy (one short email a day, a printable page). Make it genuinely good. The last day reveals the next problem: <i>now I've got pages, how do I turn this into a style?</i>, which is the Find Your Style Sketchbook.",
+   ins: [["body", "I made a free 7-day challenge for anyone who ___. Comment ___ and I'll send it."], ["hook", "Which name? A) ___ B) ___"]] },
+ "1.2": { ex: "Dream: drawings that feel like theirs. Likely: pages from people like them who did it. Quick: 10 minutes a day. Easy: no talent needed, bad drawings count. Who: a friend saying <i>that's so you</i>. When: the kid who loved drawing, the adult who stopped, the person who still has a sketchbook in 5 years.",
+   ins: [["body", "I help ___ find a style that feels like theirs in ___ without ___. ___ (proof)."]] },
+ "1.3.0": { ins: [["body", "Are you still looking to find your own style?"], ["body", "Do you know anyone who keeps saying they wish they could draw? I'm testing a free 7-day challenge."]] },
+ "1.3.1": { ex: "Your 3 posts a week map straight on: <b>lesson</b> (a list or steps), <b>process</b> (a story: watch it go wrong then right), <b>philosophy</b> (an idea that rewards). Say <i>how I</i>: <i>how I fill a page when I'm stuck</i>.",
+   ins: [["hook", "3 things I wish I knew when I started a sketchbook."], ["hook", "How I fill a page when I have zero ideas."]] },
+ "1.3.2": { d: "Find people, personalise with one real detail, give big fast value, follow up. For the brand: other art teachers for collabs, art clubs and uni societies, small art shops who'd share your challenge." },
+ "1.3.3": { ex: "Callout: <i>Self-taught artists who still feel like beginners</i>. Value: the equation above. CTA: get the free challenge. Use your best-saving organic post as the ad." },
+ "1.4": { ex: "<i>Comment START for the free challenge</i>, plus a real reason now: <i>it starts Monday so we're all on day 1 together</i>.", ins: [["body", "Comment ___ and I'll send you the free challenge. It starts ___, so we're all on day 1 together."]] },
+ "1.5.0": { d: "Get people results quickly (a finished page on day 1). Check in. Set expectations lower than you deliver (it won't make you brilliant, it'll make you draw). Find what your best challengers did and get everyone doing it. Then offer the next step (the workbook)." },
+ "1.5.1": { ins: [["body", "Do the challenge with a friend and share your pages side by side. Tag them below."]] },
+ "1.6": { ex: "100 minutes a day on content and the challenge, measured weekly in your review. Your plan's line fits: judge progress over time." },
+ "2.0": { ex: "Show the full course outline, then the small workbook. <i>Start now because the first page is always the worst one, and it's better to get it out of the way.</i>" },
+ "2.1": { ex: "Free exercises in every post. When someone shares a page, reply with a personal next exercise just for them. Fixing a mistake well (a broken link, a typo in the workbook) earns more trust than never slipping.", ins: [["body", "Saw your page, ___. Try this next: ___."]] },
+ "2.2": { ex: "Show your messy pages, your failed attempts, your face. Find real common ground (self-taught, stopped drawing for years). Compliment the trait: <i>you're brave with your marks</i>." },
+ "2.3": { ex: "Repost challengers' day-1 and day-7 pages. <i>Over ___ people have filled a page this week.</i> Never: <i>most people give up on their sketchbook</i> (that normalises giving up). If you're new: <i>more people join each round</i>.",
+   ins: [["hook", "Here's what ___ people drew on day 1 of the challenge."]] },
+ "2.4": { ex: "Show your own bad pages early, then your strongest page. <i>I'm not a classically trained artist. Here's what I've learned anyway.</i>", ins: [["hook", "I'm not ___. Here's what I learned anyway."]] },
+ "2.5": { ex: "Digital products aren't scarce, so stay honest: a founding price for the first version, a challenge cohort with a start date, your own odd way of seeing. Releasing a workbook page by page also works.", ins: [["body", "First version, founding price until ___. After that it goes up as I add ___."]] },
+ "2.6": { ex: "Day 1 asks for one tiny page. Ask them to post it (public). <i>Will you try it tonight?</i> and wait for yes. When someone joins, ask <i>what made you want to start?</i>", ins: [["body", "Will you try it tonight? Reply yes and I'll check in tomorrow."], ["body", "Before you start: what made you want to draw again?"]] },
+ "2.7": { ex: "Name the tribe: <i>imperfect artists</i>. Make things together (a shared prompt, a collab page). Ask for <i>advice</i>: <i>help me pick next week's exercise</i>.", ins: [["hook", "Imperfect artists: help me pick next week's exercise."]] }
+};
+const CS_BRAND = { t: "🧭 Your art brand × the books", g: "Your plan, run through all three", k: [
+ { t: "Your philosophy is your mechanism", g: "The answer to a tired market",
+   d: "'Learn to draw' and 'find your style' are stage 4 to 5 claims: everyone says them, people are numb. Schwartz says: lead with a new <b>how</b>, then move to <b>identity</b>. You have both. The how: you notice a style by making lots and paying attention to what you like. The identity: someone who makes art without needing it to be good. Your north star line is a stage-5 hook in itself.",
+   ins: [["hook", "Make more art. Worry less about being good at it."]] },
+ { t: "Pillars × awareness", g: "Each pillar reaches a different reader",
+   d: "<b>Philosophy (10%)</b> reaches the unaware: people who think they're not creative. <b>Style (40%)</b> reaches the solution aware: they want a style, don't know you're the way. <b>Skills (30%)</b> reaches the problem aware: their drawings don't match their ideas. <b>Process (20%)</b> builds proof and liking for people who already follow you. The challenge link is for the most aware." },
+ { t: "Your funnel × Hormozi", g: "Free content → challenge → list → workbook → course",
+   d: "Content is <b>posting</b> to a warm audience. The Imperfect Artist Challenge is the <b>lead magnet</b> (one step that reveals the next problem). The email list is your owned <b>warm audience</b>: give, give, give, then use the 9-word email. The Find Your Style Sketchbook is the first <b>paid</b> fix to the problem the challenge reveals. Give until they ask." },
+ { t: "3 posts a week as formats", g: "Lesson · Process · Philosophy",
+   d: "Each is hook, retain, reward. <b>Lesson</b>: a list or steps, reward = they can do it tonight. <b>Process</b>: a story, reward = the turn from wrong to right. <b>Philosophy</b>: one idea, reward = permission.",
+   ins: [["hook", "1 thing that fixed my ___."], ["hook", "Watch this go wrong, then right."], ["hook", "A bad drawing still taught me ___."]] },
+ { t: "Validate before you build", g: "Commitment and honest scarcity",
+   d: "Your plan says test demand before building. Use commitment: a waitlist where people say <i>why</i> they want it, or a small paid first version. Use honest scarcity: founding price for the first round. Measure hands up (replies, sign ups, sales), not views.",
+   ins: [["body", "I'm thinking of making a workbook on ___. If you'd use it, reply with the one thing you'd want it to fix."]] }] };
+const AWARE2 = {
+  most: "Lead with the offer: the challenge start date, the workbook link, a founding price. They already trust you.",
+  product: "Show something fresh: a new exercise, a challenger's before and after, a process video. Proof beats promises.",
+  solution: "Lead with the result (a style that feels like theirs), then show your way of getting there.",
+  problem: "Name the frustration: drawings not matching ideas, the blank page, feeling unoriginal. Then the way out.",
+  unaware: "Don't mention lessons yet. Start with them: 'not creative', screens all day, the kid who used to draw. Philosophy posts live here." };
+const BODY_TPL2 = "If you've ever ___ (call out the artist: blank page, unoriginal, not good enough),\n\n___ (the exercise or lesson: one clear thing to try)\n\n___ (show it: your messy page, what changed)\n\n___ (the permission line: it doesn't have to be good)\n\n___ (one ask: save it, try it tonight, comment ___ for the challenge)";
 let csBook = store.get("csbook", "all"), csOpen = new Set(store.get("csopen", [])), CSI = [];
 function csNode(n, p) {
-  const ins = (n.ins || []).map(([to, tx]) => { CSI.push([to, tx]); return '<div class="cs-try" data-a="hkins" data-arg="' + (CSI.length - 1) + '">✍️ <span>' + esc(tx) + "</span><em>" + (to === "hook" ? "→ hook" : "→ body") + "</em></div>"; }).join("");
+  const art = csMode === "art", o = art && p[0] !== "b" ? (CS2[p] || {}) : n, d = o.d || n.d, ex = o.ex, il = o.ins || [];
+  const ins = il.map(([to, tx]) => { CSI.push([to, tx]); return '<div class="cs-try" data-a="hkins" data-arg="' + (CSI.length - 1) + '">✍️ <span>' + esc(tx) + "</span><em>" + (to === "hook" ? "→ hook" : "→ body") + "</em></div>"; }).join("");
   return '<details class="cs-n" data-p="' + p + '"' + (csOpen.has(p) ? " open" : "") + "><summary><b>" + esc(n.t) + "</b>" + (n.g ? '<span class="cs-g">' + esc(n.g) + "</span>" : "") + '</summary><div class="cs-b">' +
-    (n.d ? "<p>" + n.d + "</p>" : "") + (n.ex ? '<div class="cs-ex">🖋 <b>For your tattoos:</b> ' + n.ex + "</div>" : "") + ins + (n.k || []).map((c, i) => csNode(c, p + "." + i)).join("") + "</div></details>";
+    (d ? "<p>" + d + "</p>" : "") + (ex ? '<div class="cs-ex">' + (art ? "📓 <b>For your sketchbook:</b> " : "🖋 <b>For your tattoos:</b> ") + ex + "</div>" : "") + ins + (n.k || []).map((c, i) => csNode(c, p + "." + i)).join("") + "</div></details>";
+}
+function csModeRow() {
+  return '<div class="cs-chips cs-mode"><span class="dim" style="align-self:center">Writing for</span>' + [["tat", "🖋 Tattoo"], ["art", "📓 Sketchbook"]].map(([k, l]) => '<span class="nt-btn rf-chip' + (csMode === k ? " on" : "") + '" data-a="csmode" data-arg="' + k + '">' + l + "</span>").join("") + "</div>";
 }
 function winCheat() {
   CSI = [];
   const chips = [["all", "All"], ["S", "📕 Schwartz"], ["H", "📗 Hormozi"], ["C", "📘 Cialdini"]].map(([k, l]) => '<span class="nt-btn rf-chip' + (csBook === k ? " on" : "") + '" data-a="csbook" data-arg="' + k + '">' + l + "</span>").join("");
-  return '<div class="cs-chips">' + chips + "</div>" +
+  return csModeRow() + '<div class="cs-chips">' + chips + "</div>" +
     (csBook === "all" ? '<div class="cs-quick"><b>⚡ Quick card</b>' + CS_QUICK.map((l) => "<div>" + l + "</div>").join("") + "</div>" : "") +
+    (csMode === "art" ? csNode(CS_BRAND, "b") : "") +
     CS.map((bk, i) => (csBook === "all" || csBook === bk.b) ? csNode(bk, String(i)) : "").join("") +
     '<div class="dim" style="margin-top:8px">Tap any row to go deeper. ✍️ lines drop a template into the Maker. In my own words, from Schwartz, Hormozi and Cialdini.</div>';
 }
@@ -1968,14 +2055,14 @@ function winHooks() {
   return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winHookMaker() + "</div></div>";
 }
 function winHookMaker() {
-  const a = AWARE.find((x) => x[0] === HD.aw) || AWARE[0];
-  return (HD.id ? '<div class="nt-hint" style="padding:0 0 6px">✏️ Editing a saved hook · <a class="link" data-a="hknew">start a new one</a></div>' : "") +
+  const a = AWARE.find((x) => x[0] === HD.aw) || AWARE[0], tip = csMode === "art" ? (AWARE2[a[0]] || "") : a[2];
+  return csModeRow() + (HD.id ? '<div class="nt-hint" style="padding:0 0 6px">✏️ Editing a saved hook · <a class="link" data-a="hknew">start a new one</a></div>' : "") +
     '<label class="field">Hook (the title)</label><textarea class="inp" id="hkh" rows="2" style="height:64px" placeholder="The first line they see…">' + esc(HD.hook) + "</textarea>" +
     '<div class="row"><button class="btn raised" data-a="hkcopy" data-arg="hook">📋 Copy hook</button></div>' +
     '<label class="field">Body (the caption)</label><textarea class="inp" id="hkb" rows="8" style="height:170px" placeholder="Each line earns the next…">' + esc(HD.body) + "</textarea>" +
     '<div class="row"><button class="btn raised" data-a="hkcopy" data-arg="body">📋 Copy body</button><button class="btn raised" data-a="hktpl">＋ Body template</button></div>' +
     '<label class="field">Who is it for? (how aware they are)</label><select class="inp" id="hkaw">' + AWARE.map((x) => '<option value="' + x[0] + '"' + (x[0] === HD.aw ? " selected" : "") + ">" + esc(x[1]) + "</option>").join("") + "</select>" +
-    (a[2] ? '<div class="card sunk hk-tip">💡 ' + esc(a[2]) + "</div>" : "") +
+    (tip ? '<div class="card sunk hk-tip">💡 ' + esc(tip) + "</div>" : "") +
     '<button class="btn raised main" data-a="hksave">💾 ' + (HD.id ? "Save changes" : "Save to My hooks") + "</button>" +
     '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hknew">New (clear)</button></div>' +
     '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hooktab" data-arg="cs">📘 Cheat sheet</button></div>';
@@ -2007,6 +2094,7 @@ document.addEventListener("change", (e) => { if (e.target.id === "hkaw") { HD.aw
 document.addEventListener("toggle", (e) => { const d = e.target; if (!d.classList || !d.classList.contains("cs-n")) return; d.open ? csOpen.add(d.dataset.p) : csOpen.delete(d.dataset.p); store.set("csopen", [...csOpen]); }, true);
 function hookAct(a, arg) {
   if (a === "hooktab") { hookTab = arg; store.set("hooktab", arg); return hookFresh(); }
+  if (a === "csmode") { csMode = arg; store.set("csmode", arg); return hookFresh(); }
   if (a === "csbook") { csBook = arg; store.set("csbook", arg); return hookFresh(); }
   if (a === "hkins") {
     const x = CSI[+arg]; if (!x) return;
@@ -2017,7 +2105,7 @@ function hookAct(a, arg) {
   }
   if (a === "hknew") { HD = { id: "", hook: "", body: "", aw: HD.aw }; hdSave(); return hookFresh(); }
   if (a === "hkcopy") return copyText(arg === "hook" ? ($("hkh") ? $("hkh").value : HD.hook) : ($("hkb") ? $("hkb").value : HD.body), arg === "hook" ? "Hook" : "Body");
-  if (a === "hktpl") { const el = $("hkb"); HD.body = (HD.body.trim() ? HD.body.replace(/\s+$/, "") + "\n\n" : "") + BODY_TPL; if (el) el.value = HD.body; hdSave(); return; }
+  if (a === "hktpl") { const el = $("hkb"); HD.body = (HD.body.trim() ? HD.body.replace(/\s+$/, "") + "\n\n" : "") + (csMode === "art" ? BODY_TPL2 : BODY_TPL); if (el) el.value = HD.body; hdSave(); return; }
   if (a === "hksave") {
     if (!HD.hook.trim()) { toast("⚠ Write the hook first."); return; }
     hookSaveNote(HD.id || nId("hk"), HD.hook.trim(), HD.body.replace(/\s+$/, ""));
@@ -2838,7 +2926,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
   else if (a === "hooktag") { hookTag = arg; render(); }
   else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
-  else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin", "csbook", "hkins"].includes(a)) hookAct(a, arg);
+  else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin", "csbook", "csmode", "hkins"].includes(a)) hookAct(a, arg);
   else if (a === "hookcopy") { const h = hooksView().find((x) => x.id === arg); if (h) copyHook(h); }
   else if (a === "hookedit") { const h = hooksView().find((x) => x.id === arg); if (h) editHook(h); }
   else if (a === "hookrand") {
