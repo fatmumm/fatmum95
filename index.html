@@ -57,6 +57,22 @@ html{-webkit-text-size-adjust:100%}
 .rf-tools{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:6px;background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff}
 .rv-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .rv-sl{font:12px Tahoma,sans-serif}.rv-sl input{flex:1;min-width:90px}
+.hw{margin:10px 8px 0;background:#c0c0c0;padding:0 0 4px}
+.hw-h{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-size:14px;cursor:pointer}
+.hw-h span{font-size:12px}
+.hw-row{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:14px}
+.hw-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hw-s{font-size:13px;white-space:nowrap}
+.hw-tick{flex:none;width:24px;height:24px;box-sizing:border-box;border:1px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #404040;background:#fff;display:flex;align-items:center;justify-content:center;font:700 14px Tahoma,sans-serif;color:#fff;cursor:pointer}
+.hw-tick.on{background:#2e8b57}.hb-nodue{opacity:.35;cursor:default}
+.hw-more,.hw-miss{padding:2px 8px 2px 40px;font-size:12px;cursor:pointer}.hw-miss{color:#a00000}
+.hb-card{padding:8px 10px 10px;border-bottom:1px solid #e3e3e3}
+.hb-head{display:flex;align-items:center;gap:10px}.hb-name{flex:1;min-width:0;display:flex;flex-direction:column}.hb-name .dim{font-size:12px}
+.hb-stats{display:flex;flex-direction:column;align-items:flex-end;font-size:14px}.hb-stats .dim{font-size:11px}
+.hb-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:6px;max-width:360px}
+.hb-dn{text-align:center;font-size:10px;color:#888}
+.hb-c{height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;border:1px solid #d0d0d0}
+.hb-on{background:#2e8b57;color:#fff;border-color:#2e8b57;font-weight:700;cursor:pointer}.hb-miss{background:#fff;color:#555;cursor:pointer}
+.hb-off{background:#ececec;color:#bbb}.hb-x{background:#f7f7f7;color:#ddd;border-color:#eee}.hb-today{outline:2px solid #000080;outline-offset:-2px}
 body.big{font-size:17px}body.big button,body.big input,body.big textarea,body.big select{font-size:18px}
 body{margin:0;background:#008080;font-family:Tahoma,"Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;color:#000;min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom));overflow-x:hidden}
 button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
@@ -624,12 +640,12 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
   ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
+const PREF_DEFAULTS = { hwidget: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
@@ -646,6 +662,7 @@ function winSettings() {
   h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
     '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
     '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
+  h += '<div class="h">Home screen</div><div class="lv sunk"><div class="li" data-a="preftoggle" data-arg="hwidget">' + box(pref("hwidget") !== false) + '<span class="lab">Show the 🔥 habits widget</span></div></div>';
   h += '<div class="h">Text size</div><div class="lv sunk">' + row("🔠", "Text", sel("text", pref("text"), [["normal", "Normal"], ["big", "Big"]])) + "</div>";
   h += '<div class="h">Home server</div><div class="dim" style="margin-bottom:6px">Makes syncing near-instant when your phone is on Tailscale. Leave empty to always use Google.</div>' +
     '<input class="inp" data-pref="server" value="' + esc(pref("server") || "") + '" placeholder="https://….ts.net:8446" autocapitalize="off" autocorrect="off" spellcheck="false">' +
@@ -1356,7 +1373,7 @@ function noteAct(a, arg, el) {
 const REF_TABS = [["pinterest", "Pinterest"], ["camera roll", "Camera roll"]];
 let REFS = store.get("refs", { albums: [], lists: {} }), refAlbum = store.get("refAlbum", ""), refBusy = false, refErr = "", refLoaded = 0, RV = null;
 let RO = Object.assign({ grid: 0, gcol: "#000000", grey: false, values: false, vn: 4, contrast: 100, flip: false, rot: 0 }, store.get("refopt", {}));
-if (typeof RO.values === "number") { RO.vn = RO.values || 4; RO.values = RO.values > 0; } delete RO.xerox;
+if (typeof RO.values === "number") { RO.vn = RO.values || 4; RO.values = RO.values > 0; } if (typeof RO.xerox !== "number") RO.xerox = 0;
 const refSave = () => { store.set("refs", REFS); store.set("refAlbum", refAlbum); };
 const refItems = () => REFS.lists[refAlbum] || [];
 const refTab = (k) => REFS.albums.find((a) => a.name.trim().toLowerCase() === k);
@@ -1438,9 +1455,10 @@ function winRef(i) {
 function refToolsHtml() {
   const b = (k, label, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-a="reftool" data-arg="' + k + '">' + label + "</span>";
   const col = { "#000000": "⚫", "#ffffff": "⚪", "#ff2020": "🔴" }[RO.gcol] || "⚫";
-  return '<div class="rv-row">' + b("grid", "▦ " + (RO.grid ? RO.grid + "×" + RO.grid : "Grid"), RO.grid) + (RO.grid ? b("gcol", col) : "") + b("grey", "◐ Grey", RO.grey) + b("values", "Values", RO.values) +
+  return '<div class="rv-row">' + b("grid", "▦ " + (RO.grid ? RO.grid + "×" + RO.grid : "Grid"), RO.grid) + (RO.grid ? b("gcol", col) : "") + b("grey", "◐ Grey", RO.grey) + b("values", "Values", RO.values) + b("xerox", "Xerox", RO.xerox) +
     b("flip", "⇋ Flip", RO.flip) + b("rot", "⟳ " + RO.rot + "°", RO.rot) + b("reset", "Reset") + "</div>" +
     (RO.values ? '<div class="rv-row rv-sl">Values <b id="rvvn">' + RO.vn + '</b><input type="range" min="2" max="15" step="1" value="' + RO.vn + '" data-rvs="vn"></div>' : "") +
+    (RO.xerox ? '<div class="rv-row rv-sl">Grain <input type="range" min="1" max="100" value="' + RO.xerox + '" data-rvs="xerox"></div>' : "") +
     '<div class="rv-row rv-sl">Contrast <input type="range" min="50" max="200" value="' + RO.contrast + '" data-rvs="contrast"></div>';
 }
 async function refShow() {
@@ -1457,11 +1475,13 @@ function refDraw() {
   if (!RV || !RV.img || !$("rvc")) return;
   const im = RV.img, k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k);
   const c = $("rvc"); c.width = w; c.height = h; const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(im, 0, 0, w, h);
-  if (RO.grey || RO.values) {
+  if (RO.grey || RO.values || RO.xerox) {
     const d = cx.getImageData(0, 0, w, h), p = d.data, N = RO.values ? Math.max(2, Math.min(15, RO.vn)) : 0;
+    const grain = RO.xerox ? refGrain(w, h, 1337) : null, amp = RO.xerox / 100 * 1.6;
     for (let i = 0; i < p.length; i += 4) {
       let v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
-      if (N) v = Math.round(v / 255 * (N - 1)) * 255 / (N - 1);
+      if (grain) { const bl = Math.max(0, Math.min(255, 128 + (grain[i] - 128) * amp)); v = v < 128 ? (2 * v * bl) / 255 : 255 - (2 * (255 - v) * (255 - bl)) / 255; v = v < 128 ? 0 : 255; }
+      else if (N) v = Math.round(v / 255 * (N - 1)) * 255 / (N - 1);
       p[i] = p[i + 1] = p[i + 2] = v;
     }
     cx.putImageData(d, 0, 0);
@@ -1477,6 +1497,17 @@ function refDraw() {
   g.innerHTML = '<g stroke="' + RO.gcol + '" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity=".85">' + lines + "</g>";
   refPan();
 }
+function refGrain(w, h, seed) {                 // seeded grain field (the photocopier look from the old Refs tool)
+  const key = w + "x" + h; if (refGrain.c && refGrain.c.key === key) return refGrain.c.data;
+  const g = Math.max(2, Math.round(Math.max(w, h) / 260)), gw = Math.ceil(w / g), gh = Math.ceil(h / g);
+  let s = seed >>> 0 || 1; const rand = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  const c = document.createElement("canvas"); c.width = gw; c.height = gh; const cx = c.getContext("2d"), id = cx.createImageData(gw, gh);
+  for (let i = 0; i < gw * gh; i++) { const v = rand() * 256 | 0; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
+  cx.putImageData(id, 0, 0);
+  const f = document.createElement("canvas"); f.width = w; f.height = h; const fx = f.getContext("2d", { willReadFrequently: true }); fx.imageSmoothingEnabled = true; fx.drawImage(c, 0, 0, w, h);
+  refGrain.c = { key: key, data: fx.getImageData(0, 0, w, h).data };
+  return refGrain.c.data;
+}
 function refPan() { const el = $("rvin"); if (el && RV) el.style.transform = "translate(" + RV.x + "px," + RV.y + "px) scale(" + RV.z + ")"; }
 function refGo(d) {
   if (!RV) return; const i = RV.i + d; if (i < 0 || i >= RV.items.length) return;
@@ -1490,10 +1521,11 @@ function refTool(k) {
   if (k === "grid") refOpt("grid", [0, 3, 4, 6, 8][([0, 3, 4, 6, 8].indexOf(RO.grid) + 1) % 5]);
   else if (k === "gcol") refOpt("gcol", ["#000000", "#ffffff", "#ff2020"][(["#000000", "#ffffff", "#ff2020"].indexOf(RO.gcol) + 1) % 3]);
   else if (k === "grey") refOpt("grey", !RO.grey);
-  else if (k === "values") refOpt("values", !RO.values);
+  else if (k === "values") { RO.xerox = 0; refOpt("values", !RO.values); }
+  else if (k === "xerox") { RO.values = false; refOpt("xerox", RO.xerox ? 0 : 50); }
   else if (k === "flip") refOpt("flip", !RO.flip);
   else if (k === "rot") refOpt("rot", (RO.rot + 90) % 360);
-  else if (k === "reset") { RO = { grid: 0, gcol: RO.gcol, grey: false, values: false, vn: RO.vn, contrast: 100, flip: false, rot: 0 }; refOpt("grid", 0); }
+  else if (k === "reset") { RO = { grid: 0, gcol: RO.gcol, grey: false, values: false, vn: RO.vn, xerox: 0, contrast: 100, flip: false, rot: 0 }; refOpt("grid", 0); }
 }
 function refFav() {
   if (!RV) return; const it = RV.items[RV.i], on = !it.fav;
@@ -1508,7 +1540,7 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   const top = stack[stack.length - 1]; if (!top || top.kind !== "ref" || /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName)) return;
-  if (e.key === "Escape") back(); else if (e.key === "ArrowRight") refGo(1); else if (e.key === "ArrowLeft") refGo(-1); else if (e.key === "g") refTool("grid"); else if (e.key === "v") refTool("values");
+  if (e.key === "Escape") back(); else if (e.key === "ArrowRight") refGo(1); else if (e.key === "ArrowLeft") refGo(-1); else if (e.key === "g") refTool("grid"); else if (e.key === "v") refTool("values"); else if (e.key === "x") refTool("xerox");
 });
 // pinch / drag / wheel zoom inside the picture box, swipe for next/previous
 const rvPts = new Map(); let rvStart = null;
@@ -1540,6 +1572,48 @@ document.addEventListener("pointerup", rvUp); document.addEventListener("pointer
 document.addEventListener("dblclick", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; RV.z = RV.z > 1 ? 1 : 2.5; RV.x = 0; RV.y = 0; refPan(); });
 document.addEventListener("wheel", (e) => { if (!RV || !e.target.closest || !e.target.closest("#rvstage")) return; e.preventDefault(); RV.z = Math.max(1, Math.min(8, RV.z * Math.exp(-e.deltaY / 300))); if (RV.z === 1) { RV.x = 0; RV.y = 0; } refPan(); }, { passive: false });
 window.addEventListener("resize", () => { if (RV && $("rvc")) refDraw(); });
+
+// ── 🔥 Habits: own page + home-screen widget. Any past day can be ticked (forgot to tick? fill it in). ──
+function bestStreak(h) {
+  const done = new Set(h.log || []), t = todayISO(); let best = 0, cur = 0, d = h.added || (h.log || [])[0] || t, n = 0;
+  if (d > t) return 0;
+  while (d <= t && n++ < 3000) { if (scheduled(h, d)) { if (done.has(d)) { cur++; if (cur > best) best = cur; } else if (d < t) cur = 0; } d = addDays(d, 1); }
+  return best;
+}
+function habitCard(hb, t) {
+  const k = habitKey(hb), log = new Set(hb.log || []), kept = log.has(t), s = streak(hb, t), best = Math.max(s, bestStreak(hb)), due = scheduled(hb, t);
+  const start = addDays(t, -dow(t) - 28);              // 5 weeks, Monday to Sunday
+  let cells = DAY_NAMES.map((d) => '<span class="hb-dn">' + d[0] + "</span>").join("");
+  for (let i = 0; i < 35; i++) {
+    const d = addDays(start, i), fut = d > t, before = (hb.added || "0") > d, sch = scheduled(hb, d), done = log.has(d);
+    const cls = fut || before ? "hb-x" : !sch ? "hb-off" : done ? "hb-on" : "hb-miss";
+    const tap = !fut && !before && sch && !hb.pending;
+    cells += '<span class="hb-c ' + cls + (d === t ? " hb-today" : "") + '"' + (tap ? ' data-a="hday" data-arg="' + esc(k + "|" + d) + '"' : "") + ' title="' + esc(shortDay(d)) + '">' + (done ? "✓" : Number(d.slice(8))) + "</span>";
+  }
+  return '<div class="hb-card"><div class="hb-head"><span class="hw-tick' + (kept ? " on" : "") + (due ? "" : " hb-nodue") + '"' + (due && !hb.pending ? ' data-a="habit" data-arg="' + esc(k) + '"' : "") + ">" + (kept ? "✓" : "") + "</span>" +
+    '<span class="hb-name"><b>' + esc(hb.name) + '</b><span class="dim">' + esc(daysText(hb.days)) + (hb.pending ? " · ⏳ waiting for the Mac" : "") + "</span></span>" +
+    '<span class="hb-stats"><b>🔥 ' + s + '</b><span class="dim">best ' + best + "</span></span></div>" +
+    '<div class="hb-grid">' + cells + "</div></div>";
+}
+function winHabits() {
+  const v = todoView();
+  if (!v) return '<div class="card sunk">Your habits come from todo on the Mac. They show up after the first sync.</div>';
+  const t = todayISO(), today = v.habits.filter((h) => scheduled(h, t)), dn = today.filter((h) => (h.log || []).includes(t)).length;
+  return '<div class="nt hb"><div class="nt-bar"><span class="nt-c">' + dn + "/" + today.length + ' done today</span><span class="nt-btn" data-a="habits">✏️ Add / change</span></div>' +
+    (v.habits.length ? v.habits.map((hb) => habitCard(hb, t)).join("") : '<div class="nt-empty">No habits yet. Tap ✏️ Add / change.</div>') +
+    '<div class="nt-hint">Forgot to tick a day? Tap it in the calendar to fill it in. Green ✓ = done, white = missed, grey = not a habit day. Ticks reach todo next time the Mac is on.</div></div>';
+}
+function habitWidget() {
+  if (pref("hwidget") === false) return "";
+  const v = todoView(); if (!v || !v.habits.length) return "";
+  const t = todayISO(), y = addDays(t, -1), today = v.habits.filter((h) => scheduled(h, t)), dn = today.filter((h) => (h.log || []).includes(t)).length;
+  const missed = v.habits.filter((h) => scheduled(h, y) && (h.added || "0") <= y && !(h.log || []).includes(y) && !h.pending).length;
+  const rows = today.slice(0, 4).map((h) => { const kept = (h.log || []).includes(t);
+    return '<div class="hw-row"><span class="hw-tick' + (kept ? " on" : "") + '"' + (h.pending ? "" : ' data-a="habit" data-arg="' + esc(habitKey(h)) + '"') + ">" + (kept ? "✓" : "") + '</span><span class="hw-n">' + esc(h.name) + '</span><span class="hw-s">🔥 ' + streak(h, t) + "</span></div>"; }).join("");
+  return '<div class="hw raised"><div class="hw-h" data-a="open" data-arg="habits"><b>🔥 Habits</b><span>' + dn + "/" + today.length + " today ›</span></div>" +
+    (rows || '<div class="hw-row dim">No habits due today.</div>') + (today.length > 4 ? '<div class="hw-more" data-a="open" data-arg="habits">+' + (today.length - 4) + " more ›</div>" : "") +
+    (missed ? '<div class="hw-miss" data-a="open" data-arg="habits">⚠ ' + missed + " missed yesterday · tap to fill in</div>" : "") + "</div>";
+}
 
 // ── 📅 change a client's date (or not decided yet) ──
 function startSlot(r) {
@@ -1638,6 +1712,7 @@ function badge(kind) {
   if (kind === "admin") return adminItems().length;
   if (kind === "today") return live().filter((r) => r.iso === todayISO()).length;
   if (kind === "inbox") return waitingThreads(0).length;
+  if (kind === "habits") { const v = todoView(); return v ? v.habits.filter((h) => scheduled(h, todayISO()) && !(h.log || []).includes(todayISO())).length : 0; }
   if (kind === "notes") return NQ.length;
   if (kind === "todo") { const v = todoView(); return v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0; }
   return 0;
@@ -1647,7 +1722,7 @@ function render() {
   setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
   $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
-    $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
+    $("main").innerHTML = habitWidget() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>";
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
@@ -1662,7 +1737,7 @@ function render() {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -1961,8 +2036,8 @@ function winTodo() {
     '<button class="btn raised wide" style="font-weight:600">Add</button></form>';
   const sec = (title, list, cls) => list.length ? '<div class="h' + (cls ? " " + cls : "") + '">' + title + " (" + list.length + ')</div><div class="lv sunk">' + list.map((x) => taskRow(x, v)).join("") + "</div>" : "";
   h += sec("Overdue", over, "bad") + (now.length ? sec("Today", now) : '<div class="h">Today</div><div class="dim">Nothing due today.</div>');
-  h += '<div class="h" style="display:flex;justify-content:space-between;align-items:center">Habits<button class="btn raised small" data-a="habits">✏️ Add / change</button></div>';
-  h += habits.length ? '<div class="lv sunk">' + habits.map((hb) => { const kept = (hb.log || []).includes(iso), s = streak(hb, iso); return '<div class="task' + (kept ? " done" : "") + '"><button class="circ' + (kept ? " done" : "") + '" style="color:#2e8b57" data-a="habit" data-arg="' + esc(habitKey(hb)) + '"></button><div style="flex:1"><div class="tt">' + esc(hb.name) + '</div><div class="dim">' + (hb.pending ? "⏳ waiting for the Mac" : s ? "🔥 " + s + " day streak" : "start a streak") + "</div></div></div>"; }).join("") + "</div>" : '<div class="dim">No habits for today.</div>';
+  if (v.habits.length) { const dn = habits.filter((hb) => (hb.log || []).includes(iso)).length;
+    h += '<div class="lv sunk" style="margin-top:10px"><div class="li" data-a="open" data-arg="habits"><span class="ico">🔥</span><span class="lab"><b>Habits</b> · ' + dn + "/" + habits.length + ' done today</span><span class="st">›</span></div></div>'; }
   h += sec("Coming up", soon) + sec("No date", inbox) + sec("Done today", doneT);
   h += '<div class="dim" style="margin-top:10px">From your Mac ' + esc(ago(v.made)) + ". Ticks here reach todo next time the Mac is on.</div>";
   return h;
@@ -2236,7 +2311,7 @@ function beanDraw() {
   const el = $("bean");
   if (!BEAN.sprites) { el.innerHTML = ""; return; }
   if (pref("bean") === false) { el.innerHTML = ""; return; }
-  if (stack.length && ["note", "nlist", "notes", "refs", "ref"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
+  if (stack.length && ["note", "nlist", "notes", "refs", "ref", "habits"].includes(stack[stack.length - 1].kind)) { el.innerHTML = ""; return; }   // out of the way of the notes bars
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
@@ -2360,6 +2435,11 @@ document.addEventListener("click", async (e) => {
   else if (a === "tdue") { const [k, dd] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "due", due: dd || null }, taskRef(x))); }
   else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => habitKey(hh) === arg); if (h) todoChange(Object.assign({ kind: "habit", date: todayISO(), kept: !(h.log || []).includes(todayISO()) }, habitRef(h))); }
   else if (a === "habits") habitsManager();
+  else if (a === "hday") {
+    const [k, d] = arg.split("|"), v = todoView(), h = v && v.habits.find((x) => habitKey(x) === k); if (!h) return;
+    const on = (h.log || []).includes(d);
+    dialog((on ? "Untick " : "Tick ") + "<b>" + esc(h.name) + "</b> for " + esc(shortDay(d)) + "?", [[on ? "Untick" : "✓ Tick it", () => todoChange(Object.assign({ kind: "habit", date: d, kept: !on }, habitRef(h))), 1], ["Cancel"]], "🔥", { title: on ? "Untick a day" : "Fill in a day" });
+  }
   else if (a === "beantap") { if (pressT === "long") { pressT = null; return; } if (beanOpen) beanI++; beanOpen = true; beanDraw(); }
   else if (a === "beannext") { beanI++; beanDraw(); }
   else if (a === "beanshh") { beanOpen = false; beanDraw(); }
