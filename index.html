@@ -77,10 +77,14 @@ html{-webkit-text-size-adjust:100%}
 .hk-wrap{min-height:0}.hk-tabs{background:#f3f3f3}
 .hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
 .hk-tip{font-size:13px;margin-top:6px;padding:8px}
-.hk-cheat{margin-top:12px;border:1px solid;border-color:#fff #404040 #404040 #fff;background:#c0c0c0}
-.hk-cheat summary{padding:8px 10px;font-weight:700;cursor:pointer;font-size:14px}
-.hk-cs{background:#fff;padding:4px 12px 10px;font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.4}
-.hk-cs h4{margin:12px 0 4px;color:#000080;font-size:14px}.hk-cs p,.hk-cs ul,.hk-cs ol{margin:0 0 4px}.hk-cs ul,.hk-cs ol{padding-left:20px}
+.cs-chips{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;-webkit-overflow-scrolling:touch}
+.cs-quick{background:#ffffe1;border:1px solid #808080;padding:6px 8px;margin:0 0 8px;font:13px/1.35 -apple-system,system-ui,sans-serif}.cs-quick>b{display:block;margin-bottom:2px}.cs-quick div{margin:0 0 2px}
+.cs-n{border:1px solid;border-color:#fff #404040 #404040 #fff;background:#c0c0c0;margin:0 0 4px}.cs-n .cs-n{background:#e8e8e8;border-color:#bbb}
+.cs-n>summary{padding:6px 8px;cursor:pointer;font-size:14px;line-height:1.25;list-style-position:inside}.cs-g{display:block;font-weight:400;font-size:12px;color:#333;margin-left:16px}
+.cs-n[open]>summary{background:#000080;color:#fff}.cs-n[open]>summary .cs-g{color:#dde}
+.cs-b{background:#fff;padding:6px 8px;font:14px/1.4 -apple-system,system-ui,sans-serif}.cs-b>p{margin:0 0 6px}
+.cs-ex{background:#f3f7ff;border-left:3px solid #000080;padding:4px 6px;margin:0 0 6px;font-size:13px}
+.cs-try{display:flex;gap:6px;align-items:baseline;border:1px dashed #808080;padding:5px 6px;margin:0 0 6px;font-size:13px;cursor:pointer;background:#fafafa}.cs-try span{flex:1}.cs-try em{font-size:11px;color:#000080;white-space:nowrap}
 .hk-row{align-items:flex-start}.hk-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:150px;flex:none}
 .nt-page{counter-reset:ol}.nt-page .nb:not(.nb-ol){counter-reset:ol}
 .nb-ol{counter-increment:ol;padding-left:28px;position:relative}.nb-ol:before{content:counter(ol) ".";position:absolute;left:4px;font-variant-numeric:tabular-nums}
@@ -1774,14 +1778,180 @@ const AWARE = [
   ["solution", "Solution aware: want a tattoo, not sure who", "Lead with the result they're after (the piece, the feeling of wearing it), then show that you're how they get it."],
   ["problem", "Problem aware: feel the need, don't link it to you", "Name the feeling first: wanting to mark something, hating an old tattoo, being nervous of the chair. Then show the way out."],
   ["unaware", "Unaware: just scrolling", "Don't mention tattoos yet. Start with them: an identity, a story, a strong image or a question they'll see themselves in. The tattoo comes later in the body."]];
-const CHEAT = '<div class="hk-cs">' +
-  "<h4>1 · The hook has one job</h4><p>Stop the scroll and make them read the next line. That's it. It doesn't have to sell, or even mention the tattoo. Every line after it has the same job: earn the next line.</p>" +
-  "<h4>2 · Channel a want, don't invent one</h4><p>You can't make people want something. Find a want that already exists and point it at your work: to look a certain way, to mark a moment, to belong to something, to feel brave, to be a bit different.</p>" +
-  "<h4>3 · How aware are they? (pick it above)</h4><ul><li><b>Most aware:</b> the offer</li><li><b>Product aware:</b> a new angle or proof</li><li><b>Solution aware:</b> the result first</li><li><b>Problem aware:</b> name the feeling</li><li><b>Unaware:</b> them, not the tattoo</li></ul>" +
-  "<h4>4 · How tired are they of this claim?</h4><ul><li><b>Nobody's said it:</b> say it plainly.</li><li><b>Others say it:</b> say it bigger or more specific.</li><li><b>Everyone says it:</b> show <i>your</i> way, your method, why yours works.</li><li><b>They're numb to it:</b> make it about who they are, not what you do.</li></ul>" +
-  "<h4>5 · Hook angles to try</h4><ul><li>Put a hidden dream into words they haven't said out loud.</li><li>Touch a quiet fear (regret, a bad cover-up, the needle).</li><li>Start with a familiar image, then turn it towards the problem.</li><li>Hint at a want you can't say bluntly.</li><li>Voice a frustration people share.</li><li>Show the win they picture for themselves.</li><li>Show a result people will recognise themselves in.</li></ul>" +
-  "<h4>6 · The body: each line earns the next</h4><ol><li><b>Call them out.</b> \"If you've ever…\" so the right person says \"that's me\".</li><li><b>Grow the want.</b> Picture it, put them in it, show the before, show how it lasts.</li><li><b>Make it believable.</b> Knock down a wrong belief, name your method and say how it works, show proof (healed photos, years, reviews).</li><li><b>Clear the doubts.</b> Show it's easy: what happens, how long, what it costs.</li><li><b>Sum up and ask once.</b> One clear thing to do: DM, link in bio, books open.</li></ol>" +
-  '<p class="dim">From Eugene Schwartz, Breakthrough Advertising (in short, in my words).</p></div>';
+const CS_QUICK = ["<b>1.</b> The hook only has to earn the next line. Not sell, not explain.",
+  "<b>2.</b> Find a want people already have and point it at your work. You can't invent wants.",
+  "<b>3.</b> Match how aware they are: offer, proof, result, feeling, or just them.",
+  "<b>4.</b> If everyone says it, show <i>how</i> yours works or make it about who they are.",
+  "<b>5.</b> Picture the want, then make it believable: method, healed photos, people like them.",
+  "<b>6.</b> Give more than you ask. Free value first, small yes before big yes.",
+  "<b>7.</b> Use what's honestly true: real slots, real reviews, real flaws said early.",
+  "<b>8.</b> End with one clear thing to do, and a reason to do it now."];
+const CS = [
+{ b: "S", t: "📕 Breakthrough Advertising", g: "Eugene Schwartz · how to write the words", k: [
+ { t: "The want is already out there", g: "You channel desire, you never create it",
+   d: "The pulling power comes from the market, not from your caption. Millions of people already want things: to look a certain way, to mark a memory, to feel brave, to belong. Your post can't make anyone want a tattoo. It can only take a want that already exists and point it at <i>your</i> work.<br><br>Every want has three sizes: how <b>urgent</b> it is (a deadline, a birthday, a breakup), how <b>lasting</b> it is (does it keep coming back), and how <b>many</b> people share it. Pick the one want that scores highest on all three right now and build the whole post on that one. A post can only carry one main want.<br><br>Also: people don't buy the thing, they buy what it does for them. Nobody wants ink in skin. They want the feeling of wearing something that's theirs.",
+   ex: "Same flash piece, different wants: <i>a reminder of someone</i>, <i>a first tattoo that feels safe</i>, <i>something nobody else has</i>, <i>a matching piece with a friend</i>. Pick one per post. Your gear, needles and hygiene are not the headline; they're backup proof later in the caption.",
+   ins: [["body", "Underneath every tattoo is a reason. For this one it was ___."]] },
+ { t: "The hook's only job", g: "Stop them and get the second line read",
+   d: "A headline doesn't need to sell, mention the tattoo, or even mention the main benefit. Its only job is to make the right person read the next sentence. The next sentence's job is the one after. Asking ten words to do the whole sale is gambling.<br><br>Because only one thought gets through a busy scroll, the hook should carry one idea. If the first thought holds them, they read the second; if the second holds them, they usually finish.",
+   ex: "Weak: <i>New flash available, DM to book, £120, fine line, healed photos in highlights.</i> Five ideas, none land. Stronger: <i>This one's only going on one person.</i>" },
+ { t: "How aware are they? (5 levels)", g: "Start where their head is, not where yours is",
+   d: "Each level is separated by a wall. A hook that works on people who already follow you dies on strangers, and the other way round. Work out where most of the people who'll see this post are, and start there.",
+   k: [
+   { t: "1 · Most aware", g: "They want one from you, just haven't booked",
+     d: "Say little: the piece, the price or the date, and how to get it. All earlier posts did the selling for you; your news is the offer (books open, a slot freed up, a flash day).",
+     ex: "<i>Books open Monday 10am. 6 slots. Link in bio.</i>",
+     ins: [["hook", "Books open ___. ___ slots. Link in bio."]] },
+   { t: "2 · Know you, not sold yet", g: "Sharpen the want or show something new",
+     d: "Most posts live here. Seven ways in: strengthen the want; make the picture sharper; show more places or moments it fits; add new proof; announce something new in how you work; show an old limit gone; or reposition yourself away from everyone else.",
+     ex: "Healed-vs-fresh side by side. A client's reaction video. <i>Now doing ___ (a new style, a bigger size, a quicker sitting)</i>. A piece placed somewhere they hadn't thought of.",
+     ins: [["hook", "Healed at ___ years. Still this crisp."], ["hook", "Didn't think ___ could go on a ___? Neither did she."]] },
+   { t: "3 · Want the result, don't know you're the way", g: "Name the result, prove it can happen, show it's you",
+     d: "They know what they want but haven't linked it to you. Three steps: name the want (or the answer) in the hook, prove it's possible, then show that your way is how it happens. This is where an idea person beats a template.",
+     ex: "<i>A tattoo that looks like a drawing in your sketchbook.</i> Then the proof, then you.",
+     ins: [["hook", "How to get a ___ that still looks good in 10 years."]] },
+   { t: "4 · Feel a need, don't link it to you", g: "Name the problem first, then the way out",
+     d: "Start with the need, sometimes in one word, then make it vivid, then offer you as the obvious answer. If the plain answer has been said to death, add a twist.",
+     ex: "<i>Hate your old tattoo?</i> or <i>Nervous about your first one?</i> then what it actually feels like in your chair.",
+     ins: [["hook", "Scared of the needle? Read this first."], ["hook", "Got a tattoo you hide every summer?"]] },
+   { t: "5 · Unaware: just scrolling", g: "No price, no product, no claim. Just them.",
+     d: "The hardest one. Leave out the price, your name and even what you do. What's left is <i>them</i>: you call a group together by saying what they are, what they quietly feel, or a dream they haven't put in words. The hook sells only the next paragraph. Rule: they must see themselves in it, and it should push away people it isn't for. Not just shocking or cute.<br><br>Patterns that work: give words to a hidden dream; touch a hidden fear; start with an image everyone accepts, then turn it; show the win they daydream about; voice a shared annoyance.",
+     ex: "<i>To the people who keep a folder of screenshots they'll 'get one day'.</i> <i>Your nan had a tattoo. You just never saw it.</i>",
+     ins: [["hook", "To the people who ___."], ["hook", "Nobody tells you ___ before your first tattoo."]] }] },
+ { t: "How tired are they of the claim? (5 stages)", g: "The more they've heard it, the more you need a 'how'",
+   d: "Check what everyone else around you is already saying. Then:",
+   k: [
+   { t: "Stage 1 · Nobody's said it", g: "Say it plainly", d: "Simple, direct, no tricks. Name the want, dramatise it, prove it." },
+   { t: "Stage 2 · Others say it too", g: "Say it bigger or more exact", d: "Same claim, pushed further and measured. Careful: it tops out when it stops being believable.", ex: "<i>Fine line that heals fine</i> becomes <i>Fine line, 3 years healed, zero blowout. Swipe.</i>" },
+   { t: "Stage 3 · Everyone says it", g: "Feature the mechanism: HOW yours works", d: "Now the claim is a given, so the 'how' goes in the hook and the promise moves to line two. A new mechanism gives jaded people a fresh reason to hope.", ex: "<i>Why I tattoo one size bigger than you ask (and why it heals cleaner).</i>", ins: [["hook", "The reason my ___ heal so ___: ___."]] },
+   { t: "Stage 4 · Others copied your how", g: "Make the mechanism better", d: "Easier, quicker, surer, fewer downsides. Then it tops out again." },
+   { t: "Stage 5 · They're numb", g: "Make it about who they are", d: "Claims stop working. Go back to identity: show the kind of person who wears your work, and let them recognise themselves. Same move as the Unaware level." }] },
+ { t: "Hook angles (the 38, grouped)", g: "Once you know WHAT to say, ways to SAY it",
+   d: "These strengthen an idea you already have. They don't replace the thinking. Try 3 or 4 on the same idea and pick one.",
+   k: [
+   { t: "Measure it", g: "Size, speed, compare, before and after",
+     d: "Put a number on it, show how fast, compare to something, or show before and after.",
+     ins: [["hook", "___ hours. One sitting. Healed like this."], ["hook", "Before: ___. After: ___."]] },
+   { t: "Make them feel it", g: "Picture, touch, a scene, a quote",
+     d: "Sensory words, a vivid example, a little drama, a line said by the client, or a metaphor.",
+     ins: [["hook", "\"___\" she said, when she saw it in the mirror."]] },
+   { t: "Surprise them", g: "Paradox, flip a belief, too good to be true",
+     d: "A paradox, contradicting how they think it works, challenging a limiting belief, or a claim that sounds almost too good.",
+     ins: [["hook", "The smallest tattoo I did this year took the longest."], ["hook", "You're not too old for your first tattoo."]] },
+   { t: "Tell them something", g: "How-to, the facts, a warning, a question",
+     d: "Promise information: how to, why, what nobody told them, or warn them of a pitfall. Asking it as a question works too. Adding the words <i>how to</i> often wins.",
+     ins: [["hook", "How to pick a placement you won't regret."], ["hook", "Don't book a cover-up until you've seen this."]] },
+   { t: "Speak to someone", g: "Name who it's for, or who it isn't for",
+     d: "Call out the exact person, or address the people who <i>can't</i> have it (that makes everyone else lean in).",
+     ins: [["hook", "If you've already booked your ___, don't read this."], ["hook", "For the ___ who want ___."]] },
+   { t: "Show the how", g: "Mechanism, difference, newness, exclusive",
+     d: "Link the method to the result, state the difference, stress it's new, or that only you do it.",
+     ins: [["hook", "Only ___ in ___ doing ___ like this."]] }] },
+ { t: "The body: 7 techniques", g: "Desire, then identity, then belief",
+   d: "Three layers in their head: <b>desire</b> (what they want), <b>identity</b> (who it makes them), <b>belief</b> (do they believe you). Your caption has to work on all three, woven together.",
+   k: [
+   { t: "1 · Intensify", g: "Show the want fulfilled, many ways, without repeating",
+     d: "Describe the result in detail; put it in action; put <i>them</i> in the scene; let them test it; stretch it over time; bring in an audience (friends' reactions); experts amazed; compare; show the dark side too; show how easy it is; use a metaphor; end with a quick list of every benefit; make your guarantee a summary. Each fresh angle adds weight; repeating the same one kills it.",
+     ex: "First morning: you catch it in the bathroom mirror. A month on: your mate asks who did it. Ten years on: it's softened into you and still reads clearly.",
+     ins: [["body", "Picture it: ___ (first day). ___ (a month later). ___ (years from now)."]] },
+   { t: "2 · Identify", g: "The role the piece gives them",
+     d: "People also buy who it makes them. Two kinds: <b>character</b> (brave, artistic, a bit different) and <b>achievement</b> (survived something, became a parent, finished a chapter). Keep it believable: build from what a tattoo already means to them and bridge up; don't ask them to jump.",
+     ex: "Show the kind of person, not the kind of tattoo: their hands, their dog, their studio, the book under their arm." },
+   { t: "3 · Gradualise", g: "Build a run of yeses before the big claim",
+     d: "Start with something they already fully agree with, then lead step by step to the claim. Tools: an <b>inclusion question</b> they'll say yes to; <b>detailed symptoms</b> they recognise; <b>logic words</b> (here's why, so, which means); <b>if… then</b> structures; repeating a trusted phrase to carry acceptance into a new point.",
+     ins: [["body", "Ever ___? And ___? Then here's what nobody told you about ___."]] },
+   { t: "4 · Redefine", g: "Remove the objection before they think it",
+     d: "Three common ones. <b>Too hard</b>: make it simple (it's not a big scary session, it's 90 minutes and a tea). <b>Not important enough</b>: escalate (it's not 'just a tattoo', it's the thing you'll see every day). <b>Too pricey</b>: compare to a bigger number, not to cheaper artists.",
+     ex: "<i>£250 is about 7p a day for the next ten years.</i> <i>It isn't a needle, it's a pencil that buzzes.</i>" },
+   { t: "5 · Mechanism", g: "Answer 'how does that work?'",
+     d: "If they know how it works, just name it. If not, describe it in selling words (never dry). If everyone claims the same result, make the how the hero. A price drop also needs a reason, or nobody believes it.",
+     ex: "<i>I stencil, then redraw freehand on the skin so it follows how you move.</i>" },
+   { t: "6 · Concentrate", g: "Show why the other options fall short",
+     d: "Only knock an alternative if you immediately show how yours fixes it. Rhythm: bad, good; bad, good. Or tell the familiar story of what happens with the usual way, then the new way.",
+     ex: "Walk-in shop: rushed, same flash as everyone. With me: a drawing made for your body, healing check-ins." },
+   { t: "7 · Camouflage", g: "Sound like a post, not an ad",
+     d: "People trust the format of things they already trust. Write like a friend's post or a journal entry, not a flyer. Two tones that beat the hard sell: <b>understatement</b> (plain words, few adjectives, short sentences that end softly) and <b>deadly sincerity</b> (say the downsides upfront, so the upsides land).",
+     ins: [["body", "Honest bit: ___ (a real downside). But ___."]] }] },
+ { t: "Final touches", g: "Proof, pairing, momentum, mood",
+   d: "<b>Proof</b> goes where they're asking for it, not dumped in a block. <b>1+1=10</b>: two ideas joined (a flaw then a strength) hit far harder than either alone. <b>Pack sentences</b>: each line should carry promise, picture and reason at once. <b>Momentum</b>: little pull lines (here's why, but that's not all, wait till you see) and open loops you close later. <b>Mood</b> comes from rhythm and word choice; read it out loud. If it feels dead, the reader wants something else: switch to proof, or back to the picture.",
+   ins: [["body", "But that's not the best bit. ___"]] }] },
+{ b: "H", t: "📗 $100M Leads", g: "Alex Hormozi · how to get people to put their hand up", k: [
+ { t: "Engaged leads, not just leads", g: "A lead is anyone you can contact. You want ones who show interest.",
+   d: "Followers aren't the goal. The goal is people raising a hand: a DM, a form filled, a reply. Count those. Double the hands and you roughly double the bookings." },
+ { t: "Lead magnets", g: "A free, complete fix to a narrow problem that reveals the next one",
+   d: "Like salty pretzels at a bar: they solve a small hunger and make people thirsty for the real thing. Three types: <b>reveal a problem</b> they didn't know about; a <b>sample</b> of the real thing; <b>one step</b> of a multi-step process. Seven steps: pick the problem and who; how you'll solve it; how you'll deliver it (a tool, info, a service, a physical thing); <b>test the name</b> (polls, a story vote); make it easy to use; make it genuinely good (give the secrets, sell the doing); end with a clear next step and a reason to take it now.",
+   ex: "A free placement mock-up on their photo. A downloadable flash sheet to circle favourites. <i>Will my tattoo age well?</i> guide. A 10-minute video call to plan a first piece. A 'aftercare in 60 seconds' card.",
+   ins: [["body", "I made a free ___ for anyone ___. Comment ___ and I'll send it."]] },
+ { t: "The value equation", g: "Dream × likelihood ÷ (time × effort)",
+   d: "Value goes up when the <b>dream outcome</b> is bigger and <b>more believable</b>, and when it's <b>quicker</b> and <b>easier</b>. Every post can push one of the four, or show its opposite (the nightmare, the risk, the slow road, the hassle).<br><br>Then multiply it with <b>Who</b> (how their partner, friends, kids, colleagues see them) and <b>When</b> (past, present, future). That gives you endless angles from one offer.",
+   ex: "Dream: the piece they've pictured for years. Likely: healed photos of the same style. Quick: one sitting. Easy: you draw it, they just approve it. Who: her sister's face when she saw it.",
+   ins: [["body", "I help ___ get ___ in ___ without ___. ___ (proof)."]] },
+ { t: "The core four", g: "The only four ways to tell people", k: [
+   { t: "Warm outreach", g: "One-to-one, people who know you",
+     d: "Message people you know, personally. Reply with <b>ACA</b>: acknowledge what they said, compliment it, ask the next question. Then don't ask them to buy: ask if they <i>know anyone</i> who wants it. Start free or cheap for a few, then raise the price every few clients. The 9-word re-engager works on old lists: <i>Are you still looking to ___?</i>",
+     ins: [["body", "Are you still looking to ___?"], ["body", "Do you know anyone who's been wanting ___? I've got ___ spots for ___."]] },
+   { t: "Post content", g: "One-to-many, people who follow you",
+     d: "Every piece is <b>hook, retain, reward</b>. Hook with topic, headline and the platform's usual look. Retain with curiosity: lists, steps, stories. Reward by fully paying off the hook. Headlines that pull: recent, relevant, famous, local, conflict, unusual, ongoing. Say <i>how I</i>, not <i>how to</i>. Give, give, give, until they ask. People need reminding more than teaching, so repeat yourself.",
+     ins: [["hook", "3 things I wish I knew before my first ___."], ["hook", "How I ___ (and what I'd never do again)."]] },
+   { t: "Cold outreach", g: "One-to-one, strangers",
+     d: "Find a list, personalise (one real detail about them), give big fast value, follow up several times in several ways. Slow to start, very reliable once it works. For a tattooist: other local makers, venues, small shops for collabs or flash events." },
+   { t: "Paid ads", g: "One-to-many, strangers",
+     d: "Every ad is three bits: <b>callout</b> (local area + type of person is still the strongest), <b>value</b> (the equation above), <b>call to action</b>. Expect most tests to lose; scale the one that wins. Your best organic posts usually make the best ads." }] },
+ { t: "Calls to action", g: "What to do + why now",
+   d: "Clear, simple, direct: <i>DM 'FLASH'</i>, not <i>don't miss out</i>. Then a reason to act now: <b>honest scarcity</b> (you really only have so many slots, so say so), <b>urgency</b> (a real deadline), or any reason at all. Even a weak 'because' beats no reason.",
+   ins: [["body", "I only have ___ slots in ___, so DM ___ if you want one."]] },
+ { t: "Referrals", g: "Your best leads come from happy clients", k: [
+   { t: "Earn them (6 ways)", g: "Make it worth talking about",
+     d: "Sell the right people (who loved it most? find more like them). Promise a bit less, deliver more. Get everyone the result your best clients got. Give quick wins (a progress photo, a check-in in the first 48 hours). Always say when you'll next be in touch. Deliver early, never late. Then offer the next thing." },
+   { t: "Ask for them (7 ways)", g: "Treat the ask like an offer",
+     d: "Ask at booking: <i>who'd you love to do this with?</i> Give a reward to the referrer, or split it between them and the friend. Run a bring-a-friend or matching-tattoo week. Unlock a bonus for a review plus a referral. A named gift card to pass on feels like a gift, not an ad.",
+     ins: [["body", "Bring a friend and you both get ___."]] }] },
+ { t: "Volume beats cleverness", g: "Rule of 100, more/better/new, keep rolling",
+   d: "Do 100 primary actions a day (messages, minutes making content). <b>More</b> first, then <b>better</b> (test one thing at a time, fix the biggest drop-off), then <b>new</b> (a new format, then a new platform). Most people stop too soon. Many-sided die: you can't see how many sides yours has, so keep rolling; you only lose if you stop." }] },
+{ b: "C", t: "📘 Influence", g: "Robert Cialdini · why people say yes", k: [
+ { t: "The shortcuts", g: "Busy people decide on one cue",
+   d: "Most yeses are fast: one reliable cue triggers them. That's fine and fair when the cue is real. It's manipulation when you fake it. Two quiet helpers: <b>contrast</b> (show the bigger piece or price first and the next one seems smaller) and <b>because</b> (any reason lifts yeses).",
+   ex: "Show the full sleeve quote, then the half sleeve. Tell them <i>because healing is better in winter</i>, not just <i>book now</i>." },
+ { t: "Reciprocity", g: "Give first and people want to give back",
+   d: "A gift creates a pull to repay, even if they didn't ask for it, and often more than it cost. It's strongest when it's <b>personal</b> to them. Fixing a mistake really well builds more loyalty than never slipping. Also: ask big, then step down to what you wanted (it feels like a concession, and people meet you halfway and feel better about it).",
+   ex: "A hand-drawn sketch of their idea before they've paid. An aftercare kit picked for their skin. A free touch-up offered before they ask.",
+   ins: [["body", "Made you a little ___ to say thanks for ___."]] },
+ { t: "Liking", g: "We say yes to people we like",
+   d: "Liking grows from real <b>similarity</b> (same town, same music, same dog), <b>compliments</b> (best on a trait you want them to keep, or said to someone else), <b>familiarity</b> through repeated pleasant contact, <b>working together</b> on something, and being linked with good things. Use only true common ground.",
+   ex: "Say what you genuinely love about their idea. Show your sketchbook, your studio, your bad drawings. Post your face." },
+ { t: "Social proof", g: "We copy people like us",
+   d: "Strongest when people are <b>unsure</b>, when there are <b>many</b> others, and when those others are <b>similar</b>. The big mistake: complaining how many people do the bad thing (it normalises it). If you're new, show that it's <b>growing</b>: a rising trend reads as future popularity. 4.2 to 4.7 stars feels more real than a perfect 5; a few honest negatives help.",
+   ex: "<i>Most of my first-timers say the same thing afterwards…</i> Healed photos from people their age. <i>Flash days have sold out faster each time this year.</i>",
+   ins: [["hook", "Most first-timers I tattoo say the same thing afterwards."]] },
+ { t: "Authority", g: "We follow people who clearly know",
+   d: "Be an authority, not in authority. Credible means <b>expert</b> and <b>trustworthy</b>. The fast way to trust: mention a small weakness early, then follow straight away with your strongest point. Real credentials, not costume.",
+   ex: "<i>I'm not the cheapest around. Here's what you're paying for.</i> Show 5 years of healed work, explain your choices like a teacher.",
+   ins: [["hook", "I'm not the ___. Here's why people still ___."]] },
+ { t: "Scarcity", g: "Less available feels more valuable",
+   d: "Losing something stings more than gaining it pleases. <b>Limited number</b> beats limited time. <b>Newly</b> scarce beats always scarce. <b>Competition</b> for it makes it hotter still. Only use what's true. No real limit? Use what's unique: a style or combination nobody else offers.",
+   ex: "One-of-one flash. <i>3 of 8 slots left.</i> Releasing pieces one at a time, not all at once.",
+   ins: [["hook", "One of one. Once it's on someone, it's gone."]] },
+ { t: "Commitment", g: "People stay consistent with what they've said",
+   d: "Get a small, <b>active</b>, <b>public</b>, <b>effortful</b>, <b>freely chosen</b> yes first. Written beats spoken. Asking <i>why did you pick me?</i> makes them commit to the reasons. Asking <i>will you let me know if plans change?</i> and waiting for the yes cuts no-shows. Shorter first steps (a 3-question form) get finished. Label them kindly and they live up to it.",
+   ins: [["body", "Before we book: what made you choose me for this one?"], ["body", "Will you let me know if your plans change?"]] },
+ { t: "Unity", g: "We say yes to 'one of us'",
+   d: "Deeper than liking: shared identity (family, place, tribe). Created by <b>belonging together</b> (same city, same scene) and <b>acting together</b> (making something together, going through something together). Ask for <b>advice</b>, not opinions: it pulls people in.",
+   ex: "<i>Locals, help me pick the next flash.</i> Let clients co-design. A regulars' wall. Polls framed as <i>which should I draw?</i>",
+   ins: [["hook", "Need your advice: which one should I draw next?"]] }] }];
+let csBook = store.get("csbook", "all"), csOpen = new Set(store.get("csopen", [])), CSI = [];
+function csNode(n, p) {
+  const ins = (n.ins || []).map(([to, tx]) => { CSI.push([to, tx]); return '<div class="cs-try" data-a="hkins" data-arg="' + (CSI.length - 1) + '">✍️ <span>' + esc(tx) + "</span><em>" + (to === "hook" ? "→ hook" : "→ body") + "</em></div>"; }).join("");
+  return '<details class="cs-n" data-p="' + p + '"' + (csOpen.has(p) ? " open" : "") + "><summary><b>" + esc(n.t) + "</b>" + (n.g ? '<span class="cs-g">' + esc(n.g) + "</span>" : "") + '</summary><div class="cs-b">' +
+    (n.d ? "<p>" + n.d + "</p>" : "") + (n.ex ? '<div class="cs-ex">🖋 <b>For your tattoos:</b> ' + n.ex + "</div>" : "") + ins + (n.k || []).map((c, i) => csNode(c, p + "." + i)).join("") + "</div></details>";
+}
+function winCheat() {
+  CSI = [];
+  const chips = [["all", "All"], ["S", "📕 Schwartz"], ["H", "📗 Hormozi"], ["C", "📘 Cialdini"]].map(([k, l]) => '<span class="nt-btn rf-chip' + (csBook === k ? " on" : "") + '" data-a="csbook" data-arg="' + k + '">' + l + "</span>").join("");
+  return '<div class="cs-chips">' + chips + "</div>" +
+    (csBook === "all" ? '<div class="cs-quick"><b>⚡ Quick card</b>' + CS_QUICK.map((l) => "<div>" + l + "</div>").join("") + "</div>" : "") +
+    CS.map((bk, i) => (csBook === "all" || csBook === bk.b) ? csNode(bk, String(i)) : "").join("") +
+    '<div class="dim" style="margin-top:8px">Tap any row to go deeper. ✍️ lines drop a template into the Maker. In my own words, from Schwartz, Hormozi and Cialdini.</div>';
+}
 const BODY_TPL = "If you've ever ___ (call them out),\n\n___ (grow the want: picture it, put them in it)\n\n___ (make it believable: your method, healed photos, years, reviews)\n\n___ (clear the doubts: what happens, how long, what it costs)\n\n___ (one clear ask: DM me / link in bio / books open)";
 function copyText(t, what) {
   if (!t.trim()) return toast("⚠ Nothing to copy yet.");
@@ -1790,10 +1960,11 @@ function copyText(t, what) {
   if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, fall); else fall();
 }
 function winHooks() {
-  const tabs = [["make", "✍️ Maker"], ["ref", "📚 Reference"], ["mine", "⭐ My hooks · " + myHooks().length]].map(([k, l]) => '<span class="nt-btn rf-chip' + (hookTab === k ? " on" : "") + '" data-a="hooktab" data-arg="' + k + '">' + l + "</span>").join("");
+  const tabs = [["make", "✍️ Maker"], ["ref", "📚 Ref"], ["mine", "⭐ Mine · " + myHooks().length], ["cs", "📘 Cheat sheet"]].map(([k, l]) => '<span class="nt-btn rf-chip' + (hookTab === k ? " on" : "") + '" data-a="hooktab" data-arg="' + k + '">' + l + "</span>").join("");
   const head = '<div class="rf-chips hk-tabs">' + tabs + "</div>";
   if (hookTab === "ref") return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winHookRef() + "</div></div>";
   if (hookTab === "mine") return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winMyHooks() + "</div></div>";
+  if (hookTab === "cs") return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winCheat() + "</div></div>";
   return '<div class="nt hk-wrap">' + head + '<div style="padding:8px">' + winHookMaker() + "</div></div>";
 }
 function winHookMaker() {
@@ -1807,7 +1978,7 @@ function winHookMaker() {
     (a[2] ? '<div class="card sunk hk-tip">💡 ' + esc(a[2]) + "</div>" : "") +
     '<button class="btn raised main" data-a="hksave">💾 ' + (HD.id ? "Save changes" : "Save to My hooks") + "</button>" +
     '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hknew">New (clear)</button></div>' +
-    '<details class="hk-cheat"' + (store.get("cheatopen", false) ? " open" : "") + '><summary>📘 Cheat sheet: Breakthrough Advertising</summary>' + CHEAT + "</details>";
+    '<div class="row" style="margin-top:0"><button class="btn raised" data-a="hooktab" data-arg="cs">📘 Cheat sheet</button></div>';
 }
 function winMyHooks() {
   const q = mhSearch.trim().toLowerCase(), list = myHooks().filter((n) => { const p = hookParts(n); return !q || (p.hook + " " + p.body).toLowerCase().includes(q); });
@@ -1833,9 +2004,17 @@ document.addEventListener("input", (e) => {
   else if (t.id === "mhq") { mhSearch = t.value; render(); }
 });
 document.addEventListener("change", (e) => { if (e.target.id === "hkaw") { HD.aw = e.target.value; hdSave(); render(); } });
-document.addEventListener("toggle", (e) => { if (e.target.classList && e.target.classList.contains("hk-cheat")) store.set("cheatopen", e.target.open); }, true);
+document.addEventListener("toggle", (e) => { const d = e.target; if (!d.classList || !d.classList.contains("cs-n")) return; d.open ? csOpen.add(d.dataset.p) : csOpen.delete(d.dataset.p); store.set("csopen", [...csOpen]); }, true);
 function hookAct(a, arg) {
   if (a === "hooktab") { hookTab = arg; store.set("hooktab", arg); return hookFresh(); }
+  if (a === "csbook") { csBook = arg; store.set("csbook", arg); return hookFresh(); }
+  if (a === "hkins") {
+    const x = CSI[+arg]; if (!x) return;
+    if (x[0] === "hook") HD.hook = HD.hook.trim() ? HD.hook.replace(/\s+$/, "") + "\n" + x[1] : x[1];
+    else HD.body = (HD.body.trim() ? HD.body.replace(/\s+$/, "") + "\n\n" : "") + x[1];
+    hdSave(); hookTab = "make"; store.set("hooktab", "make"); hookFresh();
+    return toast("Added to the " + x[0] + " ✓ Fill in the ___ bits.");
+  }
   if (a === "hknew") { HD = { id: "", hook: "", body: "", aw: HD.aw }; hdSave(); return hookFresh(); }
   if (a === "hkcopy") return copyText(arg === "hook" ? ($("hkh") ? $("hkh").value : HD.hook) : ($("hkb") ? $("hkb").value : HD.body), arg === "hook" ? "Hook" : "Body");
   if (a === "hktpl") { const el = $("hkb"); HD.body = (HD.body.trim() ? HD.body.replace(/\s+$/, "") + "\n\n" : "") + BODY_TPL; if (el) el.value = HD.body; hdSave(); return; }
@@ -2659,7 +2838,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
   else if (a === "hooktag") { hookTag = arg; render(); }
   else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
-  else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin"].includes(a)) hookAct(a, arg);
+  else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin", "csbook", "hkins"].includes(a)) hookAct(a, arg);
   else if (a === "hookcopy") { const h = hooksView().find((x) => x.id === arg); if (h) copyHook(h); }
   else if (a === "hookedit") { const h = hooksView().find((x) => x.id === arg); if (h) editHook(h); }
   else if (a === "hookrand") {
