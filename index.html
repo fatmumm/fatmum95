@@ -2188,7 +2188,7 @@ function leadHowto() {
   const step = (n, t, d) => '<div class="li" style="align-items:flex-start"><span class="ico">' + n + '</span><span class="lab"><b>' + t + "</b><div>" + d + "</div></span></div>";
   return '<div class="lv sunk ld-how">' +
     step("1", "Every day", "Open ✅ Do next and do what it lists. For a reply, tap it, write your help (a starter is ready) and press Send.") +
-    step("2", "Before every post", "📣 Posts → ＋ Add a post. The tracking link is copied for you. Paste it in your story sticker or bio.") +
+    step("2", "Before every post", "📣 Posts → ＋ Add a post. The tracking link is copied for you. Paste it in your story sticker or bio. Everyone who signs up through it is counted for that post, even weeks later.") +
     step("3", "Monday (or whenever you're ready)", "Do next says \"Send '4 subscribers only <3' to POKE…\". Tap it, then tap ▶️ Start the offer today. The code then lasts 6 days from that day. Copy the Subject and Email text. In Shopify go to Messaging → Create campaign, set the audience to customer tag offer-POKE…, paste, send. Back here tap ✓ I sent it.") +
     step("4", "The offer's last day (Sunday)", "Same again with \"Ends tonight\". Copy, paste into a Shopify campaign to the same tag, send, tap ✓.") +
     step("🤖", "What runs by itself", "Shopify sends the help email the day after someone signs up, then the wobbly-lines email 3 days later, and tags them got-help-email / got-wobbly-email so the app knows for sure (✓ in 🧭 People). The app makes the code every Monday, tags people, spots replies, tracks sales and fills your Google Sheet.") +
@@ -2250,7 +2250,7 @@ function leadSumCard(s, title) {
     "<div>✍️ " + s.signups + " sign-up" + (s.signups === 1 ? "" : "s") + " · " + s.rate + "% of visits</div>" +
     "<div>📕 " + s.subscriber_sales + " with a code · " + s.full_price_sales + " full price · " + gbp(s.revenue) + "</div>" +
     (s.worry ? "<div>😬 Top worry: " + esc(s.worry) + "</div>" : "") +
-    (s.best_post ? "<div>🏆 Best post: " + esc(s.best_post.what) + " (" + esc(s.best_post.type) + ", " + s.best_post.signups + " sign-ups, " + s.best_post.visits + " visits)</div>" : "") + "</div>";
+    (s.best_post ? "<div>🏆 Best post: " + esc(s.best_post.what) + " (" + esc(s.best_post.type) + ", " + (s.best_post.exact ? "" : "about ") + s.best_post.signups + " sign-ups, " + s.best_post.visits + " visits)</div>" : "") + "</div>";
 }
 function leadWeek() {
   const s = LD.summary;
@@ -2269,9 +2269,9 @@ function leadPosts() {
   return '<button class="btn raised main" data-a="leadadd" data-arg="post">＋ Add a post</button>' +
     (list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((p) =>
       '<div class="li ld-row"><span class="lab" data-a="leadedit" data-arg="post|' + esc(p.id) + '" style="cursor:pointer"><b>' + esc(p.what || "(no title)") + '</b><div class="dim">' + esc(p.type) + " · " + esc(p.date ? ago(p.date) : "") +
-      " · " + (p.visits || 0) + " visits · " + (p.signups_48h || 0) + " sign-ups in 48h</div></span>" +
+      " · " + (p.visits || 0) + " visits · " + (p.exact ? (p.signups || 0) + " sign-ups (exact)" : "about " + (p.signups_48h || 0) + " sign-ups (estimate)") + "</div></span>" +
       '<span class="nt-btn" data-a="leadcopy" data-arg="' + esc(p.id) + '">📋 Link</span></div>').join("") + "</div>" : '<div class="card sunk" style="margin-top:8px">Add a post before you share it, then use its 📋 link in the sticker or bio.</div>') +
-    '<div class="dim" style="margin-top:6px">Visits come from the link exactly. Sign-ups in 48h are everyone who signed up in the two days after posting, so posts close together share them.</div>';
+    '<div class="dim" style="margin-top:6px">Visits and sign-ups come from the link exactly. Each sign-up is tagged in Shopify with the post link they came through, even if they sign up days later. Posts from before this was switched on show an estimate (everyone who signed up in the 2 days after).</div>';
 }
 const btnRow = (save, extra) => '<div class="row"><button class="btn raised main" data-a="leadsave">' + save + '</button><button class="btn raised" data-a="leadcancel">' + (extra || "Cancel") + "</button></div>";
 function personalText(tpl, p) { return String(tpl || "").split("{{ customer.first_name }}").join(p.first || "there"); }
@@ -2319,7 +2319,7 @@ function leadFormHtml() {
     const step = ((LD.steps || []).find((s) => s[0] === p.step) || [0, p.step])[1];
     const reps = (LD.replies || []).filter((r) => r.email && r.email === p.email);
     return '<div class="card sunk"><b>' + esc(p.name) + '</b><div class="dim">' + esc(p.email) + "</div><div>Now: " + esc(step) + "</div></div>" +
-      '<div class="lv sunk"><div class="li"><span class="lab">📥 Signed up ' + esc(ago(p.since)) + "</span></div>" +
+      '<div class="lv sunk"><div class="li"><span class="lab">📥 Signed up ' + esc(ago(p.since)) + '<div class="dim">' + (p.src ? "Came from: " + esc(p.src_what || p.src) : "Came from: no post link (bio, a share or typed in)") + "</div></span></div>" +
       '<div class="li"><span class="lab">' + (p.got_help ? "📨 Help email ✓ " + esc(ago(p.got_help)) : "📨 Help email: not yet") + "</span></div>" +
       '<div class="li"><span class="lab">' + (p.got_wobbly ? "📝 Wobbly email ✓ " + esc(ago(p.got_wobbly)) : "📝 Wobbly email: not yet") + "</span></div>" +
       reps.map((r) => '<div class="li"><span class="lab">💬 ' + esc(r.worry || "(no words)") + (r.my_reply ? '<div class="dim">↩️ You: ' + esc(r.my_reply.slice(0, 120)) + "</div>" : r.replied ? '<div class="dim">↩️ You replied</div>' : '<div class="dim">⚠ Waiting for your help</div>') + "</span></div>").join("") +
@@ -2416,7 +2416,7 @@ function leadAct(a, arg) {
       const p = { id: f.id || nId("pst"), type: f.type, what: f.what.trim(), date: f.date || new Date().toISOString(), updated: up };
       p.campaign = f.campaign || leadCampaign(p); p.link = leadLinkOf(p);
       leadForm = null;
-      leadQueue("/leads/post", { post: p }, () => { const i = LD.posts.findIndex((x) => x.id === p.id); if (i >= 0) LD.posts[i] = Object.assign(LD.posts[i], p); else LD.posts.push(Object.assign({ visits: 0, signups_48h: 0 }, p)); });
+      leadQueue("/leads/post", { post: p }, () => { const i = LD.posts.findIndex((x) => x.id === p.id); if (i >= 0) LD.posts[i] = Object.assign(LD.posts[i], p); else LD.posts.push(Object.assign({ visits: 0, signups: 0, exact: true, signups_48h: 0 }, p)); });
       if (!f.id) copyText(p.link, "Link");
       return;
     }
