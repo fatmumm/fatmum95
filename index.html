@@ -2177,7 +2177,7 @@ function winLeads() {
   const n = leadTodo().length;
   const tabs = [["howto", "❓ How to"], ["do", "✅ Do next" + (n ? " · " + n : "")], ["people", "🧭 People"], ["replies", "💬 Replies"], ["batches", "🎟 Batches"], ["posts", "📣 Posts"], ["week", "📊 Week"]]
     .map(([k, l]) => '<span class="nt-btn rf-chip' + (leadTab === k ? " on" : "") + '" data-a="leadtab" data-arg="' + k + '">' + l + "</span>").join("");
-  const st = (LD && LD.status) || {}, serr = st.shopify || st.gmail || st.sheet;
+  const st = (LD && LD.status) || {}, serr = st.shopify ? "Shopify: " + st.shopify : st.gmail ? "Gmail: " + st.gmail : st.sheet ? "Sheet: " + st.sheet : "";
   const line = (ldErr ? "⚠ " + esc(ldErr) + (LD ? " · showing what this phone saw last" : "") : LD ? (serr ? '<span class="bad">⚠ Server: ' + esc(serr) + "</span>" : "✓ up to date" + (st.at ? " · server checked Shopify " + esc(ago(new Date(st.at * 1000).toISOString())) : "")) : "Loading…") + (LQ.length ? " · 📤 " + LQ.length + " waiting to send" : "");
   let body = "";
   if (!LD) body = '<div class="card sunk">' + (ldErr ? "Can't reach the home server right now." : "Loading…") + "</div>";
