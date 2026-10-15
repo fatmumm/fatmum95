@@ -84,6 +84,7 @@ html{-webkit-text-size-adjust:100%}
 .cs-n[open]>summary{background:#000080;color:#fff}.cs-n[open]>summary .cs-g{color:#dde}
 .cs-b{background:#fff;padding:6px 8px;font:14px/1.4 -apple-system,system-ui,sans-serif}.cs-b>p{margin:0 0 6px}
 .cs-ex{background:#f3f7ff;border-left:3px solid #000080;padding:4px 6px;margin:0 0 6px;font-size:13px}
+.ld-sum div{margin:3px 0}.ld-worry{font-size:13px;color:#333;margin-top:2px;white-space:normal}.ld-row{align-items:flex-start}.ld-btns{display:flex;flex-direction:column;gap:4px;flex:none}.ld-btns .nt-btn{white-space:nowrap;text-align:center}
 .cs-try{display:flex;gap:6px;align-items:baseline;border:1px dashed #808080;padding:5px 6px;margin:0 0 6px;font-size:13px;cursor:pointer;background:#fafafa}.cs-try span{flex:1}.cs-try em{font-size:11px;color:#000080;white-space:nowrap}
 .hk-row{align-items:flex-start}.hk-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:150px;flex:none}
 .nt-page{counter-reset:ol}.nt-page .nb:not(.nb-ol){counter-reset:ol}
@@ -658,7 +659,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
-  ["hooks", "🪝", "Hooks"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -2121,6 +2122,279 @@ function hookAct(a, arg) {
   if (a === "hkbin") return ask("Move this hook to the bin?", () => { n.binned = true; noteTouch(n); hookFresh(); });
 }
 
+// ── 📈 Leads: free guide → replies → batches → book sales. Lives on the home server (emails never go in this public file) ──
+let LD = store.get("leads", null), LQ = store.get("leadsq", []), leadTab = store.get("leadtab", "do"), ldBusy = false, ldErr = "", leadForm = null, peopleQ = "";
+const LEAD_DAYS = [["help", "Help email"], ["myreply", "After my help"], ["wobbly", "Wobbly lines"], ["offer", "Subscribers only"], ["last", "Ends tonight"], ["other", "Other"]];
+const LEAD_OLD = { "0": "help", "2": "myreply", "4": "wobbly", "6": "offer" };
+const LEAD_LINK = "https://www.fatmum.co.uk/pages/learn-to-tattoo";
+const BOOK_CH = [["Making a stencil that doesn't rub off", /stencil|transfer|rub(bing|s)? off|smudg/],
+  ["Stretching and pulling clean lines", /stretch|wobbl|shaky|straight|patchy|loose skin|clean line/],
+  ["My backwards forwards method for gap-free lines", /\bgap|spotty|dotty|missed bits|go(ing)? back over|backwards|\bline/],
+  ["Packing solid black", /\bpack|fill(ing)? in|solid|black(work)?\b|shad(e|ing)/],
+  ["Aftercare and healing", /aftercare|heal|infect|scab|wash|cream|balm|fade|blow ?out|itch|red|swell/],
+  ["How to get your first clients", /client|charg|price|business|friends|people to tattoo|portfolio/]];
+function bookHint(w) { const t = String(w || "").toLowerCase(); const c = BOOK_CH.find((x) => x[1].test(t)); return c ? c[0] : ""; }
+function leadsSave() { store.set("leads", LD); store.set("leadsq", LQ); }
+async function leadsSync() {
+  if (!STANDALONE || !serverUrl() || ldBusy) return;
+  if (srvDown()) { ldErr = "server not reachable"; return; }
+  ldBusy = true;
+  try {
+    for (const q of LQ.slice()) { await nsrv(q.path, q.body); LQ = LQ.filter((x) => x.qid !== q.qid); leadsSave(); }
+    LD = await nsrv("/leads/get", {}); ldErr = ""; leadsSave();
+  } catch (e) { ldErr = e.name === "AbortError" || e instanceof TypeError ? "server not reachable" : e.message; }
+  finally { ldBusy = false; const top = stack[stack.length - 1]; if ((top && top.kind === "leads" && !leadForm) || !stack.length || (top && top.kind === "admin")) render(); }
+}
+setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "leads" && !leadForm) leadsSync(); }, 60000);
+setInterval(() => { if (!document.hidden) leadsSync(); }, 10 * 60000);   // the Admin list and Bean stay fresh too
+setTimeout(leadsSync, 4000);
+window.addEventListener("online", () => setTimeout(leadsSync, 1500));
+function leadQueue(path, body, apply) {
+  if (!LD) LD = { weeks: [], replies: [], posts: [], batches: [], people: [], todo: [] };
+  if (apply) apply();
+  LQ.push({ qid: nId("lq"), path: path, body: body }); leadsSave(); render.noKeep = true; render(); leadsSync();
+}
+async function leadNow(path, body, done) {             // things that need the server there and then (making codes, sending email)
+  try { const r = await nsrv(path, body, 30000); if (done) done(r); await leadsSync(); render.noKeep = true; render(); }
+  catch (e) { toast("⚠ " + (e.name === "AbortError" || e instanceof TypeError ? "Can't reach the home server right now. Try again in a bit." : e.message)); }
+}
+const leadDay = (r) => LEAD_OLD[r.email_day] || r.email_day || "other";
+const leadOverdue = () => ((LD && LD.replies) || []).filter((r) => !r.replied && r.date && Date.now() - Date.parse(r.date) > 864e5);
+const leadTodo = () => (LD && LD.todo) || [];
+function leadSlug(s) { return (String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").split("-").slice(0, 6).join("-").slice(0, 40)) || "post"; }
+function leadCampaign(p) { return p.campaign || todayISO() + "-" + leadSlug(p.what); }
+function leadLinkOf(p) { return p.link || LEAD_LINK + "?utm_source=ig&utm_medium=" + p.type + "&utm_campaign=" + leadCampaign(p); }
+const gbp = (n) => "£" + (Number(n) || 0).toFixed(2).replace(/\.00$/, "");
+const firstOf = (s) => String(s || "").split(/[\s@]/)[0];
+function leadChips(list, cur, act) { return '<div class="rf-chips" style="background:none;border:0;padding:0 0 6px;position:static">' + list.map(([k, l]) => '<span class="nt-btn rf-chip' + (cur === k ? " on" : "") + '" data-a="' + act + '" data-arg="' + k + '">' + l + "</span>").join("") + "</div>"; }
+
+function winLeads() {
+  if (!STANDALONE || !serverUrl()) return '<div class="card sunk">The lead tracker lives on your home server. Add its address in ⚙️ Settings → Home server first.</div>';
+  if (leadForm) return leadFormHtml();
+  const n = leadTodo().length;
+  const tabs = [["do", "✅ Do next" + (n ? " · " + n : "")], ["people", "🧭 People"], ["replies", "💬 Replies"], ["batches", "🎟 Batches"], ["posts", "📣 Posts"], ["week", "📊 Week"]]
+    .map(([k, l]) => '<span class="nt-btn rf-chip' + (leadTab === k ? " on" : "") + '" data-a="leadtab" data-arg="' + k + '">' + l + "</span>").join("");
+  const line = (ldErr ? "⚠ " + esc(ldErr) + (LD ? " · showing what this phone saw last" : "") : LD ? "✓ up to date" : "Loading…") + (LQ.length ? " · 📤 " + LQ.length + " waiting to send" : "");
+  let body = "";
+  if (!LD) body = '<div class="card sunk">' + (ldErr ? "Can't reach the home server right now." : "Loading…") + "</div>";
+  else body = ({ people: leadPeople, replies: leadReplies, batches: leadBatches, posts: leadPosts, week: leadWeek }[leadTab] || leadDo)();
+  return '<div class="nt hk-wrap"><div class="rf-chips hk-tabs">' + tabs + '</div><div style="padding:8px"><div class="dim" style="margin-bottom:6px">' + line + "</div>" + body + "</div></div>";
+}
+function leadDo() {
+  const items = leadTodo();
+  return (LD.shopify === false ? '<div class="card sunk bad">⚠ The Shopify key isn\'t set on the server yet.</div>' : "") +
+    (items.length ? '<div class="lv sunk">' + items.map((x) => '<div class="li" data-a="leadgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>"
+      : '<div class="card sunk">Nothing to do for the guide right now 🎉</div>') +
+    (LD.ready && !LD.draft ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "") +
+    '<div class="dim" style="margin-top:6px">These show in 🗂 Admin and Bean too.</div>';
+}
+function leadPeople() {
+  const q = peopleQ.trim().toLowerCase(), all = (LD.people || []).filter((p) => !q || (p.name + " " + p.email + " " + p.batch).toLowerCase().includes(q));
+  return '<input class="nt-search" id="lpq" placeholder="🔎 Search people" value="' + esc(peopleQ) + '" autocomplete="off" autocapitalize="off" style="margin:0 0 8px;width:100%">' +
+    ((LD.steps || []).map(([k, label]) => {
+      const g = all.filter((p) => p.step === k); if (!g.length) return "";
+      return '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">' + esc(label) + " (" + g.length + ")</div>" + g.map((p) =>
+        '<div class="li" data-a="leadperson" data-arg="' + esc(p.id) + '" style="cursor:pointer"><span class="lab"><b>' + esc(p.name) + '</b><div class="dim">since ' + esc(ago(p.since)) + (p.batch ? " · " + esc(p.batch) : "") + (p.worry ? " · " + esc(p.worry.slice(0, 50)) : "") + "</div></span></div>").join("") + "</div>";
+    }).join("") || '<div class="card sunk">' + (q ? "Nobody matches that." : "Nobody has signed up yet.") + "</div>");
+}
+function leadReplies() {
+  const list = (LD.replies || []).slice().sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1);
+  return '<button class="btn raised main" data-a="leadadd" data-arg="reply">＋ Add a reply</button>' +
+    (list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((r) => {
+      const late = !r.replied && r.date && Date.now() - Date.parse(r.date) > 864e5, day = (LEAD_DAYS.find((d) => d[0] === leadDay(r)) || LEAD_DAYS[5])[1], hint = bookHint(r.worry);
+      return '<div class="li ld-row"><span class="lab" data-a="leadedit" data-arg="reply|' + esc(r.id) + '" style="cursor:pointer"><b>' + (late ? "⚠ " : "") + esc(r.who || r.email || "?") + "</b>" + (r.bought ? ' <span class="chip ok">💷 bought</span>' : "") +
+        '<div class="dim">' + esc(day) + " · " + esc(r.date ? ago(r.date) : "") + (r.src === "gmail" ? " · 📧" : "") + "</div>" + (r.worry ? '<div class="ld-worry">' + esc(r.worry.slice(0, 140)) + "</div>" : "") +
+        (r.worry ? '<div class="dim">' + (hint ? "📕 In the book: " + esc(hint) : "Not in the book, just help them") + "</div>" : "") +
+        (r.post_idea ? '<div class="dim">💡 ' + esc(r.post_idea) + "</div>" : "") + "</span>" +
+        '<span class="ld-btns">' + (r.thread && !r.replied ? '<span class="nt-btn" data-a="leadwrite" data-arg="' + esc(r.id) + '">↩️ Reply</span>' : "") +
+        '<span class="nt-btn' + (r.replied ? " on" : "") + '" data-a="leadrep" data-arg="' + esc(r.id) + '">' + (r.replied ? "✓ Replied" : "Mark replied") + "</span></span></div>";
+    }).join("") + "</div>" : '<div class="card sunk" style="margin-top:8px">No replies yet. Replies to your emails show up here by themselves (📧), or add one by hand.</div>') +
+    '<div class="dim" style="margin-top:6px">⚠ = waiting more than a day for your reply.</div>';
+}
+function leadBatches() {
+  const list = LD.batches || [];
+  let h = LD.draft ? '<div class="card sunk"><b>🎟 ' + LD.draft.size + " ready for the offer</b><div>Name their code to make it.</div>" + '<button class="btn raised main" data-a="leadgo" data-arg="draft">Name the code</button></div>'
+    : LD.ready ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : '<div class="dim">Nobody is waiting for the offer. Each Monday at 8am everyone who signed up 4+ days ago is gathered into a new batch.</div>';
+  h += list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((b) => '<div class="li" data-a="leadgo" data-arg="batch|' + esc(b.code) + '" style="cursor:pointer"><span class="lab"><b>' + esc(b.code) + "</b>" + (b.error ? ' <span class="chip bad">⚠ not finished</span>' : "") +
+    '<div class="dim">' + b.size + " people · ends " + esc(b.nice_end) + " · " + (b.offer_sent ? "offer sent" : b.small ? Object.values(b.personal || {}).filter(Boolean).length + "/" + b.size + " emailed" : "offer not sent") +
+    " · " + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + '</div></span><span class="st">›</span></div>').join("") + "</div>" : "";
+  return h;
+}
+function leadSumCard(s, title) {
+  if (!s) return "";
+  return '<div class="card sunk ld-sum"><b>' + esc(title) + "</b>" +
+    "<div>✍️ " + s.signups + " sign-up" + (s.signups === 1 ? "" : "s") + " · " + s.rate + "% of visits</div>" +
+    "<div>📕 " + s.subscriber_sales + " with a code · " + s.full_price_sales + " full price · " + gbp(s.revenue) + "</div>" +
+    (s.worry ? "<div>😬 Top worry: " + esc(s.worry) + "</div>" : "") +
+    (s.best_post ? "<div>🏆 Best post: " + esc(s.best_post.what) + " (" + esc(s.best_post.type) + ", " + s.best_post.signups + " sign-ups, " + s.best_post.visits + " visits)</div>" : "") + "</div>";
+}
+function leadWeek() {
+  const s = LD.summary;
+  let h = (LD.shopify === false ? '<div class="card sunk bad">⚠ The Shopify key isn\'t set on the server yet, so the numbers can\'t fill in.</div>' : "") +
+    leadSumCard(LD.now, "This week so far") + (s ? leadSumCard(s, "Last week (from " + shortDay(s.week) + ")") : "");
+  h += '<div class="h">Every week</div>' + ((LD.weeks || []).length ? '<div class="lv sunk">' + LD.weeks.map((w) =>
+    '<div class="li" data-a="leadnote" data-arg="' + esc(w.week_start) + '" style="cursor:pointer"><span class="lab"><b>w/c ' + esc(shortDay(w.week_start)) + "</b>" +
+    '<div class="dim">' + w.new_signups + " sign-ups · " + w.landing_page_sessions + " visits · " + w.signup_rate + "% · " + w.subscriber_sales + " code + " + w.full_price_sales + " full · " + gbp(w.revenue_gbp) + "</div>" +
+    (w.notes ? '<div class="dim">📝 ' + esc(w.notes) + "</div>" : "") + '</span><span class="st">' + (w.final ? "✓" : "…") + "</span></div>").join("") + "</div>" : '<div class="dim">No weeks yet.</div>');
+  h += '<div class="row"><button class="btn raised" data-a="leadrefresh">↻ Refresh from Shopify</button>' + (LD.sheet ? '<a class="btn raised" href="' + esc(LD.sheet) + '" target="_blank" rel="noopener">📄 Open the Sheet</a>' : "") + "</div>" +
+    '<div class="dim">Updates every 30 minutes. Each Monday at 8am last week is finished off and summed up. Tap a week to add a note.</div>';
+  return h;
+}
+function leadPosts() {
+  const list = (LD.posts || []).slice().sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1);
+  return '<button class="btn raised main" data-a="leadadd" data-arg="post">＋ Add a post</button>' +
+    (list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((p) =>
+      '<div class="li ld-row"><span class="lab" data-a="leadedit" data-arg="post|' + esc(p.id) + '" style="cursor:pointer"><b>' + esc(p.what || "(no title)") + '</b><div class="dim">' + esc(p.type) + " · " + esc(p.date ? ago(p.date) : "") +
+      " · " + (p.visits || 0) + " visits · " + (p.signups_48h || 0) + " sign-ups in 48h</div></span>" +
+      '<span class="nt-btn" data-a="leadcopy" data-arg="' + esc(p.id) + '">📋 Link</span></div>').join("") + "</div>" : '<div class="card sunk" style="margin-top:8px">Add a post before you share it, then use its 📋 link in the sticker or bio.</div>') +
+    '<div class="dim" style="margin-top:6px">Visits come from the link exactly. Sign-ups in 48h are everyone who signed up in the two days after posting, so posts close together share them.</div>';
+}
+const btnRow = (save, extra) => '<div class="row"><button class="btn raised main" data-a="leadsave">' + save + '</button><button class="btn raised" data-a="leadcancel">' + (extra || "Cancel") + "</button></div>";
+function personalText(tpl, p) { return String(tpl || "").split("{{ customer.first_name }}").join(p.first || "there"); }
+function leadFormHtml() {
+  const f = leadForm;
+  if (f.kind === "week") return '<label class="field">Note for the week of ' + esc(shortDay(f.ws)) + '</label><textarea class="inp" id="lnote" rows="4" style="height:110px">' + esc(f.notes || "") + "</textarea>" + btnRow("💾 Save");
+  if (f.kind === "draft") {
+    const dr = LD.draft || {};
+    return '<div class="card sunk">🎟 <b>' + (dr.size || 0) + " people</b> signed up 4+ days ago and have had the wobbly-lines email. Name their code and it's made in Shopify: £5 off the book (so £10), once each, until the end date.</div>" +
+      '<label class="field">Code name</label><input class="inp" id="lcode" value="' + esc(f.code || dr.suggested || "") + '" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase">' +
+      '<label class="field">Offer ends (midnight)</label><input class="inp" type="date" id="lends" value="' + esc(f.ends || dr.ends || "") + '">' +
+      '<div class="row"><button class="btn raised main" data-a="leadmake">🎟 Make it</button><button class="btn raised" data-a="leadcancel">Not yet</button></div>';
+  }
+  if (f.kind === "batch") {
+    const b = (LD.batches || []).find((x) => x.code === f.code); if (!b) return '<div class="card sunk">That batch has gone.</div>' + btnRow("OK");
+    const today = new Date().toISOString().slice(0, 10), last = b.ends === today;
+    let h = '<div class="card sunk"><b>🎟 ' + esc(b.code) + "</b> · " + b.size + " people · ends " + esc(b.nice_end) + " midnight<div>" + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + "</div>" +
+      (b.error ? '<div class="bad">⚠ ' + esc(b.error) + '</div><button class="btn raised" data-a="leadretry" data-arg="' + esc(b.code) + '">↻ Try again</button>' : "<div>✓ Code made in Shopify · ✓ people tagged <b>" + esc(b.segment) + "</b></div>") + "</div>";
+    if (!b.small || b.offer_sent) {
+      h += '<div class="h">1 · "4 subscribers only <3"</div>' + (b.offer_sent ? '<div class="dim">✓ Sent ' + esc(ago(b.offer_sent)) + "</div>" :
+        '<div class="dim">In Shopify Email: new email to the segment where customer tag is <b>' + esc(b.segment) + "</b>. Paste the subject and text.</div>") +
+        '<div class="row"><button class="btn raised" data-a="leadcp" data-arg="osubj">📋 Subject</button><button class="btn raised" data-a="leadcp" data-arg="otext">📋 Email text</button></div>' +
+        (b.offer_sent ? "" : '<button class="btn raised main" data-a="leadsent" data-arg="offer">✓ I sent it</button>');
+      h += '<div class="h">2 · "Ends tonight" on ' + esc(b.nice_end) + "</div>" + (b.last_sent ? '<div class="dim">✓ Sent ' + esc(ago(b.last_sent)) + "</div>" : "") +
+        '<div class="row"><button class="btn raised" data-a="leadcp" data-arg="lsubj">📋 Subject</button><button class="btn raised" data-a="leadcp" data-arg="ltext">📋 Email text</button></div>' +
+        (b.last_sent || !b.offer_sent ? "" : '<button class="btn raised' + (last ? " main" : "") + '" data-a="leadsent" data-arg="last">✓ I sent it</button>');
+    }
+    if (b.small) {
+      h += '<div class="h">' + (b.offer_sent ? "People" : "Email them yourself (small batch)") + '</div><div class="dim">Copy each person\'s own email, send it from Gmail, then tap ✓.</div><div class="lv sunk">' + (b.people || []).map((p) =>
+        '<div class="li ld-row"><span class="lab"><b>' + esc(p.name) + "</b>" + (p.bought ? ' <span class="chip ok">💷 bought</span>' : "") + '<div class="dim">' + esc(p.email) + "</div></span><span class=\"ld-btns\">" +
+        (!p.offer && !b.offer_sent ? '<span class="nt-btn" data-a="leadpcp" data-arg="' + esc(p.id) + '|offer">📋 Offer</span><span class="nt-btn" data-a="leadpsent" data-arg="' + esc(p.id) + '|offer">Mark sent</span>'
+          : (p.offer || b.offer_sent) && !p.last && !b.last_sent && !p.bought ? '<span class="nt-btn" data-a="leadpcp" data-arg="' + esc(p.id) + '|last">📋 Ends tonight</span><span class="nt-btn" data-a="leadpsent" data-arg="' + esc(p.id) + '|last">Mark sent</span>'
+          : '<span class="dim">' + (p.bought ? "done" : p.last || b.last_sent ? "✓ both sent" : "") + "</span>") + "</span></div>").join("") + "</div>";
+    }
+    return h + '<div class="row"><button class="btn raised" data-a="leadcancel">← Back</button></div>';
+  }
+  if (f.kind === "person") {
+    const p = (LD.people || []).find((x) => x.id === f.id); if (!p) return btnRow("OK");
+    const step = ((LD.steps || []).find((s) => s[0] === p.step) || [0, p.step])[1];
+    const reps = (LD.replies || []).filter((r) => r.email && r.email === p.email);
+    return '<div class="card sunk"><b>' + esc(p.name) + '</b><div class="dim">' + esc(p.email) + "</div><div>Now: " + esc(step) + "</div></div>" +
+      '<div class="lv sunk"><div class="li"><span class="lab">📥 Signed up ' + esc(ago(p.since)) + "</span></div>" +
+      reps.map((r) => '<div class="li"><span class="lab">💬 ' + esc(r.worry || "(no words)") + (r.my_reply ? '<div class="dim">↩️ You: ' + esc(r.my_reply.slice(0, 120)) + "</div>" : r.replied ? '<div class="dim">↩️ You replied</div>' : '<div class="dim">⚠ Waiting for your help</div>') + "</span></div>").join("") +
+      (p.batch ? '<div class="li" data-a="leadgo" data-arg="batch|' + esc(p.batch) + '" style="cursor:pointer"><span class="lab">🎟 In batch ' + esc(p.batch) + '</span><span class="st">›</span></div>' : "") +
+      (p.bought ? '<div class="li"><span class="lab">💷 Bought the book</span></div>' : "") + "</div>" +
+      '<div class="row"><button class="btn raised" data-a="leadcancel">← Back</button></div>';
+  }
+  if (f.kind === "send") {
+    const r = (LD.replies || []).find((x) => x.id === f.id) || {}, hint = bookHint(r.worry);
+    return '<div class="card sunk"><b>' + esc(r.who || r.email) + '</b><div class="ld-worry">' + esc(r.worry || "") + "</div><div>" + (hint ? "📕 The book covers this: <b>" + esc(hint) + "</b>" : "Not in the book. Just help them, no book mention.") + "</div></div>" +
+      '<label class="field">Your reply (goes into their Gmail thread)</label><textarea class="inp" id="lbody" rows="10" style="height:230px">' + esc(f.body) + "</textarea>" +
+      '<div class="row"><button class="btn raised main" data-a="leadsend">📨 Send</button><button class="btn raised" data-a="leadcancel">Cancel</button></div>';
+  }
+  if (f.kind === "post") return '<label class="field">What kind</label>' + leadChips([["story", "Story"], ["post", "Post"], ["reel", "Reel"]], f.type, "leadtype") +
+    '<label class="field">What was it?</label><input class="inp" id="lwhat" value="' + esc(f.what || "") + '" placeholder="e.g. who wants help with their first poke" autocomplete="off">' +
+    (f.id ? '<div class="card sunk" style="word-break:break-all;margin-top:8px">' + esc(leadLinkOf(f)) + "</div>" : "") + btnRow(f.id ? "💾 Save" : "💾 Save + copy link") +
+    (f.id ? '<div class="row" style="margin-top:0"><button class="btn raised" data-a="leadcopy" data-arg="' + esc(f.id) + '">📋 Copy link</button><button class="btn raised" data-a="leadbin">🗑 Bin</button></div>' : "");
+  return '<label class="field">Name or email</label><input class="inp" id="lwho" value="' + esc(f.who || f.email || "") + '" placeholder="Paste their email" autocomplete="off" autocapitalize="off">' +
+    '<label class="field">Which email did they answer?</label>' + leadChips(LEAD_DAYS, LEAD_OLD[f.email_day] || f.email_day, "leadday") +
+    '<label class="field">Their worry, in their words</label><textarea class="inp" id="lworry" rows="4" style="height:100px">' + esc(f.worry || "") + "</textarea>" +
+    '<label class="field">Post idea (optional)</label><input class="inp" id="lidea" value="' + esc(f.post_idea || "") + '" autocomplete="off">' +
+    (f.id ? leadChips([["no", "Reply due"], ["yes", "✓ Replied"]], f.replied ? "yes" : "no", "leadrepf") + (f.bought ? '<div class="dim">💷 They bought the book.</div>' : "") : "") +
+    btnRow("💾 Save") + (f.id ? '<div class="row" style="margin-top:0">' + (f.thread && !f.replied ? '<button class="btn raised" data-a="leadwrite" data-arg="' + esc(f.id) + '">↩️ Reply from here</button>' : "") + '<button class="btn raised" data-a="leadbin">🗑 Bin</button></div>' : "");
+}
+function replyStarter(r) {
+  const ch = bookHint(r.worry), hi = "Hey " + (firstOf(r.who && !/@/.test(r.who) ? r.who : "") || "there") + ",\n\n";
+  return ch ? hi + "\n\nThis is covered properly in the book too, in the bit on " + ch.charAt(0).toLowerCase() + ch.slice(1) + ". If you ever want to go deeper it's here: " + ((LD && LD.book) || "https://www.fatmum.co.uk/products/how-to-tattoo-a-stick-and-poke-guide") + "\n\nAron x"
+    : hi + "\n\nAron x";
+}
+function leadKeep() {                                   // what's typed survives tapping a chip
+  if (!leadForm) return;
+  [["lwho", "who"], ["lworry", "worry"], ["lidea", "post_idea"], ["lwhat", "what"], ["lnote", "notes"], ["lcode", "code"], ["lends", "ends"], ["lbody", "body"]].forEach(([id, k]) => { if ($(id)) leadForm[k] = $(id).value; });
+}
+const leadOpen = (f) => { leadForm = f; render.noKeep = true; render(); window.scrollTo(0, 0); };
+function leadGo(go) {                                   // from ✅ Do next, 🗂 Admin and Bean
+  const [k, a, b, c] = String(go).split("|");
+  if (!stack.length || stack[stack.length - 1].kind !== "leads") open_("leads");
+  if (k === "reply") { const r = (LD.replies || []).find((x) => x.id === a); if (!r) return; if (r.thread && !r.replied) return leadOpen({ kind: "send", id: r.id, body: replyStarter(r) }); return leadOpen(Object.assign({ kind: "reply" }, r)); }
+  if (k === "draft") return LD.draft ? leadOpen({ kind: "draft" }) : toast("Nobody is waiting for the offer right now.");
+  if (k === "batch" || k === "person") return leadOpen({ kind: "batch", code: a });
+}
+function leadAct(a, arg) {
+  if (a === "leadtab") { leadTab = arg; store.set("leadtab", arg); render.noKeep = true; return render(); }
+  if (a === "leadgo") return leadGo(arg);
+  if (a === "leadperson") return leadOpen({ kind: "person", id: arg });
+  if (a === "leadrefresh") { nsrv("/leads/refresh", {}).then(() => { toast("Asked the server to check Shopify. Give it a minute."); setTimeout(leadsSync, 45000); }, () => toast("⚠ Can't reach the home server right now.")); return; }
+  if (a === "leaddraft") return leadNow("/leads/draft", {}, (r) => { if (r.draft) leadOpen({ kind: "draft" }); else toast("Nobody is ready for the offer yet."); });
+  if (a === "leadadd") return leadOpen(arg === "post" ? { kind: "post", type: "story", what: "" } : { kind: "reply", email_day: "help" });
+  if (a === "leadnote") { const w = (LD.weeks || []).find((x) => x.week_start === arg); if (w) leadOpen({ kind: "week", ws: arg, notes: w.notes || "" }); return; }
+  if (a === "leadedit") { const [k, id] = String(arg).split("|"), src = ((LD && LD[k === "post" ? "posts" : "replies"]) || []).find((x) => x.id === id); if (src) leadOpen(Object.assign({ kind: k }, src)); return; }
+  if (a === "leadwrite") { const r = (LD.replies || []).find((x) => x.id === arg); if (r) leadOpen({ kind: "send", id: r.id, body: replyStarter(r) }); return; }
+  if (a === "leadcancel") { leadForm = null; render.noKeep = true; return render(); }
+  if (a === "leadday" || a === "leadtype" || a === "leadrepf") { leadKeep(); if (a === "leadday") leadForm.email_day = arg; else if (a === "leadtype") leadForm.type = arg; else leadForm.replied = arg === "yes"; render.noKeep = true; return render(); }
+  if (a === "leadrep") { const r = (LD.replies || []).find((x) => x.id === arg); if (!r) return; const up = Date.now(); return leadQueue("/leads/reply", { reply: { id: r.id, replied: !r.replied, updated: up } }, () => { r.replied = !r.replied; r.updated = up; }); }
+  if (a === "leadcopy") { const p = (LD.posts || []).find((x) => x.id === arg) || (leadForm && leadForm.id === arg ? leadForm : null); if (p) copyText(leadLinkOf(p), "Link"); return; }
+  if (a === "leadmake") {
+    leadKeep(); const code = String(leadForm.code || "").trim().toUpperCase(), ends = leadForm.ends || "";
+    if (!/^[A-Z0-9]{4,20}$/.test(code)) return toast("⚠ Codes are 4 to 20 letters or numbers, no spaces.");
+    if (!ends) return toast("⚠ Pick the end date.");
+    return ask("Make " + code + " in Shopify (£5 off the book until " + ends + ") and tag " + ((LD.draft || {}).size || 0) + " people?", () => leadNow("/leads/batch/make", { code: code, ends: ends }, () => { leadOpen({ kind: "batch", code: code }); }));
+  }
+  if (a === "leadretry") return leadNow("/leads/batch/retry", { code: arg });
+  if (a === "leadcp") { const b = (LD.batches || []).find((x) => x.code === leadForm.code); if (!b) return; return copyText({ osubj: b.offer_subject, otext: b.offer_text, lsubj: b.last_subject, ltext: b.last_text }[arg] || "", arg.slice(1) === "subj" ? "Subject" : "Email text"); }
+  if (a === "leadpcp") { const [pid, which] = arg.split("|"), b = (LD.batches || []).find((x) => x.code === leadForm.code), p = b && b.people.find((x) => x.id === pid); if (p) copyText((which === "offer" ? b.offer_subject : b.last_subject) + "\n\n" + personalText(which === "offer" ? b.offer_text : b.last_text, p), "Email for " + (p.first || p.name)); return; }
+  if (a === "leadsent" || a === "leadpsent") {
+    const code = leadForm.code, [pid, w] = a === "leadpsent" ? arg.split("|") : ["", arg];
+    return leadQueue("/leads/batch/sent", { code: code, which: w, person: pid }, () => {
+      const b = (LD.batches || []).find((x) => x.code === code); if (!b) return; const now = new Date().toISOString();
+      if (pid) { const p = b.people.find((x) => x.id === pid); if (p) p[w === "offer" ? "offer" : "last"] = now; (b[w === "offer" ? "personal" : "personal_last"] = b[w === "offer" ? "personal" : "personal_last"] || {})[pid] = now; }
+      else b[w === "offer" ? "offer_sent" : "last_sent"] = now;
+      LD.todo = (LD.todo || []).filter((t) => !(t.go.indexOf("batch|" + code) === 0 && !pid) && t.go !== "person|" + code + "|" + pid + "|" + w);
+    });
+  }
+  if (a === "leadsend") {
+    leadKeep(); const f = leadForm, body = String(f.body || "").trim();
+    if (body.length < 10) return toast("⚠ Write your reply first.");
+    return ask("Send this reply from fatmumtattoos@gmail.com?", () => leadNow("/leads/reply/send", { id: f.id, body: body }, () => { leadForm = null; toast("Sent ✓ Marked as replied."); }));
+  }
+  if (a === "leadbin") {
+    const f = leadForm; if (!f || !f.id) return;
+    return ask("Bin this " + (f.kind === "post" ? "post" : "reply") + "? It's hidden here and in the Sheet, but kept on the server.", () => {
+      const up = Date.now(), list = f.kind === "post" ? "posts" : "replies";
+      leadForm = null; leadQueue("/leads/" + (f.kind === "post" ? "post" : "reply"), { [f.kind === "post" ? "post" : "reply"]: { id: f.id, binned: true, updated: up } }, () => { LD[list] = LD[list].filter((x) => x.id !== f.id); });
+    });
+  }
+  if (a === "leadsave") {
+    leadKeep(); const f = leadForm, up = Date.now();
+    if (f.kind === "week") { leadForm = null; return leadQueue("/leads/week", { week: f.ws, notes: f.notes }, () => { const w = LD.weeks.find((x) => x.week_start === f.ws); if (w) w.notes = f.notes; }); }
+    if (f.kind === "post") {
+      if (!String(f.what || "").trim()) return toast("⚠ Say what the post was, a few words is fine.");
+      const p = { id: f.id || nId("pst"), type: f.type, what: f.what.trim(), date: f.date || new Date().toISOString(), updated: up };
+      p.campaign = f.campaign || leadCampaign(p); p.link = leadLinkOf(p);
+      leadForm = null;
+      leadQueue("/leads/post", { post: p }, () => { const i = LD.posts.findIndex((x) => x.id === p.id); if (i >= 0) LD.posts[i] = Object.assign(LD.posts[i], p); else LD.posts.push(Object.assign({ visits: 0, signups_48h: 0 }, p)); });
+      if (!f.id) copyText(p.link, "Link");
+      return;
+    }
+    if (f.kind !== "reply") { leadForm = null; render.noKeep = true; return render(); }
+    const who = String(f.who || "").trim(); if (!who) return toast("⚠ Add their name or email.");
+    const r = { id: f.id || nId("rep"), email_day: LEAD_OLD[f.email_day] || f.email_day || "other", worry: f.worry || "", post_idea: f.post_idea || "", replied: !!f.replied, updated: up, date: f.date || new Date().toISOString() };
+    if (/@/.test(who)) { r.email = who.toLowerCase(); r.who = ""; } else { r.who = who; r.email = f.email || ""; }
+    leadForm = null;
+    return leadQueue("/leads/reply", { reply: r }, () => { const i = LD.replies.findIndex((x) => x.id === r.id); if (i >= 0) LD.replies[i] = Object.assign(LD.replies[i], r); else LD.replies.push(r); });
+  }
+}
+document.addEventListener("input", (e) => { if (e.target.id === "lpq") { peopleQ = e.target.value; render(); } });
+
 // ── 📅 change a client's date (or not decided yet) ──
 function startSlot(r) {
   const av = ((O() && O().avail && O().avail.days) || []).slice(0, 14);
@@ -2220,6 +2494,7 @@ function badge(kind) {
   if (kind === "inbox") return waitingThreads(0).length;
   if (kind === "habits") { const v = todoView(); return v ? v.habits.filter((h) => scheduled(h, todayISO()) && !(h.log || []).includes(todayISO())).length : 0; }
   if (kind === "notes") return NQ.length;
+  if (kind === "leads") return leadTodo().length;
   if (kind === "todo") { const v = todoView(); return v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0; }
   return 0;
 }
@@ -2258,7 +2533,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -2393,6 +2668,7 @@ function adminItems() {
   const lastUse = (hooksView() || []).reduce((m, h) => (h.used || []).reduce((mm, x) => x > mm ? x : mm, m), "");
   if ((hooksView() || []).some((h) => !(h.used || []).length) && (!lastUse || daysBetween(lastUse, t) >= 5))
     out.push({ score: 25, icon: "🪝", text: "No hook used " + (lastUse ? "for " + daysBetween(lastUse, t) + " days" : "yet") + ": time for a post?", open: "hooks" });
+  leadTodo().forEach((x) => out.push({ score: x.score, icon: x.icon, text: "Guide · " + x.text, open: "leads", lgo: x.go }));
   const snap = O() && O().snapshot;
   if (snap && snap.tax && snap.tax.days != null && snap.tax.days <= 14) out.push({ score: 65, icon: "🧮", text: snap.tax.name + " in " + snap.tax.days + " days (on the Mac: Money)" });
   if (snap && snap.bank_days != null && snap.bank_days > 30) out.push({ score: 30, icon: "🏦", text: "Bank statement not imported for " + snap.bank_days + " days (on the Mac)" });
@@ -2402,7 +2678,7 @@ function adminItems() {
 function winAdmin() {
   const items = adminItems();
   if (!items.length) return '<div class="card sunk">Nothing needs doing. Go draw something 🎨</div>';
-  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : x.tid ? ' data-a="thread" data-arg="' + esc(x.tid) + '"' : x.open ? ' data-a="open" data-arg="' + x.open + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
+  return '<div class="lv sunk">' + items.map((x) => '<div class="li"' + (x.id ? ' data-a="client" data-id="' + esc(x.id) + '"' : x.tid ? ' data-a="thread" data-arg="' + esc(x.tid) + '"' : x.lgo ? ' data-a="leadgo" data-arg="' + esc(x.lgo) + '"' : x.open ? ' data-a="open" data-arg="' + x.open + '"' : "") + '><span class="ico">' + x.icon + '</span><span class="lab">' + esc(x.text) + "</span>" +
     (x.id && x.arg ? '<button class="btn raised small" data-a="quick" data-id="' + esc(x.id) + '" data-arg="' + x.arg + '">' + esc(x.label) + "</button>" : "") + "</div>").join("") + "</div>";
 }
 
@@ -2821,9 +3097,11 @@ let beanTips = [], beanI = 0, beanOpen = false, beanFrame = 0;
 function beanHidden() { return store.get("beanhide", "") === todayISO(); }
 function beanSay(first) {
   const a = assess();
-  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + (x.name ? x.text : x.text.charAt(0).toLowerCase() + x.text.slice(1)) + ". Want to sort it?", id: x.id, arg: x.arg, tid: x.tid, open: x.id ? "client" : (x.open || "admin") }));
+  beanTips = adminItems().slice(0, 4).map((x) => ({ text: "It looks like " + (x.name ? x.text : x.text.charAt(0).toLowerCase() + x.text.slice(1)) + ". Want to sort it?", id: x.id, arg: x.arg, tid: x.tid, lgo: x.lgo, open: x.id ? "client" : (x.open || "admin") }));
   const wk = new Date(), wkKey = "week-" + todayISO();
   if ((wk.getDay() === 0 && wk.getHours() >= 17) || wk.getDay() === 1) beanTips.unshift({ text: "Your week's in! Want to see how we did? 📰", open: "week" });
+  const ls = LD && LD.summary;
+  if (ls && wk.getDay() === 1) beanTips.unshift({ text: "Last week's guide: " + ls.signups + " sign-ups (" + ls.rate + "%), " + (ls.subscriber_sales + ls.full_price_sales) + " books sold" + (ls.worry ? ". Top worry: " + ls.worry : "") + " 📈", open: "leads" });
   if (a) beanTips.push({ text: sayLine(a), open: "todo" });
   if (!beanTips.length) beanTips.push({ text: "Hi! I'm " + BEAN.name + ". Nothing needs you right now." });
   if (first && pref("bean") !== false && pref("bean_morning") !== false && !beanHidden() && store.get("beanseen", "") !== todayISO()) { beanI = 0; beanOpen = true; store.set("beanseen", todayISO()); }
@@ -2926,6 +3204,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "hookf") { hookFilter = arg; store.set("hookf", arg); render(); }
   else if (a === "hooktag") { hookTag = arg; render(); }
   else if (a === "hookstar") { const h = hooksView().find((x) => x.id === arg); if (h) hookOp({ kind: "star", id: h.id, star: !h.star }); }
+  else if (a.startsWith("lead")) leadAct(a, arg);
   else if (["hooktab", "hknew", "hkcopy", "hktpl", "hksave", "hookuse", "hkopen", "hkc", "hkdup", "hkbin", "csbook", "csmode", "hkins"].includes(a)) hookAct(a, arg);
   else if (a === "hookcopy") { const h = hooksView().find((x) => x.id === arg); if (h) copyHook(h); }
   else if (a === "hookedit") { const h = hooksView().find((x) => x.id === arg); if (h) editHook(h); }
@@ -2985,7 +3264,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "prefhide") { const h = pref("hide").slice(), i = h.indexOf(arg); if (i >= 0) h.splice(i, 1); else h.push(arg); setPref("hide", h); }
   else if (a === "preftoggle") setPref(arg, !pref(arg));
   else if (a === "beanback") { store.set("beanhide", ""); menuOpen = false; beanOpen = true; beanI = 0; render(); beanDraw(); }
-  else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.open === "client") open_("client", tip.id); else if (tip.open === "thread") open_("thread", tip.tid); else open_(tip.open); }
+  else if (a === "beango") { const tip = beanTips[beanI % beanTips.length]; beanOpen = false; if (tip.lgo) leadGo(tip.lgo); else if (tip.open === "client") open_("client", tip.id); else if (tip.open === "thread") open_("thread", tip.tid); else open_(tip.open); }
 });
 
 // pull down at the top to refresh
