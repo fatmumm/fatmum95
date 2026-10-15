@@ -84,7 +84,7 @@ html{-webkit-text-size-adjust:100%}
 .cs-n[open]>summary{background:#000080;color:#fff}.cs-n[open]>summary .cs-g{color:#dde}
 .cs-b{background:#fff;padding:6px 8px;font:14px/1.4 -apple-system,system-ui,sans-serif}.cs-b>p{margin:0 0 6px}
 .cs-ex{background:#f3f7ff;border-left:3px solid #000080;padding:4px 6px;margin:0 0 6px;font-size:13px}
-.ld-sum div{margin:3px 0}.ld-worry{font-size:13px;color:#333;margin-top:2px;white-space:normal}.ld-row{align-items:flex-start}.ld-btns{display:flex;flex-direction:column;gap:4px;flex:none}.ld-btns .nt-btn{white-space:nowrap;text-align:center}
+.ld-sum div{margin:3px 0}.ld-up{margin:4px 0;font-size:13px}.ld-up summary{cursor:pointer}.ld-worry{font-size:13px;color:#333;margin-top:2px;white-space:normal}.ld-row{align-items:flex-start}.ld-btns{display:flex;flex-direction:column;gap:4px;flex:none}.ld-btns .nt-btn{white-space:nowrap;text-align:center}
 .cs-try{display:flex;gap:6px;align-items:baseline;border:1px dashed #808080;padding:5px 6px;margin:0 0 6px;font-size:13px;cursor:pointer;background:#fafafa}.cs-try span{flex:1}.cs-try em{font-size:11px;color:#000080;white-space:nowrap}
 .hk-row{align-items:flex-start}.hk-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:150px;flex:none}
 .nt-page{counter-reset:ol}.nt-page .nb:not(.nb-ol){counter-reset:ol}
@@ -2180,9 +2180,15 @@ function winLeads() {
   else body = ({ people: leadPeople, replies: leadReplies, batches: leadBatches, posts: leadPosts, week: leadWeek }[leadTab] || leadDo)();
   return '<div class="nt hk-wrap"><div class="rf-chips hk-tabs">' + tabs + '</div><div style="padding:8px"><div class="dim" style="margin-bottom:6px">' + line + "</div>" + body + "</div></div>";
 }
+function leadComing() {
+  const up = LD.upcoming || [], icon = { shopify: "🤖 Shopify Email", app: "🤖 App", you: "🙋 You" };
+  if (!up.length) return '<div class="card sunk"><b>⏭ Coming up</b><div class="dim">Nothing planned for the next 7 days.</div></div>';
+  return '<div class="card sunk ld-sum"><b>⏭ Coming up</b>' + up.map((x, i) => '<details class="ld-up"><summary><b>' + esc(x.when) + "</b> · " + esc(icon[x.who] || x.who) + ": " + esc(x.text) + " (" + x.count + ")</summary>" +
+    '<div class="dim">' + esc(x.names.join(", ")) + (x.note ? "<br>ℹ️ " + esc(x.note) : "") + "</div></details>").join("") + "</div>";
+}
 function leadDo() {
   const items = leadTodo();
-  return (LD.shopify === false ? '<div class="card sunk bad">⚠ The Shopify key isn\'t set on the server yet.</div>' : "") +
+  return leadComing() + (LD.shopify === false ? '<div class="card sunk bad">⚠ The Shopify key isn\'t set on the server yet.</div>' : "") +
     (items.length ? '<div class="lv sunk">' + items.map((x) => '<div class="li" data-a="leadgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>"
       : '<div class="card sunk">Nothing to do for the guide right now 🎉</div>') +
     (LD.ready && !LD.draft ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "") +
