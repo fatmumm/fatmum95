@@ -2188,7 +2188,7 @@ function leadHowto() {
     step("2", "Before every post", "📣 Posts → ＋ Add a post. The tracking link is copied for you. Paste it in your story sticker or bio.") +
     step("3", "Monday (or whenever you're ready)", "Do next says \"Send '4 subscribers only <3' to POKE…\". Tap it, then tap ▶️ Start the offer today. The code then lasts 6 days from that day. Copy the Subject and Email text. In Shopify go to Messaging → Create campaign, set the audience to customer tag offer-POKE…, paste, send. Back here tap ✓ I sent it.") +
     step("4", "The offer's last day (Sunday)", "Same again with \"Ends tonight\". Copy, paste into a Shopify campaign to the same tag, send, tap ✓.") +
-    step("🤖", "What runs by itself", "Shopify sends the help email the day after someone signs up, then the wobbly-lines email 3 days later. The app makes the code every Monday, tags people, spots replies, tracks sales and fills your Google Sheet.") +
+    step("🤖", "What runs by itself", "Shopify sends the help email the day after someone signs up, then the wobbly-lines email 3 days later, and tags them got-help-email / got-wobbly-email so the app knows for sure (✓ in 🧭 People). The app makes the code every Monday, tags people, spots replies, tracks sales and fills your Google Sheet.") +
     step("👀", "Where to look", "⏭ Coming up (top of Do next) shows the next 7 days. 🧭 People shows where everyone is. 📊 Week shows your numbers.") +
     step("⚠️", "If something looks wrong", "\"Server not reachable\" means the server Mac is off or asleep. \"Didn't finish in Shopify\" means tap it to try again. Anything else, ask Claude.") +
     "</div>";
@@ -2209,7 +2209,9 @@ function leadDo() {
 }
 function leadPeople() {
   const q = peopleQ.trim().toLowerCase(), all = (LD.people || []).filter((p) => !q || (p.name + " " + p.email + " " + p.batch).toLowerCase().includes(q));
-  return '<input class="nt-search" id="lpq" placeholder="🔎 Search people" value="' + esc(peopleQ) + '" autocomplete="off" autocapitalize="off" style="margin:0 0 8px;width:100%">' +
+  const noHelp = (LD.people || []).filter((p) => !p.got_help && (p.step === "help_late" || p.step === "signed")).length;
+  return (noHelp ? '<div class="card sunk">' + noHelp + " without a help-email receipt. Sent them the one-off catch-up email? " + '<button class="btn raised" data-a="leadhelpdone">✓ Mark everyone so far as sent</button></div>' : "") +
+    '<input class="nt-search" id="lpq" placeholder="🔎 Search people" value="' + esc(peopleQ) + '" autocomplete="off" autocapitalize="off" style="margin:0 0 8px;width:100%">' +
     ((LD.steps || []).map(([k, label]) => {
       const g = all.filter((p) => p.step === k); if (!g.length) return "";
       return '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">' + esc(label) + " (" + g.length + ")</div>" + g.map((p) =>
@@ -2315,6 +2317,8 @@ function leadFormHtml() {
     const reps = (LD.replies || []).filter((r) => r.email && r.email === p.email);
     return '<div class="card sunk"><b>' + esc(p.name) + '</b><div class="dim">' + esc(p.email) + "</div><div>Now: " + esc(step) + "</div></div>" +
       '<div class="lv sunk"><div class="li"><span class="lab">📥 Signed up ' + esc(ago(p.since)) + "</span></div>" +
+      '<div class="li"><span class="lab">' + (p.got_help ? "📨 Help email ✓ " + esc(ago(p.got_help)) : "📨 Help email: not yet") + "</span></div>" +
+      '<div class="li"><span class="lab">' + (p.got_wobbly ? "📝 Wobbly email ✓ " + esc(ago(p.got_wobbly)) : "📝 Wobbly email: not yet") + "</span></div>" +
       reps.map((r) => '<div class="li"><span class="lab">💬 ' + esc(r.worry || "(no words)") + (r.my_reply ? '<div class="dim">↩️ You: ' + esc(r.my_reply.slice(0, 120)) + "</div>" : r.replied ? '<div class="dim">↩️ You replied</div>' : '<div class="dim">⚠ Waiting for your help</div>') + "</span></div>").join("") +
       (p.batch ? '<div class="li" data-a="leadgo" data-arg="batch|' + esc(p.batch) + '" style="cursor:pointer"><span class="lab">🎟 In batch ' + esc(p.batch) + '</span><span class="st">›</span></div>' : "") +
       (p.bought ? '<div class="li"><span class="lab">💷 Bought the book</span></div>' : "") + "</div>" +
@@ -2352,6 +2356,7 @@ function leadGo(go) {                                   // from ✅ Do next, �
   if (!stack.length || stack[stack.length - 1].kind !== "leads") open_("leads");
   if (k === "reply") { const r = (LD.replies || []).find((x) => x.id === a); if (!r) return; if (r.thread && !r.replied) return leadOpen({ kind: "send", id: r.id, body: replyStarter(r) }); return leadOpen(Object.assign({ kind: "reply" }, r)); }
   if (k === "draft") return leadAct("leaddraft");
+  if (k === "people") { leadForm = null; leadTab = "people"; render.noKeep = true; return render(); }
   if (k === "batch" || k === "person") return leadOpen({ kind: "batch", code: a });
 }
 function leadAct(a, arg) {
@@ -2375,6 +2380,7 @@ function leadAct(a, arg) {
     return ask("Make " + code + " in Shopify (£5 off the book until " + ends + ") and tag " + ((LD.draft || {}).size || 0) + " people?", () => leadNow("/leads/batch/make", { code: code, ends: ends }, () => { leadOpen({ kind: "batch", code: code }); }));
   }
   if (a === "leadretry") return leadNow("/leads/batch/retry", { code: arg });
+  if (a === "leadhelpdone") return ask("Mark everyone who has signed up so far as having had the help email (your one-off catch-up campaign)?", () => leadNow("/leads/helpdone", {}));
   if (a === "leadstart") return leadNow("/leads/batch/start", { code: arg }, () => leadOpen({ kind: "batch", code: arg }));
   if (a === "leadcp") { const b = (LD.batches || []).find((x) => x.code === leadForm.code); if (!b) return; return copyText({ osubj: b.offer_subject, otext: b.offer_text, lsubj: b.last_subject, ltext: b.last_text }[arg] || "", arg.slice(1) === "subj" ? "Subject" : "Email text"); }
   if (a === "leadpcp") { const [pid, which] = arg.split("|"), b = (LD.batches || []).find((x) => x.code === leadForm.code), p = b && b.people.find((x) => x.id === pid); if (p) copyText((which === "offer" ? b.offer_subject : b.last_subject) + "\n\n" + personalText(which === "offer" ? b.offer_text : b.last_text, p), "Email for " + (p.first || p.name)); return; }
