@@ -158,6 +158,7 @@ button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .dialog{position:absolute;left:8px;right:8px;z-index:20;max-width:560px;margin:calc(14px + env(safe-area-inset-top)) auto 0}
 .dialog .msg{padding:12px;font-size:15px}
 .dialog .btns{padding:0 12px 12px}
+.dlg-list .msg{display:none}.dlg-list .btns{display:flex;flex-direction:column;gap:0;padding:6px}.dlg-list .btns .btn{width:100%;margin:0;text-align:left;justify-content:flex-start;font-weight:400!important;font-size:15px;padding:11px 12px;border:0;box-shadow:none;background:#fff;border-bottom:1px solid #ddd;white-space:normal}.dlg-list .btns .btn:last-child{border-bottom:0}.dlg-list .btns .btn.warn{color:#a00000}
 .field{display:block;margin:8px 0 2px;font-size:13px;color:#333}
 .inp{width:100%;padding:8px;border-radius:0;-webkit-user-select:text;user-select:text}
 .money{font-size:24px;font-family:"FMDigits","Pixelify Sans",Tahoma,sans-serif}
@@ -506,7 +507,7 @@ function fill(kind, r, extra) {
 function dialog(html, buttons, icon, opts) {
   opts = opts || {};
   window.scrollTo(0, 0);
-  $("dlg").innerHTML = '<div class="veil" style="height:' + Math.max(document.body.scrollHeight, innerHeight) + 'px"></div><div class="dialog raised" style="top:' + (opts.top || 54) + 'px"><div class="title"><span class="t">' + esc(opts.title || "Fat Mum 95") +
+  $("dlg").innerHTML = '<div class="veil" style="height:' + Math.max(document.body.scrollHeight, innerHeight) + 'px"></div><div class="dialog raised' + (opts.cls ? " " + opts.cls : "") + '" style="top:' + (opts.top || 54) + 'px"><div class="title"><span class="t">' + esc(opts.title || "Fat Mum 95") +
     '</span><button class="btn raised tb" id="dlgx">✕</button></div>' + (opts.topButtons ? '<div class="row btns" id="dlgt" style="padding:8px 12px 0"></div>' : "") + '<div class="msg">' + (icon ? '<div style="font-size:26px;float:left;margin-right:10px">' + icon + "</div>" : "") + html + '</div><div class="row btns" id="dlgb"></div></div>';
   $("dlgx").onclick = closeDialog;
   (buttons || [["OK"]]).forEach((b) => {
@@ -1386,11 +1387,13 @@ function noteAct(a, arg, el) {
   if (a === "nmenu") {
     nSaveNow();
     const hasTicked = nBlocks(n).some((b) => b.t === "check" && b.done);
-    return dialog("", [["📋 Copy note", () => setTimeout(() => copyText(noteText(n), "Note"), 0)],
-      ["📤 Share", () => { const t = noteText(n); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else setTimeout(() => copyText(t, "Note"), 0); }]]
-      .concat(hasTicked ? [["⬇️ Ticked items to the bottom", () => tickedToBottom(n)]] : [])
-      .concat([[n.pinned ? "📌 Unpin" : "📌 Pin", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["📁 Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
-      [n.binned ? "♻️ Restore" : "🗑 Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }]].concat(n.binned ? [["⚠️ Delete forever", () => setTimeout(() => noteAct("nkill", n.id), 0)]] : []).concat([["Cancel"]])), "📝", { title: "Note" });
+    dialog("", [["Copy note", () => setTimeout(() => copyText(noteText(n), "Note"), 0)],
+      ["Share", () => { const t = noteText(n); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else setTimeout(() => copyText(t, "Note"), 0); }]]
+      .concat(hasTicked ? [["Move ticked items to the bottom", () => tickedToBottom(n)]] : [])
+      .concat([[n.pinned ? "Unpin" : "Pin to top", () => { n.pinned = !n.pinned; noteTouch(n, true); }], ["Move to folder", () => setTimeout(() => nMoveTo(n), 0)],
+      [n.binned ? "Restore" : "Move to bin", () => { n.binned = !n.binned; if (n.binned) n.pinned = false; noteTouch(n); setTimeout(back, 0); }]].concat(n.binned ? [["Delete forever", () => setTimeout(() => noteAct("nkill", n.id), 0)]] : []).concat([["Cancel"]])), "", { title: "Note", cls: "dlg-list" });
+    [...document.querySelectorAll("#dlgb .btn")].forEach((b) => { if (/^(Delete forever|Move to bin)$/.test(b.textContent)) b.classList.add("warn"); });
+    return;
   }
   if (a === "nrestore") { n.binned = false; noteTouch(n, true); }
   if (a === "nkill") return dialog("Delete this note for good? This can't be undone. It goes from your phone, laptop and server.", [["Delete forever", () => { nKill([n.id]); setTimeout(back, 0); }], ["Cancel", null, 1]], "⚠️", { title: "Are you sure?" });
