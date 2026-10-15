@@ -2185,7 +2185,7 @@ function leadHowto() {
   return '<div class="lv sunk ld-how">' +
     step("1", "Every day", "Open ✅ Do next and do what it lists. For a reply, tap it, write your help (a starter is ready) and press Send.") +
     step("2", "Before every post", "📣 Posts → ＋ Add a post. The tracking link is copied for you. Paste it in your story sticker or bio.") +
-    step("3", "Monday, from 8am", "Do next says \"Send '4 subscribers only <3' to POKE…\". Tap it and copy the Subject and Email text. In Shopify go to Messaging → Create campaign, set the audience to customer tag offer-POKE…, paste, send. Back here tap ✓ I sent it.") +
+    step("3", "Monday (or whenever you're ready)", "Do next says \"Send '4 subscribers only <3' to POKE…\". Tap it, then tap ▶️ Start the offer today. The code then lasts 6 days from that day. Copy the Subject and Email text. In Shopify go to Messaging → Create campaign, set the audience to customer tag offer-POKE…, paste, send. Back here tap ✓ I sent it.") +
     step("4", "The offer's last day (Sunday)", "Same again with \"Ends tonight\". Copy, paste into a Shopify campaign to the same tag, send, tap ✓.") +
     step("🤖", "What runs by itself", "Shopify sends the help email the day after someone signs up, then the wobbly-lines email 3 days later. The app makes the code every Monday, tags people, spots replies, tracks sales and fills your Google Sheet.") +
     step("👀", "Where to look", "⏭ Coming up (top of Do next) shows the next 7 days. 🧭 People shows where everyone is. 📊 Week shows your numbers.") +
@@ -2284,6 +2284,12 @@ function leadFormHtml() {
     const today = new Date().toISOString().slice(0, 10), last = b.ends === today;
     let h = '<div class="card sunk"><b>🎟 ' + esc(b.code) + "</b> · " + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " midnight<div>" + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + "</div>" +
       (b.error ? '<div class="bad">⚠ ' + esc(b.error) + '</div><button class="btn raised" data-a="leadretry" data-arg="' + esc(b.code) + '">↻ Try again</button>' : "<div>✓ Code made in Shopify automatically · ✓ people tagged <b>" + esc(b.segment) + "</b></div>") + "</div>";
+    if (!b.started && !b.offer_sent && !b.error) {
+      const e = new Date(Date.now() + 6 * 864e5);
+      return h + '<div class="card sunk">The 6 days start when you send it. Tap this on the day you send the offer, and the code ends 6 days later at midnight.</div>' +
+        '<button class="btn raised main" data-a="leadstart" data-arg="' + esc(b.code) + '">▶️ Start the offer today (ends ' + esc(e.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })) + ")</button>" +
+        '<div class="row"><button class="btn raised" data-a="leadcancel">← Back</button></div>';
+    }
     if (!b.small || b.offer_sent) {
       h += '<div class="h">1 · "4 subscribers only <3"</div>' + (b.offer_sent ? '<div class="dim">✓ Sent ' + esc(ago(b.offer_sent)) + "</div>" :
         '<div class="dim">In Shopify Email: new email to the segment where customer tag is <b>' + esc(b.segment) + "</b>. Paste the subject and text.</div>") +
@@ -2368,6 +2374,7 @@ function leadAct(a, arg) {
     return ask("Make " + code + " in Shopify (£5 off the book until " + ends + ") and tag " + ((LD.draft || {}).size || 0) + " people?", () => leadNow("/leads/batch/make", { code: code, ends: ends }, () => { leadOpen({ kind: "batch", code: code }); }));
   }
   if (a === "leadretry") return leadNow("/leads/batch/retry", { code: arg });
+  if (a === "leadstart") return leadNow("/leads/batch/start", { code: arg }, () => leadOpen({ kind: "batch", code: arg }));
   if (a === "leadcp") { const b = (LD.batches || []).find((x) => x.code === leadForm.code); if (!b) return; return copyText({ osubj: b.offer_subject, otext: b.offer_text, lsubj: b.last_subject, ltext: b.last_text }[arg] || "", arg.slice(1) === "subj" ? "Subject" : "Email text"); }
   if (a === "leadpcp") { const [pid, which] = arg.split("|"), b = (LD.batches || []).find((x) => x.code === leadForm.code), p = b && b.people.find((x) => x.id === pid); if (p) copyText((which === "offer" ? b.offer_subject : b.last_subject) + "\n\n" + personalText(which === "offer" ? b.offer_text : b.last_text, p), "Email for " + (p.first || p.name)); return; }
   if (a === "leadsent" || a === "leadpsent") {
