@@ -2213,10 +2213,10 @@ function leadReplies() {
 }
 function leadBatches() {
   const list = LD.batches || [];
-  let h = LD.draft ? '<div class="card sunk"><b>🎟 ' + LD.draft.size + " ready for the offer</b><div>Name their code to make it.</div>" + '<button class="btn raised main" data-a="leadgo" data-arg="draft">Name the code</button></div>'
-    : LD.ready ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : '<div class="dim">Nobody is waiting for the offer. Each Monday at 8am everyone who signed up 4+ days ago is gathered into a new batch.</div>';
+  let h = '<div class="dim">Every Monday at 8am, everyone who signed up 4+ days ago is put in a batch and its code is made in Shopify automatically (like POKE19OCT, ending Sunday midnight).</div>' +
+    (LD.ready ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "");
   h += list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((b) => '<div class="li" data-a="leadgo" data-arg="batch|' + esc(b.code) + '" style="cursor:pointer"><span class="lab"><b>' + esc(b.code) + "</b>" + (b.error ? ' <span class="chip bad">⚠ not finished</span>' : "") +
-    '<div class="dim">' + b.size + " people · ends " + esc(b.nice_end) + " · " + (b.offer_sent ? "offer sent" : b.small ? Object.values(b.personal || {}).filter(Boolean).length + "/" + b.size + " emailed" : "offer not sent") +
+    '<div class="dim">' + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " · " + (b.offer_sent ? "offer sent" : b.small ? Object.values(b.personal || {}).filter(Boolean).length + "/" + b.size + " emailed" : "offer not sent") +
     " · " + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + '</div></span><span class="st">›</span></div>').join("") + "</div>" : "";
   return h;
 }
@@ -2264,8 +2264,8 @@ function leadFormHtml() {
   if (f.kind === "batch") {
     const b = (LD.batches || []).find((x) => x.code === f.code); if (!b) return '<div class="card sunk">That batch has gone.</div>' + btnRow("OK");
     const today = new Date().toISOString().slice(0, 10), last = b.ends === today;
-    let h = '<div class="card sunk"><b>🎟 ' + esc(b.code) + "</b> · " + b.size + " people · ends " + esc(b.nice_end) + " midnight<div>" + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + "</div>" +
-      (b.error ? '<div class="bad">⚠ ' + esc(b.error) + '</div><button class="btn raised" data-a="leadretry" data-arg="' + esc(b.code) + '">↻ Try again</button>' : "<div>✓ Code made in Shopify · ✓ people tagged <b>" + esc(b.segment) + "</b></div>") + "</div>";
+    let h = '<div class="card sunk"><b>🎟 ' + esc(b.code) + "</b> · " + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " midnight<div>" + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + "</div>" +
+      (b.error ? '<div class="bad">⚠ ' + esc(b.error) + '</div><button class="btn raised" data-a="leadretry" data-arg="' + esc(b.code) + '">↻ Try again</button>' : "<div>✓ Code made in Shopify automatically · ✓ people tagged <b>" + esc(b.segment) + "</b></div>") + "</div>";
     if (!b.small || b.offer_sent) {
       h += '<div class="h">1 · "4 subscribers only <3"</div>' + (b.offer_sent ? '<div class="dim">✓ Sent ' + esc(ago(b.offer_sent)) + "</div>" :
         '<div class="dim">In Shopify Email: new email to the segment where customer tag is <b>' + esc(b.segment) + "</b>. Paste the subject and text.</div>") +
@@ -2326,7 +2326,7 @@ function leadGo(go) {                                   // from ✅ Do next, �
   const [k, a, b, c] = String(go).split("|");
   if (!stack.length || stack[stack.length - 1].kind !== "leads") open_("leads");
   if (k === "reply") { const r = (LD.replies || []).find((x) => x.id === a); if (!r) return; if (r.thread && !r.replied) return leadOpen({ kind: "send", id: r.id, body: replyStarter(r) }); return leadOpen(Object.assign({ kind: "reply" }, r)); }
-  if (k === "draft") return LD.draft ? leadOpen({ kind: "draft" }) : toast("Nobody is waiting for the offer right now.");
+  if (k === "draft") return leadAct("leaddraft");
   if (k === "batch" || k === "person") return leadOpen({ kind: "batch", code: a });
 }
 function leadAct(a, arg) {
@@ -2334,7 +2334,7 @@ function leadAct(a, arg) {
   if (a === "leadgo") return leadGo(arg);
   if (a === "leadperson") return leadOpen({ kind: "person", id: arg });
   if (a === "leadrefresh") { nsrv("/leads/refresh", {}).then(() => { toast("Asked the server to check Shopify. Give it a minute."); setTimeout(leadsSync, 45000); }, () => toast("⚠ Can't reach the home server right now.")); return; }
-  if (a === "leaddraft") return leadNow("/leads/draft", {}, (r) => { if (r.draft) leadOpen({ kind: "draft" }); else toast("Nobody is ready for the offer yet."); });
+  if (a === "leaddraft") return ask("Make an offer batch now for the " + ((LD && LD.ready) || 0) + " people who are ready? The code is picked and made in Shopify for you.", () => leadNow("/leads/draft", {}, (r) => { if (r.batch) leadOpen({ kind: "batch", code: r.batch.code }); else toast("Nobody is ready for the offer yet."); }));
   if (a === "leadadd") return leadOpen(arg === "post" ? { kind: "post", type: "story", what: "" } : { kind: "reply", email_day: "help" });
   if (a === "leadnote") { const w = (LD.weeks || []).find((x) => x.week_start === arg); if (w) leadOpen({ kind: "week", ws: arg, notes: w.notes || "" }); return; }
   if (a === "leadedit") { const [k, id] = String(arg).split("|"), src = ((LD && LD[k === "post" ? "posts" : "replies"]) || []).find((x) => x.id === id); if (src) leadOpen(Object.assign({ kind: k }, src)); return; }
