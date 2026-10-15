@@ -2212,8 +2212,8 @@ function leadDo() {
 }
 function leadPeople() {
   const q = peopleQ.trim().toLowerCase(), all = (LD.people || []).filter((p) => !q || (p.name + " " + p.email + " " + p.batch).toLowerCase().includes(q));
-  const noHelp = (LD.people || []).filter((p) => !p.got_help && (p.step === "help_late" || p.step === "signed")).length;
-  return (noHelp ? '<div class="card sunk">' + noHelp + " without a help-email receipt. Sent them the one-off catch-up email? " + '<button class="btn raised" data-a="leadhelpdone">✓ Mark everyone so far as sent</button></div>' : "") +
+  const late = (LD.people || []).filter((p) => p.step === "help_late").length;   // 2+ days in and Shopify hasn't tagged got-help-email
+  return (late ? '<div class="card sunk">⚠ ' + late + (late === 1 ? " person is" : " people are") + " 2+ days in and Shopify hasn't sent the help email. Check the automation is on. If you emailed them yourself, " + '<button class="btn raised" data-a="leadhelpdone">✓ mark them as sent</button></div>' : "") +
     '<input class="nt-search" id="lpq" placeholder="🔎 Search people" value="' + esc(peopleQ) + '" autocomplete="off" autocapitalize="off" style="margin:0 0 8px;width:100%">' +
     ((LD.steps || []).map(([k, label]) => {
       const g = all.filter((p) => p.step === k); if (!g.length) return "";
