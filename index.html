@@ -78,6 +78,11 @@ html{-webkit-text-size-adjust:100%}
 .soc-bar{display:flex;gap:4px;margin-bottom:6px}.soc-box{flex:1;height:14px;border:1px solid #404040;background:#fff}.soc-box.on{background:#000080}.soc-box.min{box-shadow:3px 0 0 #000}
 .soc-slot{margin-top:8px}.soc-slot.today{outline:2px solid #000080;outline-offset:-2px}.soc-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.soc-hook{margin:6px 0 2px;white-space:normal;overflow-wrap:anywhere}
 .soc-acts,.soc-st{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.soc-st{margin-top:8px}.soc-st .nt-btn{height:34px}.soc-chips{display:flex;gap:6px;overflow-x:auto;margin:6px 0;-webkit-overflow-scrolling:touch}
+.soc-streak .hb-grid{max-width:none}.soc-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0}.soc-sl{display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid #c0c0c0;font-size:13px;min-width:0;overflow-wrap:anywhere}.soc-sl.on{background:#eaf6ee;border-color:#2e8b57}.soc-sl.today{outline:2px solid #000080;outline-offset:-2px}.soc-sl .nt-btn{height:26px;padding:0 4px;font-size:12px}
+.soc-more{margin:8px 0}.soc-more summary,.soc-fold summary,.soc-ideas summary{cursor:pointer;padding:4px 0}.soc-fold{margin-top:8px}.soc-fh{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid #eee;cursor:pointer}.soc-fh span:last-child{flex:1;min-width:0;overflow-wrap:anywhere}
+.soc-idea{padding:6px 0;border-top:1px solid #eee;cursor:pointer}.soc-stars{font-size:24px;letter-spacing:4px;color:#b8860b;cursor:pointer;user-select:none;-webkit-user-select:none}.soc-rate{margin-top:6px}.soc-hi{background:#fffbe0}
+.soc-cap{margin-top:8px;padding:8px;background:#f6f6f6;border:1px solid #ddd;max-height:40vh;overflow:auto;-webkit-user-select:text;user-select:text}
+.hk-wrap .li .link{display:inline;padding:0}
 .soc-nums{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.soc-nums label{font-size:12px;color:#333}.soc-nums .inp{padding:5px}
 .hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
 .hk-tip{font-size:13px;margin-top:6px;padding:8px}
@@ -2516,33 +2521,91 @@ function winWeekly() {
     '<div class="h">Coming up</div><div class="lv sunk">' + (thisRest.concat(next).map((r) => clientRow(r, true)).join("") || '<div class="li dim">No clients booked in the next two weeks yet.</div>') + "</div>" +
     '<div class="dim" style="margin-top:8px">' + dueNext + " to-do" + (dueNext === 1 ? "" : "s") + " due · " + fu + " follow-up" + (fu === 1 ? "" : "s") + " waiting in Admin</div>";
 }
-// ── 🎬 Posting: this week's 3 slots, raw log, hook bank, filming day, the bad-week fallback ──
+// ── 🎬 Posting: one video = one hook (unused → filmed → edited → posted → stars). Week (streaks, do next, ready to post) · Hooks · Questions · Inspo · Filming ──
 // Records live in store "soc" ({id: record}), changes wait in "socq" until the home server (/social/) has them. Newest edit wins.
 let SOC = store.get("soc", {}), SOCQ = store.get("socq", []), socTab = store.get("soctab", "week"), socSince = store.get("socsince", 0);
-let socBusy = false, socAgain = false, socErr = "", socForm = null, socPf = store.get("socpf", "all"), socSf = store.get("socsf", "unused"), socSkip = {}, socBad = null;
-const SOC_PILLARS = [["style", "Finding your style", 40, "🎨"], ["skills", "Drawing skills", 30, "✏️"], ["process", "Process and design", 20, "🛠"], ["perspective", "Perspective and community", 10, "💬"]];
+let socBusy = false, socAgain = false, socErr = "", socForm = null, socPf = store.get("socpf", "all"), socSf = store.get("socsf", "all"), socQf = store.get("socqf", "all");
+let socBad = null, socRd = null, socFilmSel = {}, socFilmOpen = new Set(store.get("socfo", [])), socHkOpen = "";
+if (socTab === "raw") socTab = "week";
+const SOC_PILLARS = [["style", "Finding your style", 40, "🎨", "Style"], ["skills", "Drawing skills", 30, "✏️", "Skills"], ["process", "Process and design", 20, "🛠", "Process"], ["perspective", "Perspective and community", 10, "💬", "Perspective"]];
 const socPil = (k) => SOC_PILLARS.find((p) => p[0] === k) || SOC_PILLARS[0];
-const SOC_STAGES = [["raw", "🎥", "Raw"], ["talk", "🎙", "Talking head"], ["edit", "✂️", "Edited"], ["posted", "✅", "Posted"]];
-const SOC_HSTAT = [["unused", "Unused"], ["recorded", "Recorded"], ["posted", "Posted"], ["tested", "Tested"]];
-const SOC_TAKES = ["Hook take 1", "Take 2", "Take 3", "The point", "Closing line"];
-const SOC_SAT_CYCLE = ["process", "style", "process", "perspective"];
-const SOC_SPARE_HOOKS = ["You don't need talent. You need more drawings.", "Stop trying to draw well. Try drawing a lot.", "Your style is already in your messy drawings.",
+const SOC_HSTAT = [["unused", "Unused", "⬜"], ["filmed", "Filmed", "🎙"], ["edited", "Edited", "✂️"], ["posted", "Posted", "✅"]];
+const SOC_SAT = ["process", "style", "process", "perspective"];
+const SOC_IDEAS = {
+  style: ["Draw the same mug 3 ways and say which one feels like you", "Copy one artist you love, then redraw it with only your bad habits", "Show a drawing you hated a year ago and what you'd keep from it now",
+    "Pick 3 rules for a week (one pen, no erasing, wonky on purpose) and show the page", "Draw a friend from memory and talk about what you chose to leave out", "Ask: what would your drawing look like if nobody ever saw it?"],
+  skills: ["One skill on paper: loose ink lines from the shoulder, not the wrist", "Marker wash greys: light to dark in 3 layers", "Hands as mittens first, fingers last",
+    "Draw it wrong on purpose: big head, tiny body, and why it still works", "Blind contour for 60 seconds, then a normal drawing next to it", "How I fix a line I hate without starting again"],
+  process: ["Real time: a whole page start to finish, no cuts", "My kit for a beginner under £20", "How I plan a sketchbook spread (I don't)",
+    "Turning a wonky doodle into a finished piece", "Where my ideas come from this week", "The ugly first 5 minutes of every drawing"],
+  perspective: ["Why I stopped trying to be good at drawing", "A question someone asked me in the DMs, answered", "My worst drawing this month and why I kept it",
+    "What drawing does for my head on a bad day", "Your comments: the best tip you've been given", "Day in the studio vs a day drawing at home"] };
+const SOC_QS = [   // real questions people ask online: [id, pillar, question, link]. Ask Claude to find more.
+  ["q01", "style", "How do I find my own art style?", "https://tinyleafpress.substack.com/p/how-to-start-uncovering-your-style"],
+  ["q02", "style", "Is it bad to copy other artists while I'm learning?", "https://messystudio.fireside.fm/269"],
+  ["q03", "style", "Why does my art look like everyone else's?", "https://cornell.substack.com/p/unlocking-your-own-art-style-"],
+  ["q04", "style", "My style keeps changing. Is that a problem?", "https://painterskeys.com/?p=6348"],
+  ["q05", "style", "How long does it take to find a style?", "https://artwod.com/blog/how-to-find-your-art-style-a-step-by-step-guide-for-beginners"],
+  ["q06", "style", "Should I stick to one medium until I find my style?", "https://acrylgiessen.com/en/how-to-find-your-art-style/"],
+  ["q07", "style", "Where's the line between influence and copying?", "https://messystudio.fireside.fm/101"],
+  ["q08", "style", "How do I stop comparing my art to other people's?", "https://makingcomics.com/2014/08/28/faqdevin-stop-comparing-work-others/"],
+  ["q09", "style", "I have no art goals. Is that bad?", "https://www.proko.com/community/topics/i-have-no-art-goals"],
+  ["q10", "style", "Can you force a style or does it just happen?", "https://www.skillshare.com/en/classes/how-to-find-your-art-style-without-forcing-it/389554041"],
+  ["q11", "skills", "How do I make my lines more confident?", "https://line-of-action.com/index.php/forums/topic/how-to-become-more-confident-in-your-lines"],
+  ["q12", "skills", "Why do my figures look flat?", "https://line-of-action.com/forums/topic/beginner-figures-seem-flat-advice"],
+  ["q13", "skills", "People say my drawings look stiff. What does that even mean?", "https://www.line-of-action.com/forums/topic/is-stiffness-actually-a-thing"],
+  ["q14", "skills", "I'm a total beginner. Where do I start?", "https://www.proko.com/community/topics/where-do-i-start"],
+  ["q15", "skills", "Absolute beginner: how should I study?", "https://line-of-action.com/index.php/forums/topic/absolute-beginner-how-should-i-study"],
+  ["q16", "skills", "What should I actually practise?", "https://line-of-action.com/forums/topic/what-to-practice"],
+  ["q17", "skills", "Is it better to draw it right, or just draw a lot?", "https://www.proko.com/community/topics/doing-it-right-or-doing-it-a-lot"],
+  ["q18", "skills", "Do you put marker tones down before or after the ink?", "https://mahmudasrar.com/post/9667222948/do-you-lay-down-tones-with-the-markers-first-or/amp"],
+  ["q19", "skills", "How do I approach gesture drawing as a beginner?", "https://line-of-action.com/forums/topic/beginners-advice-for-approaching-gesture-drawing"],
+  ["q20", "skills", "Can someone tell me how I'm doing so far?", "https://line-of-action.com/en/forums/topic/can-someone-tell-me-how-im-doing-so-far"],
+  ["q21", "process", "What should I put inside my sketchbook?", "https://khadsultanum.substack.com/p/what-should-i-put-inside-my-sketchbook"],
+  ["q22", "process", "I'm afraid of my sketchbook. How do I start?", "https://jeannebowman.substack.com/p/im-afraid-of-my-sketchbook"],
+  ["q23", "process", "How do I start a new sketchbook without being scared to ruin it?", "https://www.london-artcollege.co.uk/news/?p=34365"],
+  ["q24", "process", "What goes in a daily sketchbook?", "https://proko.com/community/topics/sketchbooking"],
+  ["q25", "process", "Is a sketchbook a finished piece or a messy place?", "https://danajeri.substack.com/p/my-sketchbook-is-a-complete-piece/comments"],
+  ["q26", "process", "How do I get past the blank page?", "https://christiyork.substack.com/p/antidote-to-the-blank-sketchbook"],
+  ["q27", "process", "How do I stop being precious with my sketches?", "https://www.thedesignsketchbook.com/to-progress-dont-be-precious-with-your-sketches"],
+  ["q28", "process", "Which pens and markers should a beginner get?", "https://www.parkablogs.com/content/beginners-guide-art-markers"],
+  ["q29", "process", "Any suggestions for a practice routine?", "https://www.proko.com/community/topics/suggestions-for-practice"],
+  ["q30", "process", "How do I get out of art block?", "https://paperdemon.com/app/news/article/5053/3-strategies-for-overcoming-artists-block"],
+  ["q31", "perspective", "Is it too late for me to learn to draw?", "https://community.ld4all.com/t/is-it-too-late-for-me/28156"],
+  ["q32", "perspective", "Am I too old to do an art course?", "https://www.london-artcollege.co.uk/news/?p=34363"],
+  ["q33", "perspective", "Can anyone learn to draw, or are artists born?", "https://www.wildlifeartstore.com/can-anyone-learn-to-draw/"],
+  ["q34", "perspective", "I gave up learning to draw. Should I try again?", "https://louisestigell.substack.com/p/why-i-gave-up-on-learning-how-to"],
+  ["q35", "perspective", "How do I stop feeling like my work isn't good enough?", "https://aba.arthelper.com/mindset-consistency/how-do-i-overcome-feeling-like-my-work-isn-t-good-enough-com/"],
+  ["q36", "perspective", "How do I stop comparing myself to artists on social media?", "https://aba.arthelper.com/mindset-consistency/how-do-i-avoid-comparison-syndrome-with-other-artists-on-soc/"],
+  ["q37", "perspective", "A blank page makes me stop. How do I even start?", "https://www.proko.com/community/topics/how-to-start"],
+  ["q38", "perspective", "Is paying for a drawing course worth it?", "https://www.proko.com/community/topics/is-buying-drawing-basics-worth-it"],
+  ["q39", "perspective", "I need a learning roadmap. Where do I go from here?", "https://www.proko.com/community/topics/i-need-a-learning-roadmap"],
+  ["q40", "perspective", "How do I quit comparing and just make things?", "https://wherecreativityworks.com/quit-comparing/"]];
+const SOC_CAP = [["call", "Call out the artist", "If you've ever stared at a blank page…"], ["lesson", "The one thing to try", "Try this tonight: one line, no lifting the pen"],
+  ["proof", "Show it", "Here's my messy page and what changed"], ["perm", "The permission line", "It doesn't have to be good. It has to be yours."], ["ask", "One ask", "Save this for later and try it tonight"]];
+const SOC_AWARE = [["", "Not sure yet"], ["most", "Already follow me and want my stuff"], ["product", "Know me, not sold yet"], ["solution", "Want to draw better, not sure how"],
+  ["problem", "Frustrated, don't know why"], ["unaware", "Just scrolling"]];
+const SOC_SPARE = ["You don't need talent. You need more drawings.", "Stop trying to draw well. Try drawing a lot.", "Your style is already in your messy drawings.",
   "Draw it wrong on purpose and see what happens.", "Nobody cares if it's good. Make it anyway.", "The wobbly line is the interesting one."];
 const socSave = () => { store.set("soc", SOC); store.set("socq", SOCQ); store.set("socsince", socSince); };
 const socAll = (kind) => Object.values(SOC).filter((r) => r.kind === kind && !r.binned);
-const socMon = (iso) => { const d = new Date(iso + "T12:00"); return addDays(iso, -((d.getDay() + 6) % 7)); };
+const socMon = (iso) => addDays(iso, -dow(iso));
 const socCfg = () => Object.assign({ anchor: "2026-10-19", min: 2, target: 3 }, SOC.cfg_main || {});
+const socHs = (h) => ({ recorded: "filmed", tested: "posted" })[h.status] || h.status || "unused";
+const socShort = (t, n) => { t = String(t || ""); return t.length > (n || 40) ? t.slice(0, n || 40) + "…" : t; };
 function socSatPillar(mon) {
   const wks = Math.round((Date.parse(mon + "T12:00") - Date.parse(socMon(socCfg().anchor) + "T12:00")) / 6048e5);
-  return SOC_SAT_CYCLE[((wks % 4) + 4) % 4];
+  return SOC_SAT[((wks % 4) + 4) % 4];
 }
 function socSlots(mon) {
   return [["tue", 1, "style", "Style"], ["thu", 3, "skills", "Lesson"], ["sat", 5, socSatPillar(mon), ""]].map(([d, off, p, name]) => {
     const id = "slot-" + mon + "-" + d;
-    return { id: id, day: d, date: addDays(mon, off), pillar: p, name: name || socPil(p)[1], rec: SOC[id] || { id: id, kind: "slot", pillar: p, stages: {} } };
+    return { id: id, day: d, date: addDays(mon, off), pillar: p, name: name || socPil(p)[4], rec: SOC[id] || { id: id, kind: "slot", pillar: p } };
   });
 }
-const socPosted = (mon) => socSlots(mon).filter((s) => s.rec.stages && s.rec.stages.posted).length;
+const socIsPosted = (r) => !!(r && (r.posted || (r.stages && r.stages.posted)));
+const socPosted = (mon) => socSlots(mon).filter((s) => socIsPosted(s.rec)).length;
+const socSlotOn = (d) => socSlots(socMon(d)).find((s) => s.date === d);
 function socPut(recs) {                       // change records here, show it now, send when the server's there
   const now = Date.now();
   [].concat(recs).forEach((r, i) => { r.updated = now + i; if (!r.created) r.created = now; SOC[r.id] = r; SOCQ = SOCQ.filter((q) => q.id !== r.id); SOCQ.push(r); });
@@ -2570,7 +2633,7 @@ async function socSync() {
     socBusy = false;
     if (socAgain && !socErr) setTimeout(socSync, 200);
     const top = stack[stack.length - 1];
-    if ((!top || top.kind === "posting" || top.kind === "today") && !$("dlg").firstElementChild) render();
+    if ((!top || ["posting", "today", "todo"].includes(top.kind)) && !$("dlg").firstElementChild) render();
   }
 }
 setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "posting") socSync(); }, 60000);
@@ -2579,109 +2642,181 @@ window.addEventListener("online", () => setTimeout(socSync, 2000));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(socSync, 1500); });
 
 const socHooks = (p) => socAll("hook").filter((h) => !p || h.pillar === p).sort((a, b) => (a.created || 0) - (b.created || 0));
-const socFree = (h) => !h.used_in || !SOC[h.used_in] || SOC[h.used_in].hook !== h.id;   // not sitting in a slot already
-function socSuggest(p, skip) {
-  const pool = socHooks(p).filter((h) => socFree(h) && (h.status === "recorded" || (h.status || "unused") === "unused"));
-  pool.sort((a, b) => (a.status === "recorded" ? 0 : 1) - (b.status === "recorded" ? 0 : 1));
-  return pool.length ? pool[(skip || 0) % pool.length] : null;
+const socReady = () => socHooks().filter((h) => ["filmed", "edited"].includes(socHs(h)));
+const socCapDone = (h) => SOC_CAP.every(([k]) => ((h.caption || {})[k] || "").trim());
+const socCaption = (h) => [h.text].concat(SOC_CAP.map(([k]) => ((h.caption || {})[k] || "").trim())).filter(Boolean).join("\n\n");
+const socLinked = (it) => socHooks().filter((h) => h.inspo === it.id || (it.link && h.link && h.link.trim() === it.link.trim()));
+
+// ── streaks: Tue, Thu, Sat = posted · Wed = edited (or filmed) that day ──
+function socDue(d) { const w = new Date(d + "T12:00").getDay(); return w === 2 || w === 4 || w === 6 ? "post" : w === 3 ? "edit" : ""; }
+function socHit(d) {
+  const k = socDue(d);
+  if (k === "post") { const s = socSlotOn(d), at = s && (s.rec.posted || (s.rec.stages || {}).posted); return !!at && isoOf(new Date(at)) <= d; }   // late posts fill the week, not the streak
+  if (k === "edit") return !!((SOC["day-" + d] || {}).edited || socHooks().some((h) => h.edited_on === d || h.filmed_on === d));
+  return false;
 }
-const socLatestRaw = () => socAll("raw").sort((a, b) => ((b.date || "") + (b.created || 0)) > ((a.date || "") + (a.created || 0)) ? 1 : -1)[0] || null;
+function socStart() { const all = Object.values(SOC).map((r) => r.created || 0).filter(Boolean); return all.length ? isoOf(new Date(Math.min.apply(null, all))) : todayISO(); }
+function socStreaks() {
+  const t = todayISO(), first = socStart();
+  let cur = 0, best = 0, run = 0, counting = true;
+  for (let d = t, i = 0; i < 400 && d >= first; d = addDays(d, -1), i++) {    // days in a row, today only counts once it's done
+    if (!socDue(d)) continue;
+    if (socHit(d)) { if (counting) cur++; }
+    else if (d < t) counting = false;
+    if (!counting) break;
+  }
+  for (let d = first, i = 0; i < 400 && d <= t; d = addDays(d, 1), i++) {
+    if (!socDue(d)) continue;
+    if (socHit(d)) { run++; best = Math.max(best, run); } else if (d < t) run = 0;
+  }
+  let wk = 0, mon = socMon(t);
+  if (socPosted(mon) >= socCfg().min) wk++;
+  for (let m = addDays(mon, -7), i = 0; i < 60 && m >= socMon(first); m = addDays(m, -7), i++) { if (socPosted(m) >= socCfg().min) wk++; else break; }
+  return { cur: cur, best: Math.max(best, cur), weeks: wk };
+}
+function socCal() {
+  const t = todayISO(), start = addDays(socMon(t), -28), first = socStart();
+  let cells = DAY_NAMES.map((d) => '<span class="hb-dn">' + d[0] + "</span>").join("");
+  for (let i = 0; i < 35; i++) {
+    const d = addDays(start, i), k = socDue(d), hit = k && socHit(d), fut = d > t, before = d < first;
+    const cls = !k ? "hb-off" : hit ? "hb-on" : fut || before || d === t ? "hb-x" : "hb-miss";
+    cells += '<span class="hb-c ' + cls + (d === t ? " hb-today" : "") + '" title="' + esc(shortDay(d) + (k === "post" ? " · post" : k === "edit" ? " · edit" : "")) + '">' + (hit ? (k === "edit" ? "✂️" : "✓") : k === "edit" ? "✂" : Number(d.slice(8))) + "</span>";
+  }
+  return '<div class="hb-grid">' + cells + "</div>";
+}
+
+// ── what to do next (the today ones also go on the To-do list) ──
+function socNext() {
+  const t = todayISO(), due = socDue(t), out = [], ready = socReady(), filmed = ready.filter((h) => socHs(h) === "filmed");
+  if (due === "post" && !socHit(t)) { const s = socSlotOn(t); out.push({ icon: "📤", text: "Post today's " + s.name.toLowerCase() + " video (" + ready.length + " ready)", go: "ready", today: true }); }
+  if (due === "edit" && !socHit(t)) out.push({ icon: "✂️", text: filmed.length ? "Edit " + filmed.length + " filmed video" + (filmed.length === 1 ? "" : "s") : "Editing day (nothing filmed yet, film instead)", go: "edit", today: true, tick: "socedited" });
+  if (ready.length < 3) out.push({ icon: "🎙", text: "Film talking heads (only " + ready.length + " ready)", go: "film", today: true });
+  socHooks().filter((h) => socHs(h) === "edited" && !socCapDone(h)).slice(0, 3).forEach((h) => out.push({ icon: "📝", text: "Fill in the caption for \"" + socShort(h.text) + "\"", go: "cap|" + h.id, today: due === "post" }));
+  const posted = socHooks().filter((h) => socHs(h) === "posted" && h.posted_on);
+  posted.filter((h) => !h.stars && h.posted_on >= addDays(t, -7)).slice(0, 2).forEach((h) => out.push({ icon: "⭐", text: "Rate \"" + socShort(h.text) + "\"", go: "hook|" + h.id, today: true }));
+  posted.filter((h) => h.posted_on <= addDays(t, -2) && h.posted_on >= addDays(t, -14) && !Object.values(h.nums || {}).some((v) => v != null)).slice(0, 2)
+    .forEach((h) => out.push({ icon: "🔢", text: "Add numbers for \"" + socShort(h.text) + "\"", go: "hook|" + h.id, today: true }));
+  return out;
+}
+const socTodo = () => socNext().filter((x) => x.today);
 const socTodayLine = () => { const n = socPosted(socMon(todayISO())), c = socCfg(); return n >= c.target ? "Full week 🎉" : n >= c.min ? n + " posted. Good week ✓" : n + " of " + c.min + " this week"; };
+function socBadge() { return socTodo().length; }
 
 function winPosting() {
-  if (socForm) return socFormHtml();
-  const free = socHooks().filter((h) => (h.status || "unused") === "unused").length;
-  const tabs = [["week", "📅 Week"], ["raw", "🎥 Raw log"], ["hooks", "🪝 Hooks · " + free], ["film", "🎙 Filming day"]]
+  if (socForm) return socForm.kind === "cap" ? socCapHtml() : socFormHtml();
+  const free = socHooks().filter((h) => socHs(h) === "unused").length;
+  const tabs = [["week", "📅 Week"], ["hooks", "🪝 Hooks · " + free], ["qs", "❓ Questions"], ["inspo", "💡 Inspo"], ["film", "🎙 Filming"]]
     .map(([k, l]) => '<span class="nt-btn rf-chip' + (socTab === k ? " on" : "") + '" data-a="soctab" data-arg="' + k + '">' + l + "</span>").join("");
   const line = !STANDALONE || !serverUrl() ? "Saved on this phone only. Add the home server in ⚙️ Settings to keep a copy there."
     : socErr ? "⚠ " + esc(socErr) + " · saved on this phone" + (SOCQ.length ? ", " + SOCQ.length + " waiting to send" : "") : SOCQ.length ? "📤 " + SOCQ.length + " waiting to send" : "✓ saved";
-  const body = ({ raw: socRawTab, hooks: socHookTab, film: socFilmTab }[socTab] || socWeekTab)();
+  const body = ({ hooks: socHookTab, qs: socQTab, inspo: socInspoTab, film: socFilmTab }[socTab] || socWeekTab)();
   return '<div class="nt hk-wrap"><div class="rf-chips hk-tabs">' + tabs + '</div><div style="padding:8px"><div class="dim" style="margin-bottom:6px">' + line + "</div>" + body + "</div></div>";
 }
 
+function socReadyList() {
+  const t = todayISO(), s = socSlotOn(t), want = s ? s.pillar : "";
+  const list = socReady().sort((a, b) => (socHs(a) === "edited" ? 0 : 1) - (socHs(b) === "edited" ? 0 : 1) || (a.pillar === want ? 0 : 1) - (b.pillar === want ? 0 : 1));
+  if (!list.length) return '<div class="card sunk">Nothing filmed yet. Film some talking heads (🎙 Filming) or use 🆘 below.</div>';
+  return '<div class="lv sunk">' + list.map((h) => '<div class="li" data-a="socready" data-arg="' + h.id + '" style="cursor:pointer"><span class="ico">' + (socHs(h) === "edited" ? "✂️" : "🎙") + '</span><span class="lab"><b>' + esc(h.text) + '</b><div class="dim">' +
+    socPil(h.pillar)[3] + " " + esc(socPil(h.pillar)[4]) + " · " + (socHs(h) === "edited" ? "edited" : "filmed, not edited") + " · " + (socCapDone(h) ? "caption ✓" : "caption not done") + '</div></span><span class="st">›</span></div>').join("") + "</div>";
+}
 function socWeekTab() {
-  const t = todayISO(), mon = socMon(t), c = socCfg(), sl = socSlots(mon), n = socPosted(mon);
-  const boxes = [1, 2, 3].map((i) => '<span class="soc-box' + (i <= n ? " on" : "") + (i === c.min ? " min" : "") + '"></span>').join("");
-  const msg = n >= c.target ? "Full week 🎉" : n >= c.min ? "Good week ✓ (" + (c.target - n) + " more for the full 3)" : n === c.min - 1 ? "1 more for a good week" : "Nothing posted yet. The 🆘 button gets you one in 10 minutes.";
-  let h = '<div class="card sunk soc-count"><div class="soc-bar">' + boxes + "</div><b>" + n + " posted</b> · 2 is the minimum · 3 is the target<div>" + esc(msg) + "</div></div>";
+  const t = todayISO(), mon = socMon(t), c = socCfg(), sl = socSlots(mon), n = socPosted(mon), st = socStreaks(), nx = socNext(), postDay = socDue(t) === "post";
+  let h = '<div class="card sunk soc-streak"><div class="soc-head"><b>🔥 ' + st.cur + " day" + (st.cur === 1 ? "" : "s") + ' in a row</b><span class="dim">🏆 best ' + st.best + " · " + st.weeks + " good week" + (st.weeks === 1 ? "" : "s") + " in a row</span></div>" +
+    socCal() + '<div class="dim" style="margin-top:4px">✓ posted (Tue, Thu, Sat) · ✂️ edited (Wed) · white = missed · grey = day off</div></div>';
+  h += '<div class="card sunk soc-count"><div class="soc-head"><b>This week: ' + n + " posted</b><span class=\"dim\">2 is the minimum · 3 is the target</span></div><div class=\"soc-slots\">" + sl.map((s) => {
+    const p = socIsPosted(s.rec), hk = s.rec.hook && SOC[s.rec.hook];
+    return '<div class="soc-sl' + (p ? " on" : "") + (s.date === t ? " today" : "") + '"><b>' + (p ? "✓ " : "") + esc(s.day === "tue" ? "Tue" : s.day === "thu" ? "Thu" : "Sat") + '</b><span>' + esc(s.name) + (s.rec.quick ? " ⚡" : "") + "</span>" +
+      (hk ? '<span class="dim">' + esc(socShort(hk.text, 28)) + "</span>" : "") + '<span class="nt-btn' + (s.rec.hero ? " on" : "") + '" data-a="sochero" data-arg="' + s.id + '">⭐ Hero</span></div>';
+  }).join("") + "</div><div>" + esc(n >= c.target ? "Full week 🎉" : n >= c.min ? "Good week ✓" : n === c.min - 1 ? "1 more for a good week" : "Nothing posted yet. 🆘 gets you one in 10 minutes.") + "</div></div>";
+  h += '<div class="h">✅ To do next</div>' + (nx.length ? '<div class="lv sunk">' + nx.map((x) => '<div class="li"><span class="ico">' + x.icon + '</span><span class="lab" data-a="socgo" data-arg="' + esc(x.go) + '" style="cursor:pointer">' + esc(x.text) + "</span>" +
+    (x.tick ? '<span class="nt-btn" data-a="' + x.tick + '">✓ Done</span>' : '<span class="st">›</span>') + "</div>").join("") + "</div>" : '<div class="card sunk">All done for now 🎉</div>');
+  h += postDay ? '<div class="h">📤 Ready to post</div>' + socReadyList() : '<details class="soc-more"><summary>📤 Ready to post (' + socReady().length + ")</summary>" + socReadyList() + "</details>";
   h += '<button class="btn raised main" data-a="socbad">🆘 Bad week: quick post</button>';
-  sl.forEach((s) => {
-    const r = s.rec, st = r.stages || {}, hk = r.hook && SOC[r.hook] && !SOC[r.hook].binned ? SOC[r.hook] : null, sug = hk || st.posted ? null : socSuggest(s.pillar, socSkip[s.id]);
-    const when = s.date === t ? "Today" : shortDay(s.date);
-    h += '<div class="card sunk soc-slot' + (s.date === t ? " today" : "") + '"><div class="soc-head"><b>' + esc(s.day === "tue" ? "Tue" : s.day === "thu" ? "Thu" : "Sat") + " · " + esc(s.name) + '</b><span class="dim">' + esc(when) + "</span></div>" +
-      '<div class="dim">' + socPil(s.pillar)[3] + " " + esc(socPil(s.pillar)[1]) + (r.quick ? " · ⚡ quick post" : "") + "</div>";
-    if (hk) h += '<div class="soc-hook">🪝 ' + esc(hk.text) + '</div><div class="soc-acts"><span class="nt-btn" data-a="socunhook" data-arg="' + s.id + '">Change hook</span></div>';
-    else if (st.posted) h += '<div class="soc-hook dim">Posted ✓</div>';
-    else if (sug) h += '<div class="soc-hook dim">Suggested: ' + esc(sug.text) + (sug.status === "recorded" ? " (🎙 recorded)" : "") + '</div><div class="soc-acts"><span class="nt-btn" data-a="socusehook" data-arg="' + s.id + "|" + sug.id + '">Use this</span><span class="nt-btn" data-a="socnext" data-arg="' + s.id + '">Another</span></div>';
-    else h += '<div class="soc-hook dim">No ' + esc(socPil(s.pillar)[1].toLowerCase()) + ' hooks left. <a class="link" data-a="socaddhook" data-arg="' + s.pillar + '">Add one</a></div>';
-    h += '<div class="soc-st">' + SOC_STAGES.map(([k, ic, l]) => '<span class="nt-btn' + (st[k] ? " on" : "") + '" data-a="socstage" data-arg="' + s.id + "|" + k + '">' + ic + " " + l + "</span>").join("") +
-      '<span class="nt-btn' + (r.hero ? " on" : "") + '" data-a="sochero" data-arg="' + s.id + '">⭐ Hero</span></div></div>';
-  });
-  const nm = addDays(mon, 7);
-  h += '<div class="dim" style="margin-top:6px">Next week\'s Saturday is ' + esc(socPil(socSatPillar(nm))[1].toLowerCase()) + ". Only one ⭐ hero post a week gets the full sticker edit. On drawing days, put the raw clip on your story with one line.</div>";
+  h += '<div class="dim">Next week\'s Saturday is ' + esc(socPil(socSatPillar(addDays(mon, 7)))[4].toLowerCase()) + ". Only one ⭐ hero post a week gets the full sticker edit.</div>";
   return h;
 }
 
-function socRawTab() {
-  const raws = socAll("raw").sort((a, b) => ((b.date || "") + (b.created || 0)) > ((a.date || "") + (a.created || 0)) ? 1 : -1);
-  const wheres = [], last = raws[0];
-  raws.forEach((r) => { const w = (r.where || "").trim(); if (w && !wheres.includes(w) && wheres.length < 6) wheres.push(w); });
-  let h = '<div class="card sunk"><b>Log a drawing session</b>' +
-    '<input class="inp" id="socrd" type="date" value="' + todayISO() + '" style="margin-top:6px">' +
-    '<input class="inp" id="socrw" placeholder="What I drew" style="margin-top:6px">' +
-    '<input class="inp" id="socrp" placeholder="One thing I did on purpose" style="margin-top:6px">' +
-    '<input class="inp" id="socrf" placeholder="Where the footage is" value="' + esc((last && last.where) || "") + '" style="margin-top:6px">' +
-    (wheres.length ? '<div class="soc-acts">' + wheres.map((w) => '<span class="nt-btn" data-a="socwhere" data-arg="' + esc(w) + '">' + esc(w) + "</span>").join("") + "</div>" : "") +
-    '<button class="btn raised main" data-a="socrawsave">💾 Save</button></div>';
-  if (!raws.length) return h + '<div class="dim">Every time you draw, film it overhead and log it here. This is your footage library and your talking-head ideas.</div>';
-  return h + '<div class="lv sunk" style="margin-top:8px">' + raws.slice(0, 80).map((r) =>
-    '<div class="li ld-row"><span class="lab"><b>' + esc(r.drew || "(no title)") + '</b><div class="dim">' + esc(shortDay(r.date || todayISO())) + (r.where ? " · 📁 " + esc(r.where) : "") + "</div>" +
-    (r.purpose ? '<div class="ld-worry">On purpose: ' + esc(r.purpose) + "</div>" : "") + "</span>" +
-    '<span class="ld-btns"><span class="nt-btn' + (r.story ? " on" : "") + '" data-a="socstory" data-arg="' + r.id + '">📱 Story' + (r.story ? " ✓" : "") + '</span><span class="nt-btn" data-a="socrawhook" data-arg="' + r.id + '">🎙 Make a hook</span></span></div>').join("") + "</div>";
+function socStars(h) {
+  return '<span class="soc-stars">' + [1, 2, 3, 4, 5].map((i) => '<span data-a="socstar" data-arg="' + h.id + "|" + i + '" class="' + (i <= (h.stars || 0) ? "on" : "") + '">' + (i <= (h.stars || 0) ? "★" : "☆") + "</span>").join("") + "</span>";
 }
-
+function socHookRow(x) {
+  const st = socHs(x), nums = x.nums || {}, q = x.qid ? (SOC_QS.find((z) => z[0] === x.qid) || [])[2] || (SOC[x.qid] || {}).text : "", ins = x.inspo && SOC[x.inspo];
+  return '<div class="li ld-row soc-hk' + (socHkOpen === x.id ? " soc-hi" : "") + '"><span class="lab"><b>' + esc(x.text) + '</b><div class="dim">' + socPil(x.pillar)[3] + " " + esc(socPil(x.pillar)[1]) + (x.posted_on ? " · posted " + esc(shortDay(x.posted_on)) : "") + "</div>" +
+    (x.question ? '<div class="ld-worry">❓ ' + esc(x.question) + "</div>" : "") + (q && q !== x.question ? '<div class="ld-worry">❓ From: ' + esc(q) + "</div>" : "") +
+    (ins ? '<div class="ld-worry">💡 From inspo: ' + esc(socShort(ins.text || ins.link, 50)) + "</div>" : "") +
+    (x.quotes ? '<details class="ld-up"><summary>Quotes</summary><div class="ld-worry">' + esc(x.quotes).replace(/\n/g, "<br>") + "</div></details>" : "") +
+    (x.link ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(x.link) + '" target="_blank" rel="noopener">Source ↗</a></div>' : "") +
+    '<div class="soc-acts">' + SOC_HSTAT.map(([k, l]) => '<span class="nt-btn' + (st === k ? " on" : "") + '" data-a="socstat" data-arg="' + x.id + "|" + k + '">' + l + "</span>").join("") + "</div>" +
+    '<div class="soc-acts"><span class="nt-btn" data-a="soccap" data-arg="' + x.id + '">📝 Caption' + (socCapDone(x) ? " ✓" : "") + '</span><span class="nt-btn" data-a="socedit" data-arg="' + x.id + '">✏️ Edit</span><span class="nt-btn" data-a="soccopy" data-arg="' + x.id + '">📋 Hook</span></div>' +
+    (st === "posted" ? '<div class="soc-rate">' + socStars(x) + '</div><div class="soc-nums">' + [["saves", "Saves"], ["shares", "Shares"], ["follows", "Follows"], ["signups", "Sign-ups"]].map(([k, l]) =>
+      '<label>' + l + '<input class="inp" type="number" inputmode="numeric" min="0" data-hn="' + x.id + "|" + k + '" value="' + esc(nums[k] == null ? "" : nums[k]) + '"></label>').join("") + "</div>" : "") +
+    "</span></div>";
+}
 function socHookTab() {
   const all = socHooks();
-  const pc = [["all", "All"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[0].charAt(0).toUpperCase() + p[0].slice(1) + " " + p[2] + "%"])).map(([k, l]) => '<span class="nt-btn rf-chip' + (socPf === k ? " on" : "") + '" data-a="socpf" data-arg="' + k + '">' + esc(l) + "</span>").join("");
-  const sc = [["all", "Any status"]].concat(SOC_HSTAT).map(([k, l]) => '<span class="nt-btn rf-chip' + (socSf === k ? " on" : "") + '" data-a="socsf" data-arg="' + k + '">' + l + " " + (k === "all" ? all.length : all.filter((h) => (h.status || "unused") === k).length) + "</span>").join("");
-  const list = all.filter((h) => (socPf === "all" || h.pillar === socPf) && (socSf === "all" || (h.status || "unused") === socSf)).reverse();
+  const pc = [["all", "All"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[4] + " " + p[2] + "%"])).map(([k, l]) => '<span class="nt-btn rf-chip' + (socPf === k ? " on" : "") + '" data-a="socpf" data-arg="' + k + '">' + esc(l) + "</span>").join("");
+  const inP = all.filter((h) => socPf === "all" || h.pillar === socPf);
+  const sc = [["all", "Any"]].concat(SOC_HSTAT.map((s) => [s[0], s[1]]), [["best", "⭐ Best"]]).map(([k, l]) => '<span class="nt-btn rf-chip' + (socSf === k ? " on" : "") + '" data-a="socsf" data-arg="' + k + '">' + l + (k === "best" ? "" : " " + (k === "all" ? inP.length : inP.filter((h) => socHs(h) === k).length)) + "</span>").join("");
+  let list = inP.filter((h) => socSf === "all" || socSf === "best" ? (socSf !== "best" || h.stars) : socHs(h) === socSf).reverse();
+  if (socSf === "best") list.sort((a, b) => (b.stars || 0) - (a.stars || 0));
   let h = '<button class="btn raised main" data-a="socaddhook" data-arg="' + (socPf === "all" ? "style" : socPf) + '">＋ Add hook</button>' +
     '<div class="soc-chips">' + pc + '</div><div class="soc-chips">' + sc + "</div>";
-  if (!list.length) return h + '<div class="card sunk">' + (all.length ? "Nothing here with those filters." : "No hooks yet. Add ones that come from real questions people ask, with the question, a few quotes and the link.") + "</div>";
-  return h + '<div class="lv sunk">' + list.map((x) => {
-    const st = x.status || "unused", nums = x.nums || {};
-    return '<div class="li ld-row soc-hk"><span class="lab"><b>' + esc(x.text) + '</b><div class="dim">' + socPil(x.pillar)[3] + " " + esc(socPil(x.pillar)[1]) + (x.used_in && !socFree(x) ? " · in a slot" : "") + "</div>" +
-      (x.question ? '<div class="ld-worry">❓ ' + esc(x.question) + "</div>" : "") +
-      (x.quotes ? '<details class="ld-up"><summary>Quotes</summary><div class="ld-worry">' + esc(x.quotes).replace(/\n/g, "<br>") + "</div></details>" : "") +
-      (x.link ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(x.link) + '" target="_blank" rel="noopener">Source ↗</a></div>' : "") +
-      '<div class="soc-acts">' + SOC_HSTAT.map(([k, l]) => '<span class="nt-btn' + (st === k ? " on" : "") + '" data-a="socstat" data-arg="' + x.id + "|" + k + '">' + l + "</span>").join("") +
-      '<span class="nt-btn" data-a="socedit" data-arg="' + x.id + '">✏️</span><span class="nt-btn" data-a="soccopy" data-arg="' + x.id + '">📋</span></div>' +
-      (st === "tested" ? '<div class="soc-nums">' + [["saves", "Saves"], ["shares", "Shares"], ["follows", "Follows"], ["signups", "Sign-ups"]].map(([k, l]) =>
-        '<label>' + l + '<input class="inp" type="number" inputmode="numeric" min="0" data-hn="' + x.id + "|" + k + '" value="' + esc(nums[k] == null ? "" : nums[k]) + '"></label>').join("") + "</div>" : "") +
-      "</span></div>";
-  }).join("") + "</div>";
+  if (socPf !== "all") h += '<details class="card sunk soc-ideas" open><summary><b>💡 Ideas for ' + esc(socPil(socPf)[1].toLowerCase()) + "</b></summary>" +
+    SOC_IDEAS[socPf].map((t, i) => '<div class="soc-idea" data-a="socideahook" data-arg="' + socPf + "|" + i + '">• ' + esc(t) + ' <span class="dim">＋</span></div>').join("") + '<div class="dim">Tap one to make it a hook.</div></details>';
+  if (!list.length) return h + '<div class="card sunk">' + (all.length ? "Nothing here with those filters." : "No hooks yet. Add ones from ❓ Questions or 💡 Inspo, or from the ideas above.") + "</div>";
+  return h + '<div class="lv sunk">' + list.map(socHookRow).join("") + "</div>";
+}
+
+function socQTab() {
+  const own = socAll("question").map((q) => [q.id, q.pillar, q.text, q.link || "", 1]);
+  const all = own.concat(SOC_QS).filter((q) => socQf === "all" || q[1] === socQf);
+  const pc = [["all", "All"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[4]])).map(([k, l]) => '<span class="nt-btn rf-chip' + (socQf === k ? " on" : "") + '" data-a="socqf" data-arg="' + k + '">' + esc(l) + "</span>").join("");
+  const hooks = socHooks();
+  return '<div class="card sunk"><b>＋ Add a question</b> <span class="dim">(from comments, DMs or anywhere online)</span>' +
+    '<textarea class="inp" id="socqt" rows="2" style="height:56px;margin-top:6px" placeholder="The question, in their words"></textarea>' +
+    '<div class="row"><select class="inp" id="socqp" style="flex:1">' + SOC_PILLARS.map((p) => '<option value="' + p[0] + '">' + p[3] + " " + esc(p[4]) + "</option>").join("") + '</select><input class="inp" id="socql" style="flex:1" placeholder="Link (if any)"></div>' +
+    '<button class="btn raised main" data-a="socqadd">Save question</button></div>' +
+    '<div class="soc-chips">' + pc + "</div>" +
+    '<div class="lv sunk">' + all.map((q) => {
+      const hs = hooks.filter((h) => h.qid === q[0]), done = hs.some((h) => socHs(h) === "posted");
+      return '<div class="li ld-row"><span class="lab"><b>' + esc(q[2]) + '</b><div class="dim">' + socPil(q[1])[3] + " " + esc(socPil(q[1])[4]) + (q[4] ? " · yours" : "") +
+        (q[3] ? ' · <a class="link" href="' + esc(q[3]) + '" target="_blank" rel="noopener">where it\'s asked ↗</a>' : "") + "</div>" +
+        (hs.length ? '<div class="ld-worry">' + (done ? "✅ posted" : "✓ hooked") + ": " + esc(socShort(hs[0].text, 50)) + "</div>" : "") + "</span>" +
+        '<span class="ld-btns"><span class="nt-btn" data-a="socqhook" data-arg="' + q[0] + '">→ Make a hook</span></span></div>';
+    }).join("") + "</div>" +
+    '<div class="dim" style="margin-top:6px">Want more? Ask Claude to find more questions people ask online. They\'ll show up here.</div>';
+}
+
+function socInspoTab() {
+  const items = socAll("inspo").sort((a, b) => (b.created || 0) - (a.created || 0));
+  return '<div class="card sunk"><b>＋ Save some inspo</b> <span class="dim">(a post you should do)</span>' +
+    '<input class="inp" id="socil" placeholder="Paste the link" style="margin-top:6px">' +
+    '<textarea class="inp" id="socit" rows="2" style="height:56px;margin-top:6px" placeholder="What is it? What would your version be?"></textarea>' +
+    '<select class="inp" id="socip" style="margin-top:6px"><option value="">Pillar (optional)</option>' + SOC_PILLARS.map((p) => '<option value="' + p[0] + '">' + p[3] + " " + esc(p[4]) + "</option>").join("") + "</select>" +
+    '<button class="btn raised main" data-a="socinadd">Save inspo</button></div>' +
+    (items.length ? '<div class="lv sunk">' + items.map((it) => {
+      const hs = socLinked(it), posted = hs.filter((h) => socHs(h) === "posted"), stars = Math.max.apply(null, [0].concat(posted.map((h) => h.stars || 0)));
+      return '<div class="li ld-row"><span class="ico">' + (posted.length ? "✅" : hs.length ? "✓" : "💡") + '</span><span class="lab">' + (it.text ? "<b>" + esc(it.text) + "</b>" : "") +
+        (it.link ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(it.link) + '" target="_blank" rel="noopener">' + esc(socShort(it.link, 45)) + " ↗</a></div>" : "") +
+        '<div class="dim">' + (it.pillar ? socPil(it.pillar)[3] + " " + esc(socPil(it.pillar)[4]) + " · " : "") + (posted.length ? "done" + (stars ? " · " + "★".repeat(stars) : "") : hs.length ? "hook made, not posted yet" : "not done yet") + "</div></span>" +
+        '<span class="ld-btns"><span class="nt-btn" data-a="socinhook" data-arg="' + it.id + '">→ Make a hook</span><span class="nt-btn" data-a="socinbin" data-arg="' + it.id + '">🗑</span></span></div>';
+    }).join("") + "</div>" : '<div class="dim">Paste posts you want to make your own version of. When a hook made from one is posted, it gets a ✅.</div>');
 }
 
 function socFilmTab() {
-  const open = socAll("shoot").filter((s) => s.open).sort((a, b) => (b.created || 0) - (a.created || 0))[0];
-  const free = SOC_PILLARS.map((p) => p[3] + " " + socHooks(p[0]).filter((h) => (h.status || "unused") === "unused" && socFree(h)).length).join("  ");
-  if (!open) {
-    const past = socAll("shoot").sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 6);
-    return '<div class="card sunk">Every two weeks, film 6 talking heads in about an hour. Each one is a 5 second hook (three ways, for trial reels), one point (20 to 30 seconds) and a closing line.</div>' +
-      '<button class="btn raised main" data-a="socpull">🎙 Pull 6 hooks</button><div class="dim">Unused hooks ready: ' + free + "</div>" +
-      '<div class="dim" style="margin-top:4px">It picks for your next 6 slots in order, so over a month you get 40% style, 30% skills, 20% process and 10% perspective.</div>' +
-      (past.length ? '<div class="h">Past filming days</div><div class="lv sunk">' + past.map((s) => '<div class="li"><span class="lab">' + esc(shortDay(s.date)) + " · " + (s.hooks || []).length + " hooks</span></div>").join("") + "</div>" : "");
-  }
-  const ticks = open.ticks || {}, done = (open.hooks || []).filter((id) => (ticks[id] || []).filter(Boolean).length === SOC_TAKES.length).length;
-  let h = '<div class="card sunk"><b>Filming day · ' + esc(shortDay(open.date)) + "</b><div>" + done + " of " + (open.hooks || []).length + " recorded</div>" + (open.note ? '<div class="dim">' + esc(open.note) + "</div>" : "") + "</div>";
-  (open.hooks || []).forEach((id, i) => {
-    const x = SOC[id]; if (!x) return;
-    const tk = ticks[id] || [];
-    h += '<div class="card sunk soc-slot"><div class="soc-head"><b>' + (i + 1) + ". " + esc(x.text) + "</b></div><div class=\"dim\">" + socPil(x.pillar)[3] + " " + esc(socPil(x.pillar)[1]) + (x.question ? " · ❓ " + esc(x.question) : "") + "</div>" +
-      '<div class="soc-st">' + SOC_TAKES.map((l, j) => '<span class="nt-btn' + (tk[j] ? " on" : "") + '" data-a="soctake" data-arg="' + open.id + "|" + id + "|" + j + '">' + (tk[j] ? "☑ " : "☐ ") + l + "</span>").join("") +
-      '<span class="nt-btn" data-a="socswap" data-arg="' + open.id + "|" + id + '">🔀 Swap</span></div></div>';
+  const sel = (h) => socFilmSel[h.id] != null ? socFilmSel[h.id] : socHs(h) === "filmed";
+  const changed = Object.keys(socFilmSel).filter((id) => SOC[id] && socFilmSel[id] !== (socHs(SOC[id]) === "filmed")).length;
+  let h = '<div class="card sunk">Tap the hooks you filmed today, then press ✓ Done. Filmed ones stay ticked until you edit them.</div>' +
+    '<div class="row"><button class="btn raised" data-a="socpick6">✨ Pick 6 for me</button><button class="btn raised" data-a="socfilmdone"' + (changed ? ' style="font-weight:700"' : "") + ">✓ Done" + (changed ? " (" + changed + ")" : "") + "</button></div>";
+  SOC_PILLARS.forEach((p) => {
+    const list = socHooks(p[0]).filter((x) => ["unused", "filmed"].includes(socHs(x))), nf = list.filter(sel).length;
+    h += '<details class="card sunk soc-fold" data-fold="' + p[0] + '"' + (socFilmOpen.has(p[0]) ? " open" : "") + "><summary><b>" + p[3] + " " + esc(p[1]) + '</b> <span class="dim">' + nf + " ticked · " + list.length + " hook" + (list.length === 1 ? "" : "s") + "</span></summary>" +
+      (list.length ? list.map((x) => '<div class="soc-fh' + (sel(x) ? " on" : "") + '" data-a="socfilm" data-arg="' + x.id + '"><span class="hw-tick' + (sel(x) ? " on" : "") + '">' + (sel(x) ? "✓" : "") + "</span><span>" + esc(x.text) + "</span></div>").join("")
+        : '<div class="dim">No hooks waiting here. <a class="link" data-a="socaddhook" data-arg="' + p[0] + '">Add one</a></div>') + "</details>";
   });
-  return h + '<button class="btn raised main" data-a="socfilmdone" data-arg="' + open.id + '">✓ Done filming</button>';
+  const ed = socHooks().filter((x) => socHs(x) === "edited").length;
+  return h + (ed ? '<div class="dim" style="margin-top:6px">' + ed + " edited video" + (ed === 1 ? " is" : "s are") + " waiting in 📅 Week → Ready to post.</div>" : "");
 }
 
 function socFormHtml() {
@@ -2694,151 +2829,178 @@ function socFormHtml() {
     '<label class="field">Source link</label><input class="inp" id="sochl" type="url" value="' + esc(f.link || "") + '" placeholder="https://">' +
     '<button class="btn raised main" data-a="sochooksave">💾 Save hook</button><div class="row">' + (f.id ? '<button class="btn raised" data-a="sochookbin">🗑 Bin it</button>' : "") + '<button class="btn raised" data-a="soccancel">Cancel</button></div></div></div>';
 }
+function socCapHtml() {
+  const h = SOC[socForm.id]; if (!h) { socForm = null; return ""; }
+  const c = h.caption || {}, aw = c.aw || "", tip = aw ? AWARE2[aw] : "";
+  return '<div style="padding:8px"><div class="card sunk"><b>📝 Caption checklist</b><div class="dim">Fill each box. The hook is line 1.</div>' +
+    '<div class="soc-hook"><b>' + esc(h.text) + "</b></div>" +
+    '<label class="field">Who is it for?</label><select class="inp" id="soccaw">' + SOC_AWARE.map(([k, l]) => '<option value="' + k + '"' + (k === aw ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
+    (tip ? '<div class="card sunk hk-tip">💡 ' + esc(tip) + "</div>" : "") +
+    SOC_CAP.map(([k, l, ph], i) => '<label class="field">' + ((c[k] || "").trim() ? "☑" : "☐") + " " + (i + 1) + ". " + esc(l) + '</label><textarea class="inp" id="socc_' + k + '" rows="2" style="height:60px" placeholder="' + esc(ph) + '">' + esc(c[k] || "") + "</textarea>").join("") +
+    '<button class="btn raised main" data-a="soccapsave">💾 Save caption</button><div class="row"><button class="btn raised" data-a="soccapcopy">📋 Copy caption</button><button class="btn raised" data-a="soccancel">Back</button></div></div></div>';
+}
+function socCapRead() {
+  const h = SOC[socForm.id], c = { aw: $("soccaw").value };
+  SOC_CAP.forEach(([k]) => { c[k] = $("socc_" + k).value; });
+  return Object.assign({}, h, { caption: c });
+}
 
-function socPickBad() {                        // a random unused hook, this week's first open slot's pillar first
-  const mon = socMon(todayISO()), open = socSlots(mon).find((s) => !(s.rec.stages || {}).posted), want = open ? open.pillar : "";
-  const pool = socHooks().filter((h) => (h.status || "unused") === "unused" && socFree(h) && (!socBad || h.id !== socBad.id));
+// ── 📤 ready-to-post box and 🆘 bad week box ──
+function socCopyKeep(text, after) {
+  const ok = () => { after(); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok, () => copyText(text, "Caption")); else copyText(text, "Caption");
+}
+function socReadyDialog() {
+  const h = SOC[socRd.id]; if (!h) return;
+  const cap = socCaption(h), st = socHs(h);
+  dialog('<div style="font-size:17px;-webkit-user-select:text;user-select:text;margin-bottom:6px"><b>' + esc(h.text) + "</b></div>" +
+    '<div class="dim">' + socPil(h.pillar)[3] + " " + esc(socPil(h.pillar)[1]) + " · " + (st === "edited" ? "edited" : "filmed, not edited yet") + "</div>" +
+    '<div class="soc-cap">' + (socCapDone(h) ? esc(cap).replace(/\n/g, "<br>") : '<span class="dim">Caption not filled in yet. Tap ✏️ Caption.</span>') + "</div>",
+    [[socRd.copied ? "📋 Copied ✓" : "📋 Copy caption", () => { socCopyKeep(cap, () => { socRd.copied = 1; socReadyDialog(); }); return false; }],
+     ["✏️ Caption", () => { socRd = null; socForm = { kind: "cap", id: h.id, back: "week" }; render.noKeep = true; render(); }],
+     ["✅ Posted", () => { socRd = null; socMarkPosted(h, false); }, 1], ["Close"]], st === "edited" ? "✂️" : "🎙", { title: "Ready to post" });
+}
+function socMarkPosted(h, quick) {
+  const t = todayISO(), sl = socSlots(socMon(t)), open = sl.filter((s) => !socIsPosted(s.rec));
+  const slot = open.find((s) => s.date === t) || open.find((s) => s.date < t) || open[0], now = Date.now(), recs = [];
+  if (h) recs.push(Object.assign({}, h, { status: "posted", posted_on: t, used_in: slot ? slot.id : h.used_in }));
+  if (slot) recs.push(Object.assign({}, slot.rec, { posted: now, quick: !!quick, hook: h ? h.id : slot.rec.hook }));
+  if (recs.length) socPut(recs);
+  setTimeout(() => toast(slot ? "Posted ✓ " + socTodayLine() + ". Rate it later in 🪝 Hooks." : "Posted ✓ All 3 slots were already done this week."), 0);
+}
+function socPickBad() {
+  const s = socSlotOn(todayISO()) || socSlots(socMon(todayISO())).find((q) => !socIsPosted(q.rec)), want = s ? s.pillar : "";
+  const pool = socHooks().filter((h) => socHs(h) === "unused" && (!socBad || h.id !== socBad.id));
   const first = pool.filter((h) => h.pillar === want), list = first.length ? first : pool;
   return list.length ? list[Math.floor(Math.random() * list.length)] : null;
 }
 function socBadDialog() {
-  const hk = socBad && socBad.id ? SOC[socBad.id] : null, text = hk ? hk.text : socBad.spare, raw = socLatestRaw();
+  const hk = socBad && socBad.id ? SOC[socBad.id] : null, text = hk ? hk.text : socBad.spare;
   dialog('<div style="font-size:17px;-webkit-user-select:text;user-select:text;margin-bottom:8px"><b>' + esc(text) + "</b></div>" +
     '<div class="dim">' + (hk ? socPil(hk.pillar)[3] + " " + esc(socPil(hk.pillar)[1]) : "Spare line (your hook bank has no unused hooks)") + "</div>" +
-    '<div style="margin-top:8px">🎥 ' + (raw ? esc(raw.drew || "Your last session") + " · " + esc(shortDay(raw.date || todayISO())) + (raw.where ? "<br>📁 " + esc(raw.where) : "") : "Any drawing footage you've got") + "</div>" +
-    '<div style="margin-top:8px">Put the hook as text over that footage. 10 minutes. Post it.</div>',
-    [[socBad.copied ? "📋 Copied ✓" : "📋 Copy hook", () => { socBadCopy(text); return false; }], ["🔀 Another", () => { socBadNew(); return false; }], ["✅ Posted it", () => { socBadPosted(); }, 1], ["Close"]], "🆘", { title: "Quick post" });
-}
-function socBadCopy(text) {                    // copy without a toast, so the quick-post box stays open
-  const ok = () => { socBad.copied = 1; socBadDialog(); };
-  if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok, () => copyText(text, "Hook")); else copyText(text, "Hook");
+    '<div style="margin-top:8px">🎥 Use any drawing footage you\'ve got. Put the hook on it as text. 10 minutes. Post it.</div>',
+    [[socBad.copied ? "📋 Copied ✓" : "📋 Copy hook", () => { socCopyKeep(text, () => { socBad.copied = 1; socBadDialog(); }); return false; }], ["🔀 Another", () => { socBadNew(); return false; }],
+     ["✅ Posted it", () => { const h2 = hk; socBad = null; socMarkPosted(h2, true); }, 1], ["Close"]], "🆘", { title: "Quick post" });
 }
 function socBadNew() {
   const h = socPickBad();
-  socBad = h ? { id: h.id } : { spare: SOC_SPARE_HOOKS[Math.floor(Math.random() * SOC_SPARE_HOOKS.length)] };
+  socBad = h ? { id: h.id } : { spare: SOC_SPARE[Math.floor(Math.random() * SOC_SPARE.length)] };
   socBadDialog();
 }
-function socBadPosted() {
-  const mon = socMon(todayISO()), sl = socSlots(mon), t = todayISO();
-  const open = sl.filter((s) => !(s.rec.stages || {}).posted), slot = open.find((s) => s.date <= t) || open[0];
-  const recs = [], hk = socBad && socBad.id ? SOC[socBad.id] : null, now = Date.now();
-  if (hk) recs.push(Object.assign({}, hk, { status: hk.status === "tested" ? "tested" : "posted", used_in: slot ? slot.id : hk.used_in }));
-  if (slot) recs.push(Object.assign({}, slot.rec, { stages: Object.assign({}, slot.rec.stages, { raw: now, posted: now }), quick: true, hook: hk ? hk.id : slot.rec.hook }));
-  socBad = null;
-  if (recs.length) socPut(recs);
-  setTimeout(() => toast(slot ? "Posted ✓ " + socTodayLine() : "Posted ✓ All 3 slots were already done this week."), 0);
+function socPick6() {                          // tick 6 unused hooks by the 40/30/20/10 mix
+  const taken = new Set(), w = { style: 0, skills: 0, process: 0, perspective: 0 }, want = { style: 2.4, skills: 1.8, process: 1.2, perspective: 0.6 };
+  for (let i = 0; i < 6; i++) {
+    const left = SOC_PILLARS.filter((p) => socHooks(p[0]).some((h) => socHs(h) === "unused" && !taken.has(h.id) && !socFilmSel[h.id]));
+    if (!left.length) break;
+    const p = left.sort((a, b) => (w[a[0]] - want[a[0]]) - (w[b[0]] - want[b[0]]))[0][0];
+    const h = socHooks(p).find((x) => socHs(x) === "unused" && !taken.has(x.id) && !socFilmSel[x.id]);
+    taken.add(h.id); w[p]++; socFilmSel[h.id] = true; socFilmOpen.add(p);
+  }
+  if (!taken.size) return toast("⚠ No unused hooks to pick from. Add some first.");
+  render.noKeep = true; render();
 }
 
-function socPull() {
-  const t = todayISO(), mon = socMon(t), slots = socSlots(mon).concat(socSlots(addDays(mon, 7)), socSlots(addDays(mon, 14)))
-    .filter((s) => s.date >= t && !(s.rec.stages || {}).posted && !(s.rec.hook && SOC[s.rec.hook] && SOC[s.rec.hook].status === "recorded")).slice(0, 6);
-  const taken = new Set(), recs = [], hooks = [], dry = new Set();
-  const freeOf = (p) => socHooks(p).filter((h) => (h.status || "unused") === "unused" && socFree(h) && !taken.has(h.id));
-  slots.forEach((s) => {
-    let h = freeOf(s.pillar)[0];
-    if (!h) {
-      dry.add(socPil(s.pillar)[1].toLowerCase());
-      const left = SOC_PILLARS.filter((p) => freeOf(p[0]).length), tot = left.reduce((n, p) => n + p[2], 0);
-      let roll = Math.random() * tot;
-      const pick = left.find((p) => (roll -= p[2]) < 0) || left[0];
-      h = pick ? freeOf(pick[0])[0] : null;
-    }
-    if (!h) return;
-    taken.add(h.id); hooks.push(h.id);
-    recs.push(Object.assign({}, h, { used_in: s.id }), Object.assign({}, s.rec, { hook: h.id }));
-  });
-  if (!hooks.length) return toast("⚠ No unused hooks to pull. Add some in 🪝 Hooks first.");
-  const note = (hooks.length < 6 ? "Only " + hooks.length + " unused hooks were left. " : "") + (dry.size ? "Ran out of " + Array.from(dry).join(" and ") + " hooks, so others were picked." : "");
-  recs.push({ id: nId("shoot"), kind: "shoot", date: t, hooks: hooks, ticks: {}, open: true, note: note.trim() });
-  socPut(recs);
+function socGo(go) {
+  const [k, id] = String(go).split("|");
+  if (!stack.length || stack[stack.length - 1].kind !== "posting") open_("posting");
+  if (k === "ready") { socTab = "week"; }
+  else if (k === "edit") { socTab = "hooks"; socPf = "all"; socSf = "filmed"; }
+  else if (k === "film") { socTab = "film"; }
+  else if (k === "cap") { socForm = { kind: "cap", id: id, back: "week" }; }
+  else if (k === "hook") { socTab = "hooks"; socPf = "all"; socSf = "posted"; socHkOpen = id; }
+  store.set("soctab", socTab); render.noKeep = true; render();
+  if (k === "hook") setTimeout(() => { const el = document.querySelector(".soc-hi"); if (el) el.scrollIntoView({ block: "center" }); }, 50);
 }
-
 function socAct(a, arg, el) {
-  const [x, y, z] = String(arg || "").split("|");
+  const [x, y] = String(arg || "").split("|");
   if (a === "soctab") { socTab = arg; store.set("soctab", arg); render.noKeep = true; return render(); }
   if (a === "socpf") { socPf = arg; store.set("socpf", arg); render.noKeep = true; return render(); }
   if (a === "socsf") { socSf = arg; store.set("socsf", arg); render.noKeep = true; return render(); }
+  if (a === "socqf") { socQf = arg; store.set("socqf", arg); render.noKeep = true; return render(); }
+  if (a === "socgo") return socGo(arg);
   if (a === "socbad") { socBad = null; return socBadNew(); }
-  if (a === "socstage") {
-    const s = SOC[x] || socSlots(x.slice(5, 15)).find((q) => q.id === x).rec, st = Object.assign({}, s.stages);
-    st[y] = st[y] ? 0 : Date.now();
-    const recs = [Object.assign({}, s, { stages: st })], hk = s.hook && SOC[s.hook];
-    if (hk && st[y]) {
-      if (y === "talk" && (hk.status || "unused") === "unused") recs.push(Object.assign({}, hk, { status: "recorded" }));
-      if (y === "posted" && hk.status !== "tested") recs.push(Object.assign({}, hk, { status: "posted" }));
-    }
-    return socPut(recs);
-  }
+  if (a === "socready") { socRd = { id: arg }; return socReadyDialog(); }
+  if (a === "socedited") { const id = "day-" + todayISO(); socPut(Object.assign({ id: id, kind: "day", date: todayISO() }, SOC[id] || {}, { edited: true })); return toast("Editing day done ✓ Streak kept."); }
   if (a === "sochero") {
     const mon = x.slice(5, 15), recs = [];
     socSlots(mon).forEach((s) => { if (s.id === x) recs.push(Object.assign({}, s.rec, { hero: !s.rec.hero })); else if (s.rec.hero) recs.push(Object.assign({}, s.rec, { hero: false })); });
     return socPut(recs);
   }
-  if (a === "socusehook") {
-    const s = SOC[x] || socSlots(x.slice(5, 15)).find((q) => q.id === x).rec, h = SOC[y]; if (!h) return;
-    delete socSkip[x];
-    return socPut([Object.assign({}, s, { hook: y }), Object.assign({}, h, { used_in: x })]);
+  if (a === "socstat") {
+    const h = SOC[x]; if (!h) return;
+    const t = todayISO(), n = Object.assign({}, h, { status: y });
+    if (y === "filmed" && !h.filmed_on) n.filmed_on = t;
+    if (y === "edited" && !h.edited_on) n.edited_on = t;
+    if (y === "posted") return socMarkPosted(h, false);
+    const recs = [n], slot = h.used_in && SOC[h.used_in];
+    if (socHs(h) === "posted" && slot && slot.hook === h.id) recs.push(Object.assign({}, slot, { posted: 0, stages: {}, hook: "" }));   // un-posting frees the slot
+    if (socHs(h) === "posted") n.posted_on = "";
+    return socPut(recs);
   }
-  if (a === "socnext") { socSkip[x] = (socSkip[x] || 0) + 1; render.noKeep = true; return render(); }
-  if (a === "socunhook") { const s = SOC[x]; if (!s) return; socSkip[x] = 0; return socPut(Object.assign({}, s, { hook: "" })); }
-  if (a === "socwhere") { const f = $("socrf"); if (f) f.value = arg; return; }
-  if (a === "socrawsave") {
-    const drew = $("socrw").value.trim(), purpose = $("socrp").value.trim();
-    if (!drew && !purpose) return toast("⚠ Write what you drew first.");
-    socPut({ id: nId("raw"), kind: "raw", date: $("socrd").value || todayISO(), drew: drew, purpose: purpose, where: $("socrf").value.trim(), story: false });
-    return toast("Logged ✓ Now put the raw clip on your story with one line.");
-  }
-  if (a === "socstory") { const r = SOC[arg]; if (r) socPut(Object.assign({}, r, { story: !r.story })); return; }
-  if (a === "socrawhook") { const r = SOC[arg]; if (!r) return; socForm = { pillar: "style", text: r.purpose || r.drew || "", question: "", quotes: "", link: "", from_raw: r.id }; render.noKeep = true; return render(); }
-  if (a === "socaddhook") { socForm = { pillar: arg || "style", text: "", question: "", quotes: "", link: "" }; render.noKeep = true; return render(); }
-  if (a === "socedit") { const h = SOC[arg]; if (h) { socForm = Object.assign({}, h); render.noKeep = true; render(); } return; }
+  if (a === "socstar") { const h = SOC[x]; if (h) socPut(Object.assign({}, h, { stars: Number(y) === h.stars ? 0 : Number(y) })); return; }
+  if (a === "socaddhook") { socForm = { kind: "hook", pillar: arg || "style", text: "", question: "", quotes: "", link: "" }; render.noKeep = true; return render(); }
+  if (a === "socideahook") { socForm = { kind: "hook", pillar: x, text: SOC_IDEAS[x][Number(y)], question: "", quotes: "", link: "" }; render.noKeep = true; return render(); }
+  if (a === "socedit") { const h = SOC[arg]; if (h) { socForm = Object.assign({ kind: "hook" }, h); render.noKeep = true; render(); } return; }
+  if (a === "soccap") { socForm = { kind: "cap", id: arg }; render.noKeep = true; return render(); }
   if (a === "soccancel") { socForm = null; render.noKeep = true; return render(); }
+  if (a === "soccapsave") { const n = socCapRead(); socForm = null; socPut(n); return toast(socCapDone(n) ? "Caption saved ✓ All 5 boxes filled." : "Caption saved ✓"); }
+  if (a === "soccapcopy") { const n = socCapRead(); socPut(n); copyText(socCaption(n), "Caption"); return; }
   if (a === "sochooksave") {
     const text = $("socht").value.trim(); if (!text) return toast("⚠ Write the hook first.");
     const f = socForm, h = Object.assign(f.id ? SOC[f.id] || {} : { id: nId("hook"), kind: "hook", status: "unused" }, { pillar: $("sochp").value, text: text, question: $("sochq").value.trim(), quotes: $("sochx").value.trim(), link: $("sochl").value.trim() });
-    delete h.from_raw;
-    socForm = null; socTab = f.from_raw || f.fromhk ? "hooks" : socTab; store.set("soctab", socTab);
+    if (!f.id) { if (f.qid) h.qid = f.qid; if (f.inspo) h.inspo = f.inspo; }
+    socForm = null; if (f.qid || f.inspo || f.fromhk) { socTab = "hooks"; store.set("soctab", socTab); }
     socPut(h); return toast(f.id ? "Hook saved ✓" : "Added to the hook bank ✓");
   }
   if (a === "sochookbin") { const h = SOC[socForm && socForm.id]; if (!h) return; return ask("Bin this hook?", () => { socForm = null; socPut(Object.assign({}, h, { binned: true })); }); }
-  if (a === "socstat") { const h = SOC[x]; if (h) socPut(Object.assign({}, h, { status: y })); return; }
   if (a === "soccopy") { const h = SOC[arg]; if (h) copyText(h.text, "Hook"); return; }
-  if (a === "socpull") return ask("Pull 6 hooks for your next 6 slots and start a filming day checklist?", socPull);
-  if (a === "soctake") {
-    const s = SOC[x], h = SOC[y]; if (!s || !h) return;
-    const ticks = Object.assign({}, s.ticks), tk = (ticks[y] || [false, false, false, false, false]).slice();
-    tk[Number(z)] = !tk[Number(z)]; ticks[y] = tk;
-    const recs = [Object.assign({}, s, { ticks: ticks })];
-    if (tk.filter(Boolean).length === SOC_TAKES.length && (h.status || "unused") === "unused") recs.push(Object.assign({}, h, { status: "recorded" }));
-    return socPut(recs);
+  if (a === "socqadd") {
+    const t = $("socqt").value.trim(); if (!t) return toast("⚠ Write the question first.");
+    return socPut({ id: nId("q"), kind: "question", text: t, pillar: $("socqp").value, link: $("socql").value.trim() });
   }
-  if (a === "socswap") {
-    const s = SOC[x], h = SOC[y]; if (!s || !h) return;
-    const alt = socHooks(h.pillar).find((q) => (q.status || "unused") === "unused" && socFree(q) && !(s.hooks || []).includes(q.id))
-      || socHooks().find((q) => (q.status || "unused") === "unused" && socFree(q) && !(s.hooks || []).includes(q.id));
-    if (!alt) return toast("⚠ No other unused hooks to swap in.");
-    const recs = [Object.assign({}, s, { hooks: s.hooks.map((q) => q === y ? alt.id : q) })], slot = h.used_in && SOC[h.used_in];
-    if (slot && slot.hook === y) recs.push(Object.assign({}, slot, { hook: alt.id }), Object.assign({}, alt, { used_in: slot.id }));
-    return socPut(recs);
+  if (a === "socqhook") {
+    const q = SOC_QS.find((z) => z[0] === arg) || (SOC[arg] ? [arg, SOC[arg].pillar, SOC[arg].text, SOC[arg].link || ""] : null); if (!q) return;
+    socForm = { kind: "hook", pillar: q[1], text: "", question: q[2], quotes: "", link: q[3], qid: q[0] }; render.noKeep = true; return render();
   }
-  if (a === "socfilmdone") { const s = SOC[arg]; if (s) ask("Finish this filming day? Ticked hooks stay recorded.", () => socPut(Object.assign({}, s, { open: false }))); return; }
+  if (a === "socinadd") {
+    const l = $("socil").value.trim(), t = $("socit").value.trim(); if (!l && !t) return toast("⚠ Paste a link or write what it is.");
+    return socPut({ id: nId("inspo"), kind: "inspo", link: l, text: t, pillar: $("socip").value });
+  }
+  if (a === "socinhook") { const it = SOC[arg]; if (!it) return; socForm = { kind: "hook", pillar: it.pillar || "style", text: "", question: it.text || "", quotes: "", link: it.link || "", inspo: it.id }; render.noKeep = true; return render(); }
+  if (a === "socinbin") { const it = SOC[arg]; if (it) ask("Bin this inspo?", () => socPut(Object.assign({}, it, { binned: true }))); return; }
+  if (a === "socfilm") { const h = SOC[arg]; if (!h) return; const cur = socFilmSel[arg] != null ? socFilmSel[arg] : socHs(h) === "filmed"; socFilmSel[arg] = !cur; render.noKeep = true; return render(); }
+  if (a === "socpick6") return socPick6();
+  if (a === "socfilmdone") {
+    const t = todayISO(), recs = [];
+    Object.keys(socFilmSel).forEach((id) => {
+      const h = SOC[id]; if (!h) return;
+      const was = socHs(h) === "filmed", now = socFilmSel[id];
+      if (now && !was && socHs(h) === "unused") recs.push(Object.assign({}, h, { status: "filmed", filmed_on: t }));
+      if (!now && was) recs.push(Object.assign({}, h, { status: "unused", filmed_on: "" }));
+    });
+    socFilmSel = {};
+    if (!recs.length) { render.noKeep = true; render(); return toast("Nothing changed."); }
+    socPut(recs); return toast("Saved ✓ " + recs.filter((r) => r.status === "filmed").length + " filmed. They're in 📅 Week → Ready to post.");
+  }
   if (a === "socfromhk") {
     const t = ($("hkh") && $("hkh").value.trim()) || HD.hook || "";
     if (!t) return toast("⚠ Write a hook first.");
-    socForm = { pillar: "style", text: t, question: "", quotes: "", link: "", fromhk: 1 };
+    socForm = { kind: "hook", pillar: "style", text: t, question: "", quotes: "", link: "", fromhk: 1 };
     return open_("posting");
   }
 }
 document.addEventListener("change", (e) => {
+  if (e.target.id === "soccaw" && socForm && socForm.kind === "cap") { socPut(socCapRead()); return; }
   const k = e.target.dataset && e.target.dataset.hn; if (!k) return;
   const [id, f] = k.split("|"), h = SOC[id]; if (!h) return;
   const v = e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value) || 0));
   socPut(Object.assign({}, h, { nums: Object.assign({}, h.nums, { [f]: v }) }));
 });
-function socBadge() {                          // 1 when today is a posting day and that slot isn't posted
-  const t = todayISO(), s = socSlots(socMon(t)).find((q) => q.date === t);
-  return s && !(s.rec.stages || {}).posted ? 1 : 0;
-}
+document.addEventListener("toggle", (e) => {
+  const f = e.target.dataset && e.target.dataset.fold; if (!f) return;
+  if (e.target.open) socFilmOpen.add(f); else socFilmOpen.delete(f);
+  store.set("socfo", Array.from(socFilmOpen));
+}, true);
 
 function winTitle(w) {
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
@@ -2859,7 +3021,7 @@ function badge(kind) {
   if (kind === "notes") return NQ.length;
   if (kind === "leads") return leadTodo().length;
   if (kind === "posting") return socBadge();
-  if (kind === "todo") { const v = todoView(); return (v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0) + leadTodo().length; }
+  if (kind === "todo") { const v = todoView(); return (v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0) + leadTodo().length + socTodo().length; }
   return 0;
 }
 function render() {
@@ -3192,8 +3354,9 @@ function winTodo() {
     .concat([2, 3, 4, 5, 6].map((n) => [addDays(iso, n), new Date(addDays(iso, n) + "T12:00").toLocaleDateString("en-GB", { weekday: "long" })]))
     .concat([[addDays(iso, 7), "Next week"], ["pick", "Pick a date…"]]);
   const impOpts = [[5, "!5 Urgent"], [4, "!4 Important"], [3, "!3 Normal"], [2, "!2 Low"], [1, "!1 Someday"]];
-  const gd = leadTodo();
-  let h = (gd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">📈 Guide (' + gd.length + ")</div>" + gd.map((x) => '<div class="li" data-a="leadgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
+  const gd = leadTodo(), sd = socTodo();
+  let h = (sd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">🎬 Posting (' + sd.length + ")</div>" + sd.map((x) => '<div class="li" data-a="socgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
+    (gd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">📈 Guide (' + gd.length + ")</div>" + gd.map((x) => '<div class="li" data-a="leadgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
     '<form id="addf" class="sunk" style="padding:8px"><input class="inp" id="addt" placeholder="What needs doing?" autocomplete="off" enterkeyhint="done">' +
     '<div class="row"><select class="inp" id="addd" style="flex:1">' + dayOpts.map(([v, l]) => '<option value="' + v + '"' + (v === iso ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
     '<select class="inp" id="addi" style="flex:1">' + impOpts.map(([v, l]) => '<option value="' + v + '"' + (v === 3 ? " selected" : "") + ">" + l + "</option>").join("") + "</select></div>" +
