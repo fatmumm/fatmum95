@@ -2727,13 +2727,13 @@ function socWeekTab() {
   h += '<div class="card sunk soc-count"><div class="soc-head"><b>This week: ' + n + " posted</b><span class=\"dim\">2 is the minimum · 3 is the target</span></div><div class=\"soc-slots\">" + sl.map((s) => {
     const p = socIsPosted(s.rec), hk = s.rec.hook && SOC[s.rec.hook];
     return '<div class="soc-sl' + (p ? " on" : "") + (s.date === t ? " today" : "") + '"><b>' + (p ? "✓ " : "") + esc(s.day === "tue" ? "Tue" : s.day === "thu" ? "Thu" : "Sat") + '</b><span>' + esc(s.name) + (s.rec.quick ? " ⚡" : "") + "</span>" +
-      (hk ? '<span class="dim">' + esc(socShort(hk.text, 28)) + "</span>" : "") + '<span class="nt-btn' + (s.rec.hero ? " on" : "") + '" data-a="sochero" data-arg="' + s.id + '">⭐ Hero</span></div>';
+      (hk ? '<span class="dim">' + esc(socShort(hk.text, 28)) + "</span>" : "") + "</div>";
   }).join("") + "</div><div>" + esc(n >= c.target ? "Full week 🎉" : n >= c.min ? "Good week ✓" : n === c.min - 1 ? "1 more for a good week" : "Nothing posted yet. 🆘 gets you one in 10 minutes.") + "</div></div>";
   h += '<div class="h">✅ To do next</div>' + (nx.length ? '<div class="lv sunk">' + nx.map((x) => '<div class="li"><span class="ico">' + x.icon + '</span><span class="lab" data-a="socgo" data-arg="' + esc(x.go) + '" style="cursor:pointer">' + esc(x.text) + "</span>" +
     (x.tick ? '<span class="nt-btn" data-a="' + x.tick + '">✓ Done</span>' : '<span class="st">›</span>') + "</div>").join("") + "</div>" : '<div class="card sunk">All done for now 🎉</div>');
   h += postDay ? '<div class="h">📤 Ready to post</div>' + socReadyList() : '<details class="soc-more"><summary>📤 Ready to post (' + socReady().length + ")</summary>" + socReadyList() + "</details>";
   h += '<button class="btn raised main" data-a="socbad">🆘 Bad week: quick post</button>';
-  h += '<div class="dim">Next week\'s Saturday is ' + esc(socPil(socSatPillar(addDays(mon, 7)))[4].toLowerCase()) + ". Only one ⭐ hero post a week gets the full sticker edit.</div>";
+  h += '<div class="dim">Next week\'s Saturday is ' + esc(socPil(socSatPillar(addDays(mon, 7)))[4].toLowerCase()) + ".</div>";
   return h;
 }
 
