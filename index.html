@@ -84,6 +84,11 @@ html{-webkit-text-size-adjust:100%}
 .soc-cap{margin-top:8px;padding:8px;background:#f6f6f6;border:1px solid #ddd;max-height:40vh;overflow:auto;-webkit-user-select:text;user-select:text}
 .hk-wrap .li .link{display:inline;padding:0}
 .soc-how{font-size:12px;color:#555;margin:0 0 3px}
+.soc-stat{margin:6px 0;padding:6px 8px;background:#f6f6f6;border:1px solid #ddd;font-size:13px}.soc-job{font-weight:700;color:#000080}.soc-job .inp{outline:2px solid #000080}
+.soc-res{margin-top:8px;padding-top:6px;border-top:1px dashed #ccc}.soc-takes{margin-top:8px}.soc-take{padding:6px;margin-top:4px;border:1px solid #ddd;white-space:normal}.soc-take.win{border-color:#2e8b57;background:#eaf6ee}
+.soc-tk{display:grid;grid-template-columns:1fr 1fr;gap:4px 6px;align-items:end;margin-top:4px}.soc-tk label{font-size:12px;color:#333}.soc-tk .inp{padding:5px}.soc-mini{height:22px;padding:0 5px;font-size:12px}
+.soc-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}.soc-tbl th,.soc-tbl td{border-bottom:1px solid #e3e3e3;padding:4px 3px;text-align:left;vertical-align:top}.soc-tbl th{font-weight:600;color:#555}
+.soc-scr div{margin:6px 0;white-space:pre-wrap;-webkit-user-select:text;user-select:text;font-size:16px}
 .soc-nums{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.soc-nums label{font-size:12px;color:#333}.soc-nums .inp{padding:5px}
 .hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
 .hk-tip{font-size:13px;margin-top:6px;padding:8px}
@@ -2587,10 +2592,18 @@ const SOC_CAP = [["call", "Call out the artist", "If you've ever stared at a bla
   ["proof", "Show it", "This is my messy page. Look how the wobble makes it.", "Point at the video: what you did and what changed. Real beats perfect."],
   ["perm", "The permission line", "It doesn't have to be good. It has to be yours.", "Take the pressure off. Wobbly is fine."],
   ["ask", "One ask", "Save this and try it tonight.", "One ask only: save it, try it tonight, or send it to a friend who draws. No fake urgency."]];
-const SOC_CAP_TIP = "Write like you talk. The first line is the hook. Every line has to earn the next one.";
-const SOC_SCRIPT_TIP = "Hook (5 seconds) → one point that answers the question (20 to 30 seconds) → closing line.";
 const SOC_AWARE = [["", "Not sure yet"], ["most", "Already follow me and want my stuff"], ["product", "Know me, not sold yet"], ["solution", "Want to draw better, not sure how"],
   ["problem", "Frustrated, don't know why"], ["unaware", "Just scrolling"]];
+const SOC_SCRIPT = [["open", "❓ Open question", "So why do your lines look so nervous?", "Raise the question your payoff answers. One line."],
+  ["pay", "💡 One payoff", "It's your wrist. Lock it and draw from the shoulder.", "One idea only. Show it on paper while you say it."],
+  ["close", "🔁 Closing line that loops back", "And that's why the wobble was never the problem.", "End on a line that sends them back to the hook."]];
+const SOC_DESC = [["kw", "🔎 Search words", "how to draw hands, loose line drawing, sketchbook ideas", "What would a beginner type into Instagram search? A few words or phrases."],
+  ["take", "💡 The one takeaway", "You don't need a steady hand. You need a line you commit to.", "The one thing to remember, said in new words. Don't repeat the script."],
+  ["ask", "👉 One ask", "Save this and try it tonight.", "One ask only: save it, try it tonight, send it to a friend who draws, or the free guide in my bio."]];
+const SOC_JOBS = [["saves", "💾 Saves"], ["shares", "🔁 Shares"], ["follows", "➕ Follows"], ["signups", "📈 Guide sign-ups"]];
+const SOC_TYPES = ["Question", "Bold claim", "Mistake", "Myth", "Story", "How-to", "Before and after", "Permission", "Other"];
+const SOC_SRC = [["comment", "💬 Comment"], ["dm", "✉️ DM"], ["email", "📧 Email reply"], ["web", "🌐 Web"]];
+let socQsrc = "comment", socQs = store.get("socqs", "all");
 const SOC_SPARE = ["You don't need talent. You need more drawings.", "Stop trying to draw well. Try drawing a lot.", "Your style is already in your messy drawings.",
   "Draw it wrong on purpose and see what happens.", "Nobody cares if it's good. Make it anyway.", "The wobbly line is the interesting one."];
 const socSave = () => { store.set("soc", SOC); store.set("socq", SOCQ); store.set("socsince", socSince); };
@@ -2649,8 +2662,39 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) setT
 
 const socHooks = (p) => socAll("hook").filter((h) => !p || h.pillar === p).sort((a, b) => (a.created || 0) - (b.created || 0));
 const socReady = () => socHooks().filter((h) => ["filmed", "edited"].includes(socHs(h)));
-const socCapDone = (h) => SOC_CAP.every(([k]) => ((h.caption || {})[k] || "").trim());
-const socCaption = (h) => [h.text].concat(SOC_CAP.map(([k]) => ((h.caption || {})[k] || "").trim())).filter(Boolean).join("\n\n");
+const socHasDesc = (h) => !!(h.desc && SOC_DESC.some(([k]) => (h.desc[k] || "").trim()));
+const socCapDone = (h) => socHasDesc(h) ? SOC_DESC.every(([k]) => ((h.desc || {})[k] || "").trim()) : SOC_CAP.every(([k]) => ((h.caption || {})[k] || "").trim());
+const socCaption = (h) => socHasDesc(h) ? ["take", "ask", "kw"].map((k) => (h.desc[k] || "").trim()).filter(Boolean).join("\n\n")
+  : [h.text].concat(SOC_CAP.map(([k]) => ((h.caption || {})[k] || "").trim())).filter(Boolean).join("\n\n");
+const socSc = (h) => h.sc || { open: "", pay: h.script || "", close: "" };      // an old one-box script becomes the payoff
+const socWords = (t) => (String(t || "").match(/[A-Za-z0-9'’]+/g) || []);
+function socScriptStats(hook, sc) {               // spoken at about 150 words a minute
+  const all = socWords(hook).length + socWords(sc.open).length + socWords(sc.pay).length + socWords(sc.close).length;
+  const point = socWords(sc.open).length + socWords(sc.pay).length, secs = Math.round(all * 0.4), psecs = Math.round(point * 0.4);
+  const sentences = String(sc.pay || "").split(/[.!?]+(\s|$)/).filter((x) => x && x.trim().length > 2).length;
+  const many = /\b(also|another|plus|secondly|second tip|next tip|on top of that)\b/i.test(sc.pay || "") || /(^|\n)\s*\d+[.)]\s/.test(sc.pay || "") || sentences >= 4;
+  let h = all ? all + " words · about " + secs + " seconds" + (point ? " (the point is about " + psecs + ")" : "") : "Start typing and I'll time it.";
+  if (psecs > 30) h += '<div class="bad">⚠ The point runs past 30 seconds. Cut it down.</div>';
+  if (many) h += '<div class="bad">⚠ Looks like more than one idea. Keep one and save the rest for another video.</div>';
+  return h;
+}
+function socRepeats(take, sc) {                   // does the takeaway just say the script again?
+  const real = socWords(take).map((w) => w.toLowerCase()).filter((w) => w.length > 3);
+  if (real.length < 3) return false;
+  const said = new Set(socWords([sc.open, sc.pay, sc.close].join(" ")).map((w) => w.toLowerCase()));
+  return real.filter((w) => said.has(w)).length / real.length >= 0.6;
+}
+const socRepeatMsg = '<div class="bad">⚠ This mostly repeats your script. Say it in new words.</div>';
+function socWin(h) {                              // the winning hook take: highest 3-second hold, then watch time
+  const t = h.takes || [];
+  if (h.win != null && t[h.win] && (t[h.win].text || "").trim()) return h.win;
+  let best = null;
+  t.forEach((x, i) => { if (x && x.hold != null && (best === null || x.hold > t[best].hold || (x.hold === t[best].hold && (x.watch || 0) > (t[best].watch || 0)))) best = i; });
+  return best;
+}
+const socLeadPost = (h) => h.lpost && LD && (LD.posts || []).find((p) => p.id === h.lpost);
+function socSignups(h) { const p = socLeadPost(h); if (p) return p.exact ? (p.signups || 0) : (p.signups_48h || 0); const v = (h.nums || {}).signups; return v == null ? null : v; }
+function socVal(h, job) { return job === "signups" ? socSignups(h) : ((h.nums || {})[job] == null ? null : h.nums[job]); }
 const socLinked = (it) => socHooks().filter((h) => h.inspo === it.id || (it.link && h.link && h.link.trim() === it.link.trim()));
 
 // ── streaks: Tue, Thu, Sat = posted · Wed = edited (or filmed) that day ──
@@ -2697,7 +2741,9 @@ function socNext() {
   if (due === "post" && !socHit(t)) { const s = socSlotOn(t); out.push({ icon: "📤", text: "Post today's " + s.name.toLowerCase() + " video (" + ready.length + " ready)", go: "ready", today: true }); }
   if (due === "edit" && !socHit(t)) out.push({ icon: "✂️", text: filmed.length ? "Edit " + filmed.length + " filmed video" + (filmed.length === 1 ? "" : "s") : "Editing day (nothing filmed yet, film instead)", go: "edit", today: true, tick: "socedited" });
   if (ready.length < 3) out.push({ icon: "🎙", text: "Film talking heads (only " + ready.length + " ready)", go: "film", today: true });
-  socHooks().filter((h) => socHs(h) === "edited" && !socCapDone(h)).slice(0, 3).forEach((h) => out.push({ icon: "📝", text: "Fill in the caption for \"" + socShort(h.text) + "\"", go: "cap|" + h.id, today: due === "post" }));
+  socHooks().filter((h) => socHs(h) === "edited" && !socCapDone(h)).slice(0, 3).forEach((h) => out.push({ icon: "📝", text: "Fill in the description for \"" + socShort(h.text) + "\"", go: "cap|" + h.id, today: due === "post" }));
+  const nojob = socHooks().filter((h) => ["filmed", "edited"].includes(socHs(h)) && !h.job);
+  if (nojob.length) out.push({ icon: "🎯", text: "Pick the job for " + nojob.length + " filmed video" + (nojob.length === 1 ? "" : "s"), go: "nojob", today: true });
   const posted = socHooks().filter((h) => socHs(h) === "posted" && h.posted_on);
   posted.filter((h) => !h.stars && h.posted_on >= addDays(t, -7)).slice(0, 2).forEach((h) => out.push({ icon: "⭐", text: "Rate \"" + socShort(h.text) + "\"", go: "hook|" + h.id, today: true }));
   posted.filter((h) => h.posted_on <= addDays(t, -2) && h.posted_on >= addDays(t, -14) && !Object.values(h.nums || {}).some((v) => v != null)).slice(0, 2)
@@ -2746,27 +2792,70 @@ function socWeekTab() {
 function socStars(h) {
   return '<span class="soc-stars">' + [1, 2, 3, 4, 5].map((i) => '<span data-a="socstar" data-arg="' + h.id + "|" + i + '" class="' + (i <= (h.stars || 0) ? "on" : "") + '">' + (i <= (h.stars || 0) ? "★" : "☆") + "</span>").join("") + "</span>";
 }
+function socResults(x) {                        // a posted video: its job number first, the 3 takes as an experiment, the Leads link
+  const nums = x.nums || {}, job = x.job || "", lp = socLeadPost(x), w = socWin(x);
+  const order = SOC_JOBS.slice().sort((a, b) => (a[0] === job ? -1 : b[0] === job ? 1 : 0));
+  const takes = (x.takes || []).map((t, i) => [t || {}, i]).filter(([t]) => (t.text || "").trim());
+  return '<div class="soc-res"><div class="soc-rate">' + socStars(x) + "</div>" +
+    '<div class="dim">' + (job ? "Judged on: <b>" + esc((SOC_JOBS.find((j) => j[0] === job) || [0, job])[1]) + "</b>" : "⚠ No job picked. Edit the hook to pick one.") + "</div>" +
+    '<div class="soc-nums">' + order.map(([k, l]) => {
+      const fromLeads = k === "signups" && lp;
+      return '<label class="' + (k === job ? "soc-job" : "") + '">' + l + (fromLeads ? " (from Leads)" : "") + '<input class="inp" type="number" inputmode="numeric" min="0" data-hn="' + x.id + "|" + k + '" value="' + esc(fromLeads ? socSignups(x) : nums[k] == null ? "" : nums[k]) + '"' + (fromLeads ? " disabled" : "") + "></label>";
+    }).join("") + "</div>" +
+    (takes.length ? '<div class="soc-takes"><div class="dim">Hook takes (from Instagram Insights)</div>' + takes.map(([t, i]) =>
+      '<div class="soc-take' + (w === i ? " win" : "") + '"><div><b>' + (w === i ? "🏆 " : "") + "Take " + (i + 1) + ":</b> " + esc(t.text) + "</div>" +
+      '<div class="soc-tk"><span class="nt-btn' + (t.trial ? " on" : "") + '" data-a="soctrial" data-arg="' + x.id + "|" + i + '">Trial Reel' + (t.trial ? " ✓" : "") + "</span>" +
+      '<label>3-sec hold %<input class="inp" type="number" inputmode="decimal" min="0" max="100" data-tk="' + x.id + "|" + i + '|hold" value="' + esc(t.hold == null ? "" : t.hold) + '"></label>' +
+      '<label>Avg watch (s)<input class="inp" type="number" inputmode="decimal" min="0" data-tk="' + x.id + "|" + i + '|watch" value="' + esc(t.watch == null ? "" : t.watch) + '"></label>' +
+      (w === i ? "" : '<span class="nt-btn" data-a="socwin" data-arg="' + x.id + "|" + i + '">Make winner</span>') + "</div></div>").join("") + "</div>" : "") +
+    (LD && (LD.posts || []).length ? '<label class="field">📈 Guide link post (from Leads)</label><select class="inp" data-lp="' + x.id + '"><option value="">Not linked</option>' +
+      LD.posts.slice().sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1).slice(0, 30).map((p) => '<option value="' + esc(p.id) + '"' + (p.id === x.lpost ? " selected" : "") + ">" + esc(socShort(p.what || p.campaign, 40)) + " · " + esc(shortDay((p.date || "").slice(0, 10) || todayISO())) + "</option>").join("") + "</select>" +
+      (lp ? '<div class="dim">📈 ' + socSignups(x) + " guide sign-ups" + (lp.exact ? "" : " (estimate)") + "</div>" : "") : "") + "</div>";
+}
 function socHookRow(x) {
-  const st = socHs(x), nums = x.nums || {}, q = x.qid ? (SOC_QS.find((z) => z[0] === x.qid) || [])[2] || (SOC[x.qid] || {}).text : "", ins = x.inspo && SOC[x.inspo];
-  return '<div class="li ld-row soc-hk' + (socHkOpen === x.id ? " soc-hi" : "") + '"><span class="lab"><b>' + esc(x.text) + '</b><div class="dim">' + socPil(x.pillar)[3] + " " + esc(socPil(x.pillar)[1]) + (x.posted_on ? " · posted " + esc(shortDay(x.posted_on)) : "") + "</div>" +
+  const st = socHs(x), q = x.qid ? (SOC_QS.find((z) => z[0] === x.qid) || [])[2] || (SOC[x.qid] || {}).text : "", ins = x.inspo && SOC[x.inspo];
+  return '<div class="li ld-row soc-hk' + (socHkOpen === x.id ? " soc-hi" : "") + '"><span class="lab"><b>' + esc(x.text) + '</b><div class="dim">' + socPil(x.pillar)[3] + " " + esc(socPil(x.pillar)[1]) +
+    (x.htype ? " · " + esc(x.htype) : "") + (x.job ? " · for " + esc((SOC_JOBS.find((j) => j[0] === x.job) || [0, ""])[1]) : "") + (x.posted_on ? " · posted " + esc(shortDay(x.posted_on)) : "") + "</div>" +
     (x.question ? '<div class="ld-worry">❓ ' + esc(x.question) + "</div>" : "") + (q && q !== x.question ? '<div class="ld-worry">❓ From: ' + esc(q) + "</div>" : "") +
     (ins ? '<div class="ld-worry">💡 From inspo: ' + esc(socShort(ins.text || ins.link, 50)) + "</div>" : "") +
     (x.quotes ? '<details class="ld-up"><summary>Quotes</summary><div class="ld-worry">' + esc(x.quotes).replace(/\n/g, "<br>") + "</div></details>" : "") +
     (x.link ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(x.link) + '" target="_blank" rel="noopener">Source ↗</a></div>' : "") +
     '<div class="soc-acts">' + SOC_HSTAT.map(([k, l]) => '<span class="nt-btn' + (st === k ? " on" : "") + '" data-a="socstat" data-arg="' + x.id + "|" + k + '">' + l + "</span>").join("") + "</div>" +
-    '<div class="soc-acts"><span class="nt-btn" data-a="soccap" data-arg="' + x.id + '">📝 Caption' + (socCapDone(x) ? " ✓" : "") + '</span><span class="nt-btn" data-a="socedit" data-arg="' + x.id + '">✏️ Edit</span><span class="nt-btn" data-a="soccopy" data-arg="' + x.id + '">📋 Hook</span></div>' +
-    (st === "posted" ? '<div class="soc-rate">' + socStars(x) + '</div><div class="soc-nums">' + [["saves", "Saves"], ["shares", "Shares"], ["follows", "Follows"], ["signups", "Sign-ups"]].map(([k, l]) =>
-      '<label>' + l + '<input class="inp" type="number" inputmode="numeric" min="0" data-hn="' + x.id + "|" + k + '" value="' + esc(nums[k] == null ? "" : nums[k]) + '"></label>').join("") + "</div>" : "") +
-    "</span></div>";
+    '<div class="soc-acts"><span class="nt-btn" data-a="soccap" data-arg="' + x.id + '">📝 Description' + (socCapDone(x) ? " ✓" : "") + '</span><span class="nt-btn" data-a="socedit" data-arg="' + x.id + '">✏️ Edit</span><span class="nt-btn" data-a="soccopy" data-arg="' + x.id + '">📋 Hook</span></div>' +
+    (st === "posted" ? socResults(x) : "") + "</span></div>";
+}
+function socWorking() {                           // 📊 judged by each video's own job number against your usual
+  const posted = socHooks().filter((h) => socHs(h) === "posted");
+  if (posted.length < 10) return '<div class="card sunk">📊 Post 10 videos to see what\'s working (' + posted.length + " so far). Log each one\'s numbers and hook takes as you go.</div>";
+  const med = {};
+  SOC_JOBS.forEach(([j]) => {
+    const v = posted.filter((h) => h.job === j).map((h) => socVal(h, j)).filter((n) => n != null).sort((a, b) => a - b);
+    med[j] = v.length ? (v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2) : null;
+  });
+  const score = (h) => { const v = h.job ? socVal(h, h.job) : null; return v == null || med[h.job] == null ? null : (v + 1) / (med[h.job] + 1); };
+  const table = (title, keyOf) => {
+    const g = {};
+    posted.forEach((h) => { const k = keyOf(h); (g[k] = g[k] || []).push(h); });
+    const rows = Object.entries(g).map(([k, hs]) => {
+      const sc = hs.map(score).filter((s) => s != null), holds = hs.map((h) => { const w = socWin(h); return w == null ? null : h.takes[w].hold; }).filter((x) => x != null);
+      const su = hs.map(socSignups).filter((x) => x != null);
+      return { k: k, n: sc.length, all: hs.length, s: sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : null, hold: holds.length ? holds.reduce((a, b) => a + b, 0) / holds.length : null, su: su.length ? su.reduce((a, b) => a + b, 0) : null };
+    }).sort((a, b) => (b.s == null ? -1 : b.s) - (a.s == null ? -1 : a.s));
+    return '<div class="h">' + title + '</div><table class="soc-tbl"><tr><th></th><th>Videos</th><th>vs your usual</th><th>3-sec hold</th><th>Sign-ups</th></tr>' + rows.map((r) =>
+      "<tr><td>" + esc(r.k) + "</td><td>" + r.all + "</td><td>" + (r.s == null ? '<span class="dim">no numbers</span>' : r.n < 2 ? '<span class="dim">' + r.s.toFixed(1) + "× too early</span>" : "<b>" + r.s.toFixed(1) + "×</b>") + "</td><td>" +
+      (r.hold == null ? "" : Math.round(r.hold) + "%") + "</td><td>" + (r.su == null ? "" : r.su) + "</td></tr>").join("") + "</table>";
+  };
+  return '<div class="card sunk soc-work"><b>📊 What\'s working</b><div class="dim">Each video is judged on its own job (saves, shares, follows or sign-ups) against your usual for that job. 1.0× is normal for you, 1.5× is half as good again.</div>' +
+    table("By hook type", (h) => h.htype || "No type") + table("By pillar", (h) => socPil(h.pillar)[4]) + "</div>";
 }
 function socHookTab() {
   const all = socHooks();
   const pc = [["all", "All"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[4] + " " + p[2] + "%"])).map(([k, l]) => '<span class="nt-btn rf-chip' + (socPf === k ? " on" : "") + '" data-a="socpf" data-arg="' + k + '">' + esc(l) + "</span>").join("");
   const inP = all.filter((h) => socPf === "all" || h.pillar === socPf);
-  const sc = [["all", "Any"]].concat(SOC_HSTAT.map((s) => [s[0], s[1]]), [["best", "⭐ Best"]]).map(([k, l]) => '<span class="nt-btn rf-chip' + (socSf === k ? " on" : "") + '" data-a="socsf" data-arg="' + k + '">' + l + (k === "best" ? "" : " " + (k === "all" ? inP.length : inP.filter((h) => socHs(h) === k).length)) + "</span>").join("");
-  let list = inP.filter((h) => socSf === "all" || socSf === "best" ? (socSf !== "best" || h.stars) : socHs(h) === socSf).reverse();
+  const sc = [["all", "Any"]].concat(SOC_HSTAT.map((s) => [s[0], s[1]]), [["best", "📊 What's working"]]).map(([k, l]) => '<span class="nt-btn rf-chip' + (socSf === k ? " on" : "") + '" data-a="socsf" data-arg="' + k + '">' + l + (k === "best" ? "" : " " + (k === "all" ? inP.length : inP.filter((h) => socHs(h) === k).length)) + "</span>").join("");
+  let list = inP.filter((h) => socSf === "all" ? true : socSf === "best" ? socHs(h) === "posted" : socHs(h) === socSf).reverse();
   if (socSf === "best") list.sort((a, b) => (b.stars || 0) - (a.stars || 0));
-  let h = '<button class="btn raised main" data-a="socaddhook" data-arg="' + (socPf === "all" ? "style" : socPf) + '">＋ Add hook</button>' +
+  let h = (socSf === "best" ? socWorking() : "") + '<button class="btn raised main" data-a="socaddhook" data-arg="' + (socPf === "all" ? "style" : socPf) + '">＋ Add hook</button>' +
     '<div class="soc-chips">' + pc + '</div><div class="soc-chips">' + sc + "</div>";
   if (socPf !== "all") h += '<details class="card sunk soc-ideas" open><summary><b>💡 Ideas for ' + esc(socPil(socPf)[1].toLowerCase()) + "</b></summary>" +
     SOC_IDEAS[socPf].map((t, i) => '<div class="soc-idea" data-a="socideahook" data-arg="' + socPf + "|" + i + '">• ' + esc(t) + ' <span class="dim">＋</span></div>').join("") + '<div class="dim">Tap one to make it a hook.</div></details>';
@@ -2775,23 +2864,30 @@ function socHookTab() {
 }
 
 function socQTab() {
-  const own = socAll("question").map((q) => [q.id, q.pillar, q.text, q.link || "", 1]);
-  const all = own.concat(SOC_QS).filter((q) => socQf === "all" || q[1] === socQf);
-  const pc = [["all", "All"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[4]])).map(([k, l]) => '<span class="nt-btn rf-chip' + (socQf === k ? " on" : "") + '" data-a="socqf" data-arg="' + k + '">' + esc(l) + "</span>").join("");
-  const hooks = socHooks();
-  return '<div class="card sunk"><b>＋ Add a question</b> <span class="dim">(from comments, DMs or anywhere online)</span>' +
-    '<textarea class="inp" id="socqt" rows="2" style="height:56px;margin-top:6px" placeholder="The question, in their words"></textarea>' +
+  const mine = socAll("question").sort((a, b) => (b.created || 0) - (a.created || 0)).map((q) => [q.id, q.pillar, q.text, q.link || "", q.src || "comment"]);
+  const fol = mine.filter((q) => q[4] !== "web"), web = mine.filter((q) => q[4] === "web").concat(SOC_QS.map((q) => q.concat(["web0"])));
+  const all = (socQs === "web" ? [] : fol).concat(socQs === "fol" ? [] : web).filter((q) => socQf === "all" || q[1] === socQf);
+  const hooks = socHooks(), seen = new Set(socAll("question").map((q) => q.from_reply).filter(Boolean));
+  const newReplies = ((LD && LD.replies) || []).filter((r) => (r.worry || "").trim() && !seen.has(r.id));
+  const chips = (list, cur, act) => list.map(([k, l]) => '<span class="nt-btn rf-chip' + (cur === k ? " on" : "") + '" data-a="' + act + '" data-arg="' + k + '">' + esc(l) + "</span>").join("");
+  return '<div class="card sunk"><b>＋ Paste what someone said, word for word</b>' +
+    '<div class="soc-acts">' + chips(SOC_SRC, socQsrc, "socqsrc") + "</div>" +
+    '<textarea class="inp" id="socqt" rows="3" style="height:72px;margin-top:6px" placeholder="Their exact words, typos and all"></textarea>' +
     '<div class="row"><select class="inp" id="socqp" style="flex:1">' + SOC_PILLARS.map((p) => '<option value="' + p[0] + '">' + p[3] + " " + esc(p[4]) + "</option>").join("") + '</select><input class="inp" id="socql" style="flex:1" placeholder="Link (if any)"></div>' +
-    '<button class="btn raised main" data-a="socqadd">Save question</button></div>' +
-    '<div class="soc-chips">' + pc + "</div>" +
-    '<div class="lv sunk">' + all.map((q) => {
-      const hs = hooks.filter((h) => h.qid === q[0]), done = hs.some((h) => socHs(h) === "posted");
-      return '<div class="li ld-row"><span class="lab"><b>' + esc(q[2]) + '</b><div class="dim">' + socPil(q[1])[3] + " " + esc(socPil(q[1])[4]) + (q[4] ? " · yours" : "") +
-        (q[3] ? ' · <a class="link" href="' + esc(q[3]) + '" target="_blank" rel="noopener">where it\'s asked ↗</a>' : "") + "</div>" +
+    '<button class="btn raised main" data-a="socqadd">Save it</button>' +
+    (newReplies.length ? '<button class="btn raised wide" data-a="socqpull">⬇️ Pull in guide email replies (' + newReplies.length + " new)</button>" : "") + "</div>" +
+    '<div class="soc-chips">' + chips([["all", "All"], ["fol", "🗣 Followers " + fol.length], ["web", "🌐 Web " + web.length]], socQs, "socqs") + "</div>" +
+    '<div class="soc-chips">' + chips([["all", "Any pillar"]].concat(SOC_PILLARS.map((p) => [p[0], p[3] + " " + p[4]])), socQf, "socqf") + "</div>" +
+    (all.length ? '<div class="lv sunk">' + all.map((q) => {
+      const hs = hooks.filter((h) => h.qid === q[0]), done = hs.some((h) => socHs(h) === "posted"), own = q[4] !== "web0", isFol = q[4] !== "web" && q[4] !== "web0";
+      const src = (SOC_SRC.find((s) => s[0] === q[4]) || [0, "🌐 Web"])[1];
+      return '<div class="li ld-row"><span class="lab"><b>' + (isFol ? "🗣 " : "") + esc(q[2]) + '</b><div class="dim">' +
+        (own ? '<span class="nt-btn soc-mini" data-a="socqpil" data-arg="' + q[0] + '">' + socPil(q[1])[3] + " " + esc(socPil(q[1])[4]) + "</span> " : socPil(q[1])[3] + " " + esc(socPil(q[1])[4]) + " · ") + esc(src) +
+        (q[3] ? ' · <a class="link" href="' + esc(q[3]) + '" target="_blank" rel="noopener">where ↗</a>' : "") + "</div>" +
         (hs.length ? '<div class="ld-worry">' + (done ? "✅ posted" : "✓ hooked") + ": " + esc(socShort(hs[0].text, 50)) + "</div>" : "") + "</span>" +
-        '<span class="ld-btns"><span class="nt-btn" data-a="socqhook" data-arg="' + q[0] + '">→ Make a hook</span></span></div>';
-    }).join("") + "</div>" +
-    '<div class="dim" style="margin-top:6px">Want more? Ask Claude to find more questions people ask online. They\'ll show up here.</div>';
+        '<span class="ld-btns"><span class="nt-btn" data-a="socqhook" data-arg="' + q[0] + '">→ Make a hook</span>' + (own ? '<span class="nt-btn" data-a="socqbin" data-arg="' + q[0] + '">🗑</span>' : "") + "</span></div>";
+    }).join("") + "</div>" : '<div class="card sunk">Nothing here yet. Paste comments and DMs above. Your followers\' words beat anything from the web.</div>') +
+    '<div class="dim" style="margin-top:6px">🗣 = your followers (shown first). 🌐 = found online. Ask Claude to find more web questions any time.</div>';
 }
 
 function socInspoTab() {
@@ -2818,7 +2914,7 @@ function socFilmTab() {
   SOC_PILLARS.forEach((p) => {
     const list = socHooks(p[0]).filter((x) => ["unused", "filmed"].includes(socHs(x))), nf = list.filter(sel).length;
     h += '<details class="card sunk soc-fold" data-fold="' + p[0] + '"' + (socFilmOpen.has(p[0]) ? " open" : "") + "><summary><b>" + p[3] + " " + esc(p[1]) + '</b> <span class="dim">' + nf + " ticked · " + list.length + " hook" + (list.length === 1 ? "" : "s") + "</span></summary>" +
-      (list.length ? list.map((x) => '<div class="soc-fh' + (sel(x) ? " on" : "") + '" data-a="socfilm" data-arg="' + x.id + '"><span class="hw-tick' + (sel(x) ? " on" : "") + '">' + (sel(x) ? "✓" : "") + "</span><span>" + esc(x.text) + "</span>" + ((x.script || "").trim() ? '<span class="nt-btn" data-a="socscript" data-arg="' + x.id + '">📜 Script</span>' : "") + "</div>").join("")
+      (list.length ? list.map((x) => '<div class="soc-fh' + (sel(x) ? " on" : "") + '" data-a="socfilm" data-arg="' + x.id + '"><span class="hw-tick' + (sel(x) ? " on" : "") + '">' + (sel(x) ? "✓" : "") + "</span><span>" + esc(x.text) + (x.job ? "" : ' <em class="bad">⚠ pick its job</em>') + "</span>" + (Object.values(socSc(x)).some((v) => (v || "").trim()) ? '<span class="nt-btn" data-a="socscript" data-arg="' + x.id + '">📜 Script</span>' : "") + "</div>").join("")
         : '<div class="dim">No hooks waiting here. <a class="link" data-a="socaddhook" data-arg="' + p[0] + '">Add one</a></div>') + "</details>";
   });
   const ed = socHooks().filter((x) => socHs(x) === "edited").length;
@@ -2826,13 +2922,20 @@ function socFilmTab() {
 }
 
 function socFormHtml() {
-  const f = socForm;
+  const f = socForm, sc = socSc(f), d = f.desc || {}, takes = f.takes || [];
+  const chip = (act, k, l, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-a="' + act + '" data-arg="' + esc(k) + '">' + esc(l) + "</span>";
   return '<div style="padding:8px"><div class="card sunk"><b>' + (f.id ? "Edit hook" : "New hook") + "</b>" +
     '<label class="field">Pillar</label><select class="inp" id="sochp">' + SOC_PILLARS.map((p) => '<option value="' + p[0] + '"' + (p[0] === f.pillar ? " selected" : "") + ">" + p[3] + " " + esc(p[1]) + "</option>").join("") + "</select>" +
-    '<label class="field">🪝 Hook (the first 5 seconds)</label><textarea class="inp" id="socht" rows="2" style="height:64px" placeholder="Say the thing they\'re stuck on, in their words">' + esc(f.text || "") + "</textarea>" +
-    '<label class="field">❓ The question someone asked</label><textarea class="inp" id="sochq" rows="2" style="height:56px" placeholder="Copy it word for word if you can">' + esc(f.question || "") + "</textarea>" +
-    '<label class="field">🎙 Script (your answer)</label><div class="soc-how">' + esc(SOC_SCRIPT_TIP) + '</div><textarea class="inp" id="sochs" rows="6" style="height:150px" placeholder="Hook: …\nThe point: …\nClosing line: …">' + esc(f.script || "") + "</textarea>" +
-    '<div class="h" style="margin-top:12px">📝 Description</div>' + socCapBoxes(f.caption || {}) +
+    '<label class="field">🎯 What\'s this video for? (pick before filming)</label><div class="soc-acts">' + SOC_JOBS.map(([k, l]) => chip("socjob", k, l, f.job === k)).join("") + "</div>" +
+    '<label class="field">❓ The question someone asked</label><textarea class="inp" id="sochq" rows="2" style="height:56px" placeholder="Their words, copied exactly">' + esc(f.question || "") + "</textarea>" +
+    '<label class="field">🪝 Hook, take 1 (the first 5 seconds)</label><textarea class="inp soc-live" id="socht" rows="2" style="height:56px" placeholder="Say the thing they\'re stuck on, in their words">' + esc(f.text || "") + "</textarea>" +
+    '<details class="soc-more"' + ((takes[1] || {}).text || (takes[2] || {}).text ? " open" : "") + '><summary>Takes 2 and 3 (for Trial Reels)</summary>' +
+    [1, 2].map((i) => '<label class="field">🪝 Take ' + (i + 1) + '</label><textarea class="inp" id="socht' + (i + 1) + '" rows="2" style="height:52px" placeholder="Same point, a different opening">' + esc((takes[i] || {}).text || "") + "</textarea>").join("") + "</details>" +
+    '<label class="field">🏷 Hook type</label><div class="soc-acts">' + SOC_TYPES.map((t) => chip("soctype", t, t, f.htype === t)).join("") + "</div>" +
+    '<div class="h" style="margin-top:12px">🎙 Script (said out loud)</div><div class="soc-how">Hook → open question → one payoff → closing line that loops back. About 150 words a minute.</div>' +
+    SOC_SCRIPT.map(([k, l, ph, how]) => '<label class="field">' + esc(l) + '</label><div class="soc-how">' + esc(how) + '</div><textarea class="inp soc-live" id="socs_' + k + '" rows="' + (k === "pay" ? 5 : 2) + '" style="height:' + (k === "pay" ? 120 : 56) + 'px" placeholder="' + esc(ph) + '">' + esc(sc[k] || "") + "</textarea>").join("") +
+    '<div class="soc-stat" id="socstat">' + socScriptStats(f.text, sc) + "</div>" +
+    '<div class="h" style="margin-top:12px">📝 Description (a different job from the script)</div>' + socDescBoxes(d, sc) +
     '<details class="soc-more"><summary>Quotes and source link</summary>' +
     '<label class="field">Real quotes (one per line)</label><textarea class="inp" id="sochx" rows="3" style="height:80px">' + esc(f.quotes || "") + "</textarea>" +
     '<label class="field">Source link</label><input class="inp" id="sochl" type="url" value="' + esc(f.link || "") + '" placeholder="https://"></details>' +
@@ -2840,23 +2943,24 @@ function socFormHtml() {
 }
 function socCapHtml() {
   const h = SOC[socForm.id]; if (!h) { socForm = null; return ""; }
-  const c = h.caption || {};
-  return '<div style="padding:8px"><div class="card sunk"><b>📝 Caption checklist</b><div class="dim">Fill each box. The hook is line 1.</div>' +
-    '<div class="soc-hook"><b>' + esc(h.text) + "</b></div>" +
-    socCapBoxes(c) +
-    '<button class="btn raised main" data-a="soccapsave">💾 Save caption</button><div class="row"><button class="btn raised" data-a="soccapcopy">📋 Copy caption</button><button class="btn raised" data-a="soccancel">Back</button></div></div></div>';
+  return '<div style="padding:8px"><div class="card sunk"><b>📝 Description</b><div class="dim">Search words, the one takeaway, one ask. The script does the talking.</div>' +
+    '<div class="soc-hook"><b>' + esc(h.text) + "</b></div>" + socDescBoxes(h.desc || {}, socSc(h)) +
+    '<button class="btn raised main" data-a="soccapsave">💾 Save description</button><div class="row"><button class="btn raised" data-a="soccapcopy">📋 Copy description</button><button class="btn raised" data-a="soccancel">Back</button></div></div></div>';
 }
-function socCapBoxes(c) {
-  const aw = c.aw || "", tip = aw ? AWARE2[aw] : "";
-  return '<div class="dim" style="margin:4px 0">' + esc(SOC_CAP_TIP) + "</div>" +
-    '<label class="field">Who is it for?</label><select class="inp" id="soccaw">' + SOC_AWARE.map(([k, l]) => '<option value="' + k + '"' + (k === aw ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
-    (tip ? '<div class="card sunk hk-tip">💡 ' + esc(tip) + "</div>" : "") +
-    SOC_CAP.map(([k, l, ph, how], i) => '<label class="field">' + ((c[k] || "").trim() ? "☑" : "☐") + " " + (i + 1) + ". " + esc(l) + '</label><div class="soc-how">' + esc(how) + '</div><textarea class="inp" id="socc_' + k + '" rows="2" style="height:60px" placeholder="' + esc(ph) + '">' + esc(c[k] || "") + "</textarea>").join("");
+function socDescBoxes(d, sc) {
+  return SOC_DESC.map(([k, l, ph, how], i) => '<label class="field">' + ((d[k] || "").trim() ? "☑" : "☐") + " " + (i + 1) + ". " + esc(l) + '</label><div class="soc-how">' + esc(how) + '</div><textarea class="inp soc-live" id="socd_' + k + '" rows="2" style="height:56px" placeholder="' + esc(ph) + '">' + esc(d[k] || "") + "</textarea>" +
+    (k === "take" ? '<div id="socrep">' + (socRepeats(d.take, sc) ? socRepeatMsg : "") + "</div>" : "")).join("");
 }
-function socCapVals() { const c = { aw: $("soccaw").value }; SOC_CAP.forEach(([k]) => { c[k] = $("socc_" + k).value; }); return c; }
-function socCapRead() {
-  return Object.assign({}, SOC[socForm.id], { caption: socCapVals() });
-}
+function socDescVals() { const d = {}; SOC_DESC.forEach(([k]) => { d[k] = $("socd_" + k).value; }); return d; }
+function socScVals() { const s = {}; SOC_SCRIPT.forEach(([k]) => { s[k] = $("socs_" + k).value; }); return s; }
+function socCapRead() { return Object.assign({}, SOC[socForm.id], { desc: socDescVals() }); }
+document.addEventListener("input", (e) => {           // live timing and the repeat check, without a redraw
+  if (!e.target.classList || !e.target.classList.contains("soc-live")) return;
+  const st = $("socstat"), rep = $("socrep");
+  const sc = $("socs_pay") ? socScVals() : socSc(SOC[socForm && socForm.id] || {});
+  if (st && $("socht")) st.innerHTML = socScriptStats($("socht").value, sc);
+  if (rep && $("socd_take")) rep.innerHTML = socRepeats($("socd_take").value, sc) ? socRepeatMsg : "";
+});
 
 // ── 📤 ready-to-post box and 🆘 bad week box ──
 function socCopyKeep(text, after) {
@@ -2868,9 +2972,9 @@ function socReadyDialog() {
   const cap = socCaption(h), st = socHs(h);
   dialog('<div style="font-size:17px;-webkit-user-select:text;user-select:text;margin-bottom:6px"><b>' + esc(h.text) + "</b></div>" +
     '<div class="dim">' + socPil(h.pillar)[3] + " " + esc(socPil(h.pillar)[1]) + " · " + (st === "edited" ? "edited" : "filmed, not edited yet") + "</div>" +
-    '<div class="soc-cap">' + (socCapDone(h) ? esc(cap).replace(/\n/g, "<br>") : '<span class="dim">Caption not filled in yet. Tap ✏️ Caption.</span>') + "</div>",
-    [[socRd.copied ? "📋 Copied ✓" : "📋 Copy caption", () => { socCopyKeep(cap, () => { socRd.copied = 1; socReadyDialog(); }); return false; }],
-     ["✏️ Caption", () => { socRd = null; socForm = { kind: "cap", id: h.id, back: "week" }; render.noKeep = true; render(); }],
+    '<div class="soc-cap">' + (socCapDone(h) ? esc(cap).replace(/\n/g, "<br>") : '<span class="dim">Description not filled in yet. Tap ✏️ Description.</span>') + "</div>",
+    [[socRd.copied ? "📋 Copied ✓" : "📋 Copy description", () => { socCopyKeep(cap, () => { socRd.copied = 1; socReadyDialog(); }); return false; }],
+     ["✏️ Description", () => { socRd = null; socForm = { kind: "cap", id: h.id, back: "week" }; render.noKeep = true; render(); }],
      ["✅ Posted", () => { socRd = null; socMarkPosted(h, false); }, 1], ["Close"]], st === "edited" ? "✂️" : "🎙", { title: "Ready to post" });
 }
 function socMarkPosted(h, quick) {
@@ -2917,7 +3021,7 @@ function socGo(go) {
   const [k, id] = String(go).split("|");
   if (!stack.length || stack[stack.length - 1].kind !== "posting") open_("posting");
   if (k === "ready") { socTab = "week"; }
-  else if (k === "edit") { socTab = "hooks"; socPf = "all"; socSf = "filmed"; }
+  else if (k === "edit" || k === "nojob") { socTab = "hooks"; socPf = "all"; socSf = "filmed"; }
   else if (k === "film") { socTab = "film"; }
   else if (k === "cap") { socForm = { kind: "cap", id: id, back: "week" }; }
   else if (k === "hook") { socTab = "hooks"; socPf = "all"; socSf = "posted"; socHkOpen = id; }
@@ -2930,6 +3034,21 @@ function socAct(a, arg, el) {
   if (a === "socpf") { socPf = arg; store.set("socpf", arg); render.noKeep = true; return render(); }
   if (a === "socsf") { socSf = arg; store.set("socsf", arg); render.noKeep = true; return render(); }
   if (a === "socqf") { socQf = arg; store.set("socqf", arg); render.noKeep = true; return render(); }
+  if (a === "socqs") { socQs = arg; store.set("socqs", arg); render.noKeep = true; return render(); }
+  if (a === "socqsrc") { socQsrc = arg; return render(); }
+  if (a === "socjob") { socForm.job = socForm.job === arg ? "" : arg; return render(); }
+  if (a === "soctype") { socForm.htype = socForm.htype === arg ? "" : arg; return render(); }
+  if (a === "socwin") { const h = SOC[x]; if (h) socPut(Object.assign({}, h, { win: Number(y) })); return; }
+  if (a === "soctrial") { const h = SOC[x]; if (!h) return; const tk = (h.takes || []).map((t) => Object.assign({}, t)); tk[Number(y)] = Object.assign({}, tk[Number(y)], { trial: !(tk[Number(y)] || {}).trial }); return socPut(Object.assign({}, h, { takes: tk })); }
+  if (a === "socqpil") { const q = SOC[arg]; if (!q) return; const i = SOC_PILLARS.findIndex((p) => p[0] === q.pillar); return socPut(Object.assign({}, q, { pillar: SOC_PILLARS[(i + 1) % SOC_PILLARS.length][0] })); }
+  if (a === "socqbin") { const q = SOC[arg]; if (q) ask("Bin this?", () => socPut(Object.assign({}, q, { binned: true }))); return; }
+  if (a === "socqpull") {
+    const seen = new Set(socAll("question").map((q) => q.from_reply).filter(Boolean));
+    const guess = (t) => /style|copy|own|unique|like everyone/i.test(t) ? "style" : /scared|nervous|quit|talent|good enough|confiden|old|afraid|worth/i.test(t) ? "perspective" : /pen|ink|kit|sketchbook|plan|idea|process/i.test(t) ? "process" : "skills";
+    const recs = ((LD && LD.replies) || []).filter((r) => (r.worry || "").trim() && !seen.has(r.id)).map((r) => ({ id: nId("q"), kind: "question", src: "email", text: r.worry.trim(), pillar: guess(r.worry), link: "", from_reply: r.id }));
+    if (!recs.length) return toast("No new replies to pull in.");
+    socQs = "fol"; store.set("socqs", "fol"); socPut(recs); return toast(recs.length + " email repl" + (recs.length === 1 ? "y" : "ies") + " pulled in ✓ Tap the pillar on each one if it's wrong.");
+  }
   if (a === "socgo") return socGo(arg);
   if (a === "socbad") { socBad = null; return socBadNew(); }
   if (a === "socready") { socRd = { id: arg }; return socReadyDialog(); }
@@ -2956,11 +3075,13 @@ function socAct(a, arg, el) {
   if (a === "socedit") { const h = SOC[arg]; if (h) { socForm = Object.assign({ kind: "hook" }, h); render.noKeep = true; render(); } return; }
   if (a === "soccap") { socForm = { kind: "cap", id: arg }; render.noKeep = true; return render(); }
   if (a === "soccancel") { socForm = null; render.noKeep = true; return render(); }
-  if (a === "soccapsave") { const n = socCapRead(); socForm = null; socPut(n); return toast(socCapDone(n) ? "Caption saved ✓ All 5 boxes filled." : "Caption saved ✓"); }
-  if (a === "soccapcopy") { const n = socCapRead(); socPut(n); copyText(socCaption(n), "Caption"); return; }
+  if (a === "soccapsave") { const n = socCapRead(); socForm = null; socPut(n); return toast(socCapDone(n) ? "Description saved ✓ All 3 boxes filled." : "Description saved ✓"); }
+  if (a === "soccapcopy") { const n = socCapRead(); socPut(n); copyText(socCaption(n), "Description"); return; }
   if (a === "sochooksave") {
     const text = $("socht").value.trim(); if (!text) return toast("⚠ Write the hook first.");
-    const f = socForm, h = Object.assign(f.id ? SOC[f.id] || {} : { id: nId("hook"), kind: "hook", status: "unused" }, { pillar: $("sochp").value, text: text, question: $("sochq").value.trim(), script: $("sochs").value, caption: socCapVals(), quotes: $("sochx").value.trim(), link: $("sochl").value.trim() });
+    const f = socForm, h = Object.assign(f.id ? SOC[f.id] || {} : { id: nId("hook"), kind: "hook", status: "unused" }, { pillar: $("sochp").value, text: text, question: $("sochq").value.trim(), sc: socScVals(), script: "", desc: socDescVals(), job: f.job || "", htype: f.htype || "", quotes: $("sochx").value.trim(), link: $("sochl").value.trim() });
+    const old = (f.id && SOC[f.id] && SOC[f.id].takes) || [];
+    h.takes = [text, $("socht2").value.trim(), $("socht3").value.trim()].map((t, i) => Object.assign({}, old[i], { text: t }));
     if (!f.id) { if (f.qid) h.qid = f.qid; if (f.inspo) h.inspo = f.inspo; }
     socForm = null; if (f.qid || f.inspo || f.fromhk) { socTab = "hooks"; store.set("soctab", socTab); }
     socPut(h); return toast(f.id ? "Hook saved ✓" : "Added to the hook bank ✓");
@@ -2969,7 +3090,7 @@ function socAct(a, arg, el) {
   if (a === "soccopy") { const h = SOC[arg]; if (h) copyText(h.text, "Hook"); return; }
   if (a === "socqadd") {
     const t = $("socqt").value.trim(); if (!t) return toast("⚠ Write the question first.");
-    return socPut({ id: nId("q"), kind: "question", text: t, pillar: $("socqp").value, link: $("socql").value.trim() });
+    return socPut({ id: nId("q"), kind: "question", src: socQsrc, text: t, pillar: $("socqp").value, link: $("socql").value.trim() });
   }
   if (a === "socqhook") {
     const q = SOC_QS.find((z) => z[0] === arg) || (SOC[arg] ? [arg, SOC[arg].pillar, SOC[arg].text, SOC[arg].link || ""] : null); if (!q) return;
@@ -2983,7 +3104,7 @@ function socAct(a, arg, el) {
   if (a === "socinbin") { const it = SOC[arg]; if (it) ask("Bin this inspo?", () => socPut(Object.assign({}, it, { binned: true }))); return; }
   if (a === "socfilm") { const h = SOC[arg]; if (!h) return; const cur = socFilmSel[arg] != null ? socFilmSel[arg] : socHs(h) === "filmed"; socFilmSel[arg] = !cur; render.noKeep = true; return render(); }
   if (a === "socpick6") return socPick6();
-  if (a === "socscript") { const h = SOC[arg]; if (h) dialog('<div style="font-size:17px;margin-bottom:8px"><b>' + esc(h.text) + '</b></div><div style="white-space:pre-wrap;font-size:16px;-webkit-user-select:text;user-select:text">' + esc(h.script || "") + "</div>", [["Close"]], "🎙", { title: "Script" }); return; }
+  if (a === "socscript") { const h = SOC[arg]; if (!h) return; const sc = socSc(h); dialog('<div class="soc-scr"><div><b>🪝 ' + esc(h.text) + "</b></div>" + SOC_SCRIPT.map(([k, l]) => (sc[k] || "").trim() ? "<div><span class=\"dim\">" + esc(l) + "</span><br>" + esc(sc[k]) + "</div>" : "").join("") + '<div class="dim">' + socScriptStats(h.text, sc) + "</div></div>", [["Close"]], "🎙", { title: "Script" }); return; }
   if (a === "socfilmdone") {
     const t = todayISO(), recs = [];
     Object.keys(socFilmSel).forEach((id) => {
@@ -3004,8 +3125,15 @@ function socAct(a, arg, el) {
   }
 }
 document.addEventListener("change", (e) => {
-  if (e.target.id === "soccaw" && socForm && socForm.kind === "cap") { socPut(socCapRead()); return; }
-  if (e.target.id === "soccaw" && socForm && socForm.kind === "hook") { socForm.caption = socCapVals(); return render(); }
+  const tk = e.target.dataset && e.target.dataset.tk;
+  if (tk) {
+    const [tid, ti, tf] = tk.split("|"), th = SOC[tid]; if (!th) return;
+    const v = e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0), takes = (th.takes || []).map((t) => Object.assign({}, t));
+    takes[Number(ti)] = Object.assign({}, takes[Number(ti)], { [tf]: v });
+    return socPut(Object.assign({}, th, { takes: takes }));
+  }
+  const lp = e.target.dataset && e.target.dataset.lp;
+  if (lp) { const lh = SOC[lp]; if (lh) socPut(Object.assign({}, lh, { lpost: e.target.value })); return; }
   const k = e.target.dataset && e.target.dataset.hn; if (!k) return;
   const [id, f] = k.split("|"), h = SOC[id]; if (!h) return;
   const v = e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value) || 0));
