@@ -2625,10 +2625,10 @@ function socSlots(mon) {
 const socIsPosted = (r) => !!(r && (r.posted || (r.stages && r.stages.posted)));
 const socPosted = (mon) => socSlots(mon).filter((s) => socIsPosted(s.rec)).length;
 const socSlotOn = (d) => socSlots(socMon(d)).find((s) => s.date === d);
-function socPut(recs) {                       // change records here, show it now, send when the server's there
+function socPut(recs, keep) {                 // keep = redraw without wiping what's being typed, "quiet" = no redraw                       // change records here, show it now, send when the server's there
   const now = Date.now();
   [].concat(recs).forEach((r, i) => { r.updated = now + i; if (!r.created) r.created = now; SOC[r.id] = r; SOCQ = SOCQ.filter((q) => q.id !== r.id); SOCQ.push(r); });
-  socSave(); render.noKeep = true; render(); socSync();
+  socSave(); if (keep !== "quiet") { render.noKeep = !keep; render(); } socSync();
 }
 function socTake(x) {
   const mine = SOC[x.id], waiting = SOCQ.some((q) => q.id === x.id && q.updated > (x.updated || 0));
@@ -2652,7 +2652,8 @@ async function socSync() {
     socBusy = false;
     if (socAgain && !socErr) setTimeout(socSync, 200);
     const top = stack[stack.length - 1];
-    if ((!top || ["posting", "today", "todo"].includes(top.kind)) && !$("dlg").firstElementChild) render();
+    const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && $("main").contains(document.activeElement);
+    if ((!top || ["posting", "today", "todo"].includes(top.kind)) && !$("dlg").firstElementChild && !typing) render();
   }
 }
 setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "posting") socSync(); }, 60000);
@@ -2800,13 +2801,13 @@ function socResults(x) {                        // a posted video: its job numbe
     '<div class="dim">' + (job ? "Judged on: <b>" + esc((SOC_JOBS.find((j) => j[0] === job) || [0, job])[1]) + "</b>" : "⚠ No job picked. Edit the hook to pick one.") + "</div>" +
     '<div class="soc-nums">' + order.map(([k, l]) => {
       const fromLeads = k === "signups" && lp;
-      return '<label class="' + (k === job ? "soc-job" : "") + '">' + l + (fromLeads ? " (from Leads)" : "") + '<input class="inp" type="number" inputmode="numeric" min="0" data-hn="' + x.id + "|" + k + '" value="' + esc(fromLeads ? socSignups(x) : nums[k] == null ? "" : nums[k]) + '"' + (fromLeads ? " disabled" : "") + "></label>";
+      return '<label class="' + (k === job ? "soc-job" : "") + '">' + l + (fromLeads ? " (from Leads)" : "") + '<input class="inp" type="number" inputmode="numeric" min="0" id="hn_' + x.id + "_" + k + '" data-hn="' + x.id + "|" + k + '" value="' + esc(fromLeads ? socSignups(x) : nums[k] == null ? "" : nums[k]) + '"' + (fromLeads ? " disabled" : "") + "></label>";
     }).join("") + "</div>" +
     (takes.length ? '<div class="soc-takes"><div class="dim">Hook takes (from Instagram Insights)</div>' + takes.map(([t, i]) =>
       '<div class="soc-take' + (w === i ? " win" : "") + '"><div><b>' + (w === i ? "🏆 " : "") + "Take " + (i + 1) + ":</b> " + esc(t.text) + "</div>" +
       '<div class="soc-tk"><span class="nt-btn' + (t.trial ? " on" : "") + '" data-a="soctrial" data-arg="' + x.id + "|" + i + '">Trial Reel' + (t.trial ? " ✓" : "") + "</span>" +
-      '<label>3-sec hold %<input class="inp" type="number" inputmode="decimal" min="0" max="100" data-tk="' + x.id + "|" + i + '|hold" value="' + esc(t.hold == null ? "" : t.hold) + '"></label>' +
-      '<label>Avg watch (s)<input class="inp" type="number" inputmode="decimal" min="0" data-tk="' + x.id + "|" + i + '|watch" value="' + esc(t.watch == null ? "" : t.watch) + '"></label>' +
+      '<label>3-sec hold %<input class="inp" type="number" inputmode="decimal" min="0" max="100" id="tk_' + x.id + "_" + i + '_hold" data-tk="' + x.id + "|" + i + '|hold" value="' + esc(t.hold == null ? "" : t.hold) + '"></label>' +
+      '<label>Avg watch (s)<input class="inp" type="number" inputmode="decimal" min="0" id="tk_' + x.id + "_" + i + '_watch" data-tk="' + x.id + "|" + i + '|watch" value="' + esc(t.watch == null ? "" : t.watch) + '"></label>' +
       (w === i ? "" : '<span class="nt-btn" data-a="socwin" data-arg="' + x.id + "|" + i + '">Make winner</span>') + "</div></div>").join("") + "</div>" : "") +
     (LD && (LD.posts || []).length ? '<label class="field">📈 Guide link post (from Leads)</label><select class="inp" data-lp="' + x.id + '"><option value="">Not linked</option>' +
       LD.posts.slice().sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1).slice(0, 30).map((p) => '<option value="' + esc(p.id) + '"' + (p.id === x.lpost ? " selected" : "") + ">" + esc(socShort(p.what || p.campaign, 40)) + " · " + esc(shortDay((p.date || "").slice(0, 10) || todayISO())) + "</option>").join("") + "</select>" +
@@ -2929,7 +2930,7 @@ function socFormHtml() {
     '<label class="field">🎯 What\'s this video for? (pick before filming)</label><div class="soc-acts">' + SOC_JOBS.map(([k, l]) => chip("socjob", k, l, f.job === k)).join("") + "</div>" +
     '<label class="field">❓ The question someone asked</label><textarea class="inp" id="sochq" rows="2" style="height:56px" placeholder="Their words, copied exactly">' + esc(f.question || "") + "</textarea>" +
     '<label class="field">🪝 Hook, take 1 (the first 5 seconds)</label><textarea class="inp soc-live" id="socht" rows="2" style="height:56px" placeholder="Say the thing they\'re stuck on, in their words">' + esc(f.text || "") + "</textarea>" +
-    '<details class="soc-more"' + ((takes[1] || {}).text || (takes[2] || {}).text ? " open" : "") + '><summary>Takes 2 and 3 (for Trial Reels)</summary>' +
+    '<details class="soc-more" data-fold="takes"' + (f.takesOpen || (takes[1] || {}).text || (takes[2] || {}).text ? " open" : "") + '><summary>Takes 2 and 3 (for Trial Reels)</summary>' +
     [1, 2].map((i) => '<label class="field">🪝 Take ' + (i + 1) + '</label><textarea class="inp" id="socht' + (i + 1) + '" rows="2" style="height:52px" placeholder="Same point, a different opening">' + esc((takes[i] || {}).text || "") + "</textarea>").join("") + "</details>" +
     '<label class="field">🏷 Hook type</label><div class="soc-acts">' + SOC_TYPES.map((t) => chip("soctype", t, t, f.htype === t)).join("") + "</div>" +
     '<div class="h" style="margin-top:12px">🎙 Script (said out loud)</div><div class="soc-how">Hook → open question → one payoff → closing line that loops back. About 150 words a minute.</div>' +
@@ -3130,17 +3131,18 @@ document.addEventListener("change", (e) => {
     const [tid, ti, tf] = tk.split("|"), th = SOC[tid]; if (!th) return;
     const v = e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0), takes = (th.takes || []).map((t) => Object.assign({}, t));
     takes[Number(ti)] = Object.assign({}, takes[Number(ti)], { [tf]: v });
-    return socPut(Object.assign({}, th, { takes: takes }));
+    return socPut(Object.assign({}, th, { takes: takes }), "quiet");
   }
   const lp = e.target.dataset && e.target.dataset.lp;
   if (lp) { const lh = SOC[lp]; if (lh) socPut(Object.assign({}, lh, { lpost: e.target.value })); return; }
   const k = e.target.dataset && e.target.dataset.hn; if (!k) return;
   const [id, f] = k.split("|"), h = SOC[id]; if (!h) return;
   const v = e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value) || 0));
-  socPut(Object.assign({}, h, { nums: Object.assign({}, h.nums, { [f]: v }) }));
+  socPut(Object.assign({}, h, { nums: Object.assign({}, h.nums, { [f]: v }) }), "quiet");
 });
 document.addEventListener("toggle", (e) => {
   const f = e.target.dataset && e.target.dataset.fold; if (!f) return;
+  if (f === "takes") { if (socForm) socForm.takesOpen = e.target.open; return; }
   if (e.target.open) socFilmOpen.add(f); else socFilmOpen.delete(f);
   store.set("socfo", Array.from(socFilmOpen));
 }, true);
