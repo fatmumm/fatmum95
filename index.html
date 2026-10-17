@@ -445,6 +445,12 @@ const rows = () => (D && D.rows) || [];
 const live = () => rows().filter((r) => !r.cancelled);
 const byId = (id) => rows().find((r) => r.id === id);
 function invited(r) { const inv = O() && O().dir && O().dir.invites; return !!(inv && inv[(r.email || "").toLowerCase() + "|" + r.iso]); }
+function calMoved(r) {                         // their calendar invite is on another day (moved by hand in Calendar): the app's date is wrong
+  const inv = O() && O().dir && O().dir.invites, e = (r.email || "").toLowerCase();
+  if (!inv || !e || !r.iso || r.cancelled || inv[e + "|" + r.iso]) return "";
+  const days = Object.keys(inv).filter((k) => k.indexOf(e + "|") === 0).map((k) => k.slice(e.length + 1)).filter((d) => d >= todayISO()).sort();
+  return days[0] || "";
+}
 function holdEnd(r) {
   if (r.holdIso) return new Date(r.holdIso + "T23:59");
   if (r.invIso) return new Date(new Date(r.invIso + "T12:00").getTime() + 48 * 3600e3);
@@ -3321,11 +3327,13 @@ function adminItems() {
     if (s === "new") { const d = r.submitted ? daysBetween(r.submitted.slice(0, 10), t) : 0; add(60 + d * 5, "📨", "Reply to " + r.first + ": send the deposit invoice" + (d ? " (waiting " + d + "d)" : ""), r, "inv", "Invoice"); }
     if (s === "expired") add(90, "⌛", r.first + "'s hold ran out: chase or release the slot", r, null, "Open");
     if (s === "deposit") { const he = holdEnd(r); if (he && he - new Date() < 24 * 3600e3) add(80, "⏳", r.first + "'s hold ends " + (isoOf(he) === t ? "tonight" : "tomorrow") + ": chase the deposit?", r, "chase_deposit", "Chase"); }
-    if (s === "book") add(70, "📅", "Send " + r.first + " the calendar invite (" + shortDay(r.iso) + ")", r, "book", "Invite");
+    if (s === "book" && !calMoved(r)) add(70, "📅", "Send " + r.first + " the calendar invite (" + shortDay(r.iso) + ")", r, "book", "Invite");
     if (s === "remind") add(75, "🔔", "Remind " + r.first + " about tomorrow", r, "remind", "Remind");
     if (s === "due" && r.iso < t && owed(r) > 0) add(85, "💸", r.first + " still owes " + money(owed(r)) + " (" + shortDay(r.iso) + ")", r, null, "Open");
     if (r.paid && r.email && !r.rec && r.iso && r.iso >= t) add(50, "🧾", "Send " + r.first + "'s receipt", r, "receipt", "Receipt");
     if (s === "aftercare") add(55, "🧴", "Aftercare for " + r.first, r, "aftercare", "Send");
+    const moved = calMoved(r);
+    if (moved) add(95, "📅", r.first + "'s calendar invite is on " + shortDay(moved) + " but the app says " + shortDay(r.iso) + ". Change the date here to match", r, null, "Open");
   });
   waitingThreads(replyDays()).forEach((x) => {
     const d = Math.floor((Date.now() - x.last) / 864e5);
