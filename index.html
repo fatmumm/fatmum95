@@ -79,10 +79,11 @@ html{-webkit-text-size-adjust:100%}
 .soc-slot{margin-top:8px}.soc-slot.today{outline:2px solid #000080;outline-offset:-2px}.soc-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.soc-hook{margin:6px 0 2px;white-space:normal;overflow-wrap:anywhere}
 .soc-acts,.soc-st{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.soc-st{margin-top:8px}.soc-st .nt-btn{height:34px}.soc-chips{display:flex;gap:6px;overflow-x:auto;margin:6px 0;-webkit-overflow-scrolling:touch}
 .soc-streak .hb-grid{max-width:none}.soc-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0}.soc-sl{display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid #c0c0c0;font-size:13px;min-width:0;overflow-wrap:anywhere}.soc-sl.on{background:#eaf6ee;border-color:#2e8b57}.soc-sl.today{outline:2px solid #000080;outline-offset:-2px}.soc-sl .nt-btn{height:26px;padding:0 4px;font-size:12px}
-.soc-more{margin:8px 0}.soc-more summary,.soc-fold summary,.soc-ideas summary{cursor:pointer;padding:4px 0}.soc-fold{margin-top:8px}.soc-fh{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid #eee;cursor:pointer}.soc-fh span:last-child{flex:1;min-width:0;overflow-wrap:anywhere}
+.soc-more{margin:8px 0}.soc-more summary,.soc-fold summary,.soc-ideas summary{cursor:pointer;padding:4px 0}.soc-fold{margin-top:8px}.soc-fh{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid #eee;cursor:pointer}.soc-fh span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
 .soc-idea{padding:6px 0;border-top:1px solid #eee;cursor:pointer}.soc-stars{font-size:24px;letter-spacing:4px;color:#b8860b;cursor:pointer;user-select:none;-webkit-user-select:none}.soc-rate{margin-top:6px}.soc-hi{background:#fffbe0}
 .soc-cap{margin-top:8px;padding:8px;background:#f6f6f6;border:1px solid #ddd;max-height:40vh;overflow:auto;-webkit-user-select:text;user-select:text}
 .hk-wrap .li .link{display:inline;padding:0}
+.soc-how{font-size:12px;color:#555;margin:0 0 3px}
 .soc-nums{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.soc-nums label{font-size:12px;color:#333}.soc-nums .inp{padding:5px}
 .hk textarea,.hk-wrap textarea{font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.4}
 .hk-tip{font-size:13px;margin-top:6px;padding:8px}
@@ -2581,8 +2582,13 @@ const SOC_QS = [   // real questions people ask online: [id, pillar, question, l
   ["q38", "perspective", "Is paying for a drawing course worth it?", "https://www.proko.com/community/topics/is-buying-drawing-basics-worth-it"],
   ["q39", "perspective", "I need a learning roadmap. Where do I go from here?", "https://www.proko.com/community/topics/i-need-a-learning-roadmap"],
   ["q40", "perspective", "How do I quit comparing and just make things?", "https://wherecreativityworks.com/quit-comparing/"]];
-const SOC_CAP = [["call", "Call out the artist", "If you've ever stared at a blank page…"], ["lesson", "The one thing to try", "Try this tonight: one line, no lifting the pen"],
-  ["proof", "Show it", "Here's my messy page and what changed"], ["perm", "The permission line", "It doesn't have to be good. It has to be yours."], ["ask", "One ask", "Save this for later and try it tonight"]];
+const SOC_CAP = [["call", "Call out the artist", "If you've ever stared at a blank page and thought you're not creative…", "Name who it's for and how they feel. Use their words from the question."],
+  ["lesson", "The one thing to try", "Try this tonight: draw one line without lifting the pen.", "One clear thing to try, not three. Short sentences."],
+  ["proof", "Show it", "This is my messy page. Look how the wobble makes it.", "Point at the video: what you did and what changed. Real beats perfect."],
+  ["perm", "The permission line", "It doesn't have to be good. It has to be yours.", "Take the pressure off. Wobbly is fine."],
+  ["ask", "One ask", "Save this and try it tonight.", "One ask only: save it, try it tonight, or send it to a friend who draws. No fake urgency."]];
+const SOC_CAP_TIP = "Write like you talk. The first line is the hook. Every line has to earn the next one.";
+const SOC_SCRIPT_TIP = "Hook (5 seconds) → one point that answers the question (20 to 30 seconds) → closing line.";
 const SOC_AWARE = [["", "Not sure yet"], ["most", "Already follow me and want my stuff"], ["product", "Know me, not sold yet"], ["solution", "Want to draw better, not sure how"],
   ["problem", "Frustrated, don't know why"], ["unaware", "Just scrolling"]];
 const SOC_SPARE = ["You don't need talent. You need more drawings.", "Stop trying to draw well. Try drawing a lot.", "Your style is already in your messy drawings.",
@@ -2812,7 +2818,7 @@ function socFilmTab() {
   SOC_PILLARS.forEach((p) => {
     const list = socHooks(p[0]).filter((x) => ["unused", "filmed"].includes(socHs(x))), nf = list.filter(sel).length;
     h += '<details class="card sunk soc-fold" data-fold="' + p[0] + '"' + (socFilmOpen.has(p[0]) ? " open" : "") + "><summary><b>" + p[3] + " " + esc(p[1]) + '</b> <span class="dim">' + nf + " ticked · " + list.length + " hook" + (list.length === 1 ? "" : "s") + "</span></summary>" +
-      (list.length ? list.map((x) => '<div class="soc-fh' + (sel(x) ? " on" : "") + '" data-a="socfilm" data-arg="' + x.id + '"><span class="hw-tick' + (sel(x) ? " on" : "") + '">' + (sel(x) ? "✓" : "") + "</span><span>" + esc(x.text) + "</span></div>").join("")
+      (list.length ? list.map((x) => '<div class="soc-fh' + (sel(x) ? " on" : "") + '" data-a="socfilm" data-arg="' + x.id + '"><span class="hw-tick' + (sel(x) ? " on" : "") + '">' + (sel(x) ? "✓" : "") + "</span><span>" + esc(x.text) + "</span>" + ((x.script || "").trim() ? '<span class="nt-btn" data-a="socscript" data-arg="' + x.id + '">📜 Script</span>' : "") + "</div>").join("")
         : '<div class="dim">No hooks waiting here. <a class="link" data-a="socaddhook" data-arg="' + p[0] + '">Add one</a></div>') + "</details>";
   });
   const ed = socHooks().filter((x) => socHs(x) === "edited").length;
@@ -2823,26 +2829,33 @@ function socFormHtml() {
   const f = socForm;
   return '<div style="padding:8px"><div class="card sunk"><b>' + (f.id ? "Edit hook" : "New hook") + "</b>" +
     '<label class="field">Pillar</label><select class="inp" id="sochp">' + SOC_PILLARS.map((p) => '<option value="' + p[0] + '"' + (p[0] === f.pillar ? " selected" : "") + ">" + p[3] + " " + esc(p[1]) + "</option>").join("") + "</select>" +
-    '<label class="field">Hook (the first 5 seconds)</label><textarea class="inp" id="socht" rows="2" style="height:64px">' + esc(f.text || "") + "</textarea>" +
-    '<label class="field">The question someone asked</label><textarea class="inp" id="sochq" rows="2" style="height:56px">' + esc(f.question || "") + "</textarea>" +
+    '<label class="field">🪝 Hook (the first 5 seconds)</label><textarea class="inp" id="socht" rows="2" style="height:64px" placeholder="Say the thing they\'re stuck on, in their words">' + esc(f.text || "") + "</textarea>" +
+    '<label class="field">❓ The question someone asked</label><textarea class="inp" id="sochq" rows="2" style="height:56px" placeholder="Copy it word for word if you can">' + esc(f.question || "") + "</textarea>" +
+    '<label class="field">🎙 Script (your answer)</label><div class="soc-how">' + esc(SOC_SCRIPT_TIP) + '</div><textarea class="inp" id="sochs" rows="6" style="height:150px" placeholder="Hook: …\nThe point: …\nClosing line: …">' + esc(f.script || "") + "</textarea>" +
+    '<div class="h" style="margin-top:12px">📝 Description</div>' + socCapBoxes(f.caption || {}) +
+    '<details class="soc-more"><summary>Quotes and source link</summary>' +
     '<label class="field">Real quotes (one per line)</label><textarea class="inp" id="sochx" rows="3" style="height:80px">' + esc(f.quotes || "") + "</textarea>" +
-    '<label class="field">Source link</label><input class="inp" id="sochl" type="url" value="' + esc(f.link || "") + '" placeholder="https://">' +
+    '<label class="field">Source link</label><input class="inp" id="sochl" type="url" value="' + esc(f.link || "") + '" placeholder="https://"></details>' +
     '<button class="btn raised main" data-a="sochooksave">💾 Save hook</button><div class="row">' + (f.id ? '<button class="btn raised" data-a="sochookbin">🗑 Bin it</button>' : "") + '<button class="btn raised" data-a="soccancel">Cancel</button></div></div></div>';
 }
 function socCapHtml() {
   const h = SOC[socForm.id]; if (!h) { socForm = null; return ""; }
-  const c = h.caption || {}, aw = c.aw || "", tip = aw ? AWARE2[aw] : "";
+  const c = h.caption || {};
   return '<div style="padding:8px"><div class="card sunk"><b>📝 Caption checklist</b><div class="dim">Fill each box. The hook is line 1.</div>' +
     '<div class="soc-hook"><b>' + esc(h.text) + "</b></div>" +
-    '<label class="field">Who is it for?</label><select class="inp" id="soccaw">' + SOC_AWARE.map(([k, l]) => '<option value="' + k + '"' + (k === aw ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
-    (tip ? '<div class="card sunk hk-tip">💡 ' + esc(tip) + "</div>" : "") +
-    SOC_CAP.map(([k, l, ph], i) => '<label class="field">' + ((c[k] || "").trim() ? "☑" : "☐") + " " + (i + 1) + ". " + esc(l) + '</label><textarea class="inp" id="socc_' + k + '" rows="2" style="height:60px" placeholder="' + esc(ph) + '">' + esc(c[k] || "") + "</textarea>").join("") +
+    socCapBoxes(c) +
     '<button class="btn raised main" data-a="soccapsave">💾 Save caption</button><div class="row"><button class="btn raised" data-a="soccapcopy">📋 Copy caption</button><button class="btn raised" data-a="soccancel">Back</button></div></div></div>';
 }
+function socCapBoxes(c) {
+  const aw = c.aw || "", tip = aw ? AWARE2[aw] : "";
+  return '<div class="dim" style="margin:4px 0">' + esc(SOC_CAP_TIP) + "</div>" +
+    '<label class="field">Who is it for?</label><select class="inp" id="soccaw">' + SOC_AWARE.map(([k, l]) => '<option value="' + k + '"' + (k === aw ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
+    (tip ? '<div class="card sunk hk-tip">💡 ' + esc(tip) + "</div>" : "") +
+    SOC_CAP.map(([k, l, ph, how], i) => '<label class="field">' + ((c[k] || "").trim() ? "☑" : "☐") + " " + (i + 1) + ". " + esc(l) + '</label><div class="soc-how">' + esc(how) + '</div><textarea class="inp" id="socc_' + k + '" rows="2" style="height:60px" placeholder="' + esc(ph) + '">' + esc(c[k] || "") + "</textarea>").join("");
+}
+function socCapVals() { const c = { aw: $("soccaw").value }; SOC_CAP.forEach(([k]) => { c[k] = $("socc_" + k).value; }); return c; }
 function socCapRead() {
-  const h = SOC[socForm.id], c = { aw: $("soccaw").value };
-  SOC_CAP.forEach(([k]) => { c[k] = $("socc_" + k).value; });
-  return Object.assign({}, h, { caption: c });
+  return Object.assign({}, SOC[socForm.id], { caption: socCapVals() });
 }
 
 // ── 📤 ready-to-post box and 🆘 bad week box ──
@@ -2947,7 +2960,7 @@ function socAct(a, arg, el) {
   if (a === "soccapcopy") { const n = socCapRead(); socPut(n); copyText(socCaption(n), "Caption"); return; }
   if (a === "sochooksave") {
     const text = $("socht").value.trim(); if (!text) return toast("⚠ Write the hook first.");
-    const f = socForm, h = Object.assign(f.id ? SOC[f.id] || {} : { id: nId("hook"), kind: "hook", status: "unused" }, { pillar: $("sochp").value, text: text, question: $("sochq").value.trim(), quotes: $("sochx").value.trim(), link: $("sochl").value.trim() });
+    const f = socForm, h = Object.assign(f.id ? SOC[f.id] || {} : { id: nId("hook"), kind: "hook", status: "unused" }, { pillar: $("sochp").value, text: text, question: $("sochq").value.trim(), script: $("sochs").value, caption: socCapVals(), quotes: $("sochx").value.trim(), link: $("sochl").value.trim() });
     if (!f.id) { if (f.qid) h.qid = f.qid; if (f.inspo) h.inspo = f.inspo; }
     socForm = null; if (f.qid || f.inspo || f.fromhk) { socTab = "hooks"; store.set("soctab", socTab); }
     socPut(h); return toast(f.id ? "Hook saved ✓" : "Added to the hook bank ✓");
@@ -2970,6 +2983,7 @@ function socAct(a, arg, el) {
   if (a === "socinbin") { const it = SOC[arg]; if (it) ask("Bin this inspo?", () => socPut(Object.assign({}, it, { binned: true }))); return; }
   if (a === "socfilm") { const h = SOC[arg]; if (!h) return; const cur = socFilmSel[arg] != null ? socFilmSel[arg] : socHs(h) === "filmed"; socFilmSel[arg] = !cur; render.noKeep = true; return render(); }
   if (a === "socpick6") return socPick6();
+  if (a === "socscript") { const h = SOC[arg]; if (h) dialog('<div style="font-size:17px;margin-bottom:8px"><b>' + esc(h.text) + '</b></div><div style="white-space:pre-wrap;font-size:16px;-webkit-user-select:text;user-select:text">' + esc(h.script || "") + "</div>", [["Close"]], "🎙", { title: "Script" }); return; }
   if (a === "socfilmdone") {
     const t = todayISO(), recs = [];
     Object.keys(socFilmSel).forEach((id) => {
@@ -2991,6 +3005,7 @@ function socAct(a, arg, el) {
 }
 document.addEventListener("change", (e) => {
   if (e.target.id === "soccaw" && socForm && socForm.kind === "cap") { socPut(socCapRead()); return; }
+  if (e.target.id === "soccaw" && socForm && socForm.kind === "hook") { socForm.caption = socCapVals(); return render(); }
   const k = e.target.dataset && e.target.dataset.hn; if (!k) return;
   const [id, f] = k.split("|"), h = SOC[id]; if (!h) return;
   const v = e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value) || 0));
