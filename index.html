@@ -2767,9 +2767,8 @@ function socNext() {
   const nojob = socHooks().filter((h) => ["filmed", "edited"].includes(socHs(h)) && !h.job);
   if (nojob.length) out.push({ icon: "🎯", text: "Pick the job for " + nojob.length + " filmed video" + (nojob.length === 1 ? "" : "s"), go: "nojob", today: true });
   const posted = socHooks().filter((h) => socHs(h) === "posted" && h.posted_on);
-  posted.filter((h) => !h.stars && h.posted_on >= addDays(t, -7)).slice(0, 2).forEach((h) => out.push({ icon: "⭐", text: "Rate \"" + socShort(h.text) + "\"", go: "hook|" + h.id, today: true }));
-  posted.filter((h) => h.posted_on <= addDays(t, -2) && h.posted_on >= addDays(t, -14) && !Object.values(h.nums || {}).some((v) => v != null)).slice(0, 2)
-    .forEach((h) => out.push({ icon: "🔢", text: "Add numbers for \"" + socShort(h.text) + "\"", go: "hook|" + h.id, today: true }));
+  posted.filter((h) => h.posted_on <= addDays(t, -7) && h.posted_on >= addDays(t, -30) && (!h.stars || !Object.values(h.nums || {}).some((v) => v != null)))   // a week after posting: how did it do?
+    .slice(0, 3).forEach((h) => out.push({ icon: "⭐", text: "How did \"" + socShort(h.text) + "\" do? Rate it and add its numbers", go: "hook|" + h.id, today: true }));
   return out;
 }
 const socTodo = () => socNext().filter((x) => x.today);
@@ -2777,7 +2776,7 @@ const socTodayLine = () => { const n = socPosted(socMon(todayISO())), c = socCfg
 function socBadge() { return socTodo().length; }
 
 function winPosting() {
-  if (socForm) return socForm.kind === "cap" ? socCapHtml() : socFormHtml();
+  if (socForm) return socForm.kind === "cap" ? socCapHtml() : socForm.kind === "just" ? socJustHtml() : socFormHtml();
   const free = socHooks().filter((h) => socHs(h) === "unused").length;
   const tabs = [["week", "📅 Week"], ["hooks", "🪝 Hooks · " + free], ["qs", "❓ Questions"], ["inspo", "💡 Inspo"], ["film", "🎙 Filming"]]
     .map(([k, l]) => '<span class="nt-btn rf-chip' + (socTab === k ? " on" : "") + '" data-a="soctab" data-arg="' + k + '">' + l + "</span>").join("");
@@ -2796,7 +2795,8 @@ function socReadyList() {
 }
 function socWeekTab() {
   const t = todayISO(), mon = socMon(t), c = socCfg(), sl = socSlots(mon), n = socPosted(mon), st = socStreaks(), nx = socNext(), postDay = socDue(t) === "post";
-  let h = '<div class="card sunk soc-streak"><div class="soc-head"><b>🔥 ' + st.cur + " day" + (st.cur === 1 ? "" : "s") + ' in a row</b><span class="dim">🏆 best ' + st.best + " · " + st.weeks + " good week" + (st.weeks === 1 ? "" : "s") + " in a row</span></div>" +
+  let h = '<button class="btn raised main" data-a="socjustposted">📸 I just posted</button>' +
+    '<div class="card sunk soc-streak"><div class="soc-head"><b>🔥 ' + st.cur + " day" + (st.cur === 1 ? "" : "s") + ' in a row</b><span class="dim">🏆 best ' + st.best + " · " + st.weeks + " good week" + (st.weeks === 1 ? "" : "s") + " in a row</span></div>" +
     socCal() + '<div class="dim" style="margin-top:4px">✓ posted (Tue, Thu, Sat) · ✂️ edited (Wed) · white = missed · grey = day off</div></div>';
   h += '<div class="card sunk soc-count"><div class="soc-head"><b>This week: ' + n + " posted</b><span class=\"dim\">2 is the minimum · 3 is the target</span></div><div class=\"soc-slots\">" + sl.map((s) => {
     const p = socIsPosted(s.rec), hk = s.rec.hook && SOC[s.rec.hook];
@@ -2842,6 +2842,7 @@ function socHookRow(x) {
     (ins ? '<div class="ld-worry">💡 From inspo: ' + esc(socShort(ins.text || ins.link, 50)) + "</div>" : "") +
     (x.quotes ? '<details class="ld-up"><summary>Quotes</summary><div class="ld-worry">' + esc(x.quotes).replace(/\n/g, "<br>") + "</div></details>" : "") +
     (x.link ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(x.link) + '" target="_blank" rel="noopener">Source ↗</a></div>' : "") +
+    (x.post_url ? '<div class="ld-worry" style="text-align:left"><a class="link" href="' + esc(x.post_url) + '" target="_blank" rel="noopener">📸 Open the post ↗</a></div>' : "") +
     '<div class="soc-acts">' + SOC_HSTAT.map(([k, l]) => '<span class="nt-btn' + (st === k ? " on" : "") + '" data-a="socstat" data-arg="' + x.id + "|" + k + '">' + l + "</span>").join("") + "</div>" +
     '<div class="soc-acts"><span class="nt-btn" data-a="soccap" data-arg="' + x.id + '">📝 Description' + (socCapDone(x) ? " ✓" : "") + '</span><span class="nt-btn" data-a="socedit" data-arg="' + x.id + '">✏️ Edit</span><span class="nt-btn" data-a="soccopy" data-arg="' + x.id + '">📋 Hook</span></div>' +
     (st === "posted" ? socResults(x) : "") + "</span></div>";
@@ -3005,7 +3006,15 @@ function socMarkPosted(h, quick) {
   if (h) recs.push(Object.assign({}, h, { status: "posted", posted_on: t, used_in: slot ? slot.id : h.used_in }));
   if (slot) recs.push(Object.assign({}, slot.rec, { posted: now, quick: !!quick, hook: h ? h.id : slot.rec.hook }));
   if (recs.length) socPut(recs);
-  setTimeout(() => toast(slot ? "Posted ✓ " + socTodayLine() + ". Rate it later in 🪝 Hooks." : "Posted ✓ All 3 slots were already done this week."), 0);
+  setTimeout(() => toast((slot ? "Posted ✓ " + socTodayLine() + "." : "Posted ✓ All 3 slots were already done this week.") + " In a week I'll ask how it did."), 0);
+}
+function socJustHtml() {                       // a spur-of-the-moment post: just the hook and the link
+  const f = socForm;
+  return '<div style="padding:8px"><div class="card sunk"><b>📸 I just posted</b><div class="dim">It counts for this week and your streak. In a week you\'ll be asked how it did.</div>' +
+    '<label class="field">🪝 The hook (first line or on-screen text)</label><textarea class="inp" id="socjh" rows="2" style="height:64px" placeholder="What did it open with?">' + esc(f.text || "") + "</textarea>" +
+    '<label class="field">🔗 Link to the post</label><input class="inp" id="socjl" type="url" inputmode="url" autocapitalize="off" placeholder="Paste the Instagram or TikTok link" value="' + esc(f.post_url || "") + '">' +
+    '<label class="field">Pillar (if you know)</label><div class="soc-acts">' + SOC_PILLARS.map((p) => '<span class="nt-btn' + (f.pillar === p[0] ? " on" : "") + '" data-a="socjpil" data-arg="' + p[0] + '">' + p[3] + " " + esc(p[4]) + "</span>").join("") + "</div>" +
+    '<button class="btn raised main" data-a="socjsave">✅ Save</button><div class="row"><button class="btn raised" data-a="soccancel">Cancel</button></div></div></div>';
 }
 function socPickBad() {
   const s = socSlotOn(todayISO()) || socSlots(socMon(todayISO())).find((q) => !socIsPosted(q.rec)), want = s ? s.pillar : "";
@@ -3073,6 +3082,15 @@ function socAct(a, arg, el) {
   }
   if (a === "socgo") return socGo(arg);
   if (a === "socbad") { socBad = null; return socBadNew(); }
+  if (a === "socjustposted") { socForm = { kind: "just", text: "", post_url: "", pillar: "" }; render.noKeep = true; return render(); }
+  if (a === "socjpil") { socForm.pillar = socForm.pillar === arg ? "" : arg; return render(); }
+  if (a === "socjsave") {
+    const text = $("socjh").value.trim(), url = $("socjl").value.trim();
+    if (!text && !url) return toast("⚠ Add the hook or the link (or both).");
+    const h = { id: nId("hook"), kind: "hook", pillar: socForm.pillar || "style", text: text || "(no hook written)", post_url: url, spur: true, question: "", created: Date.now() };
+    socForm = null;
+    return socMarkPosted(h, false);
+  }
   if (a === "socready") { socRd = { id: arg }; return socReadyDialog(); }
   if (a === "socedited") { const id = "day-" + todayISO(); socPut(Object.assign({ id: id, kind: "day", date: todayISO() }, SOC[id] || {}, { edited: true })); return toast("Editing day done ✓ Streak kept."); }
   if (a === "sochero") {
