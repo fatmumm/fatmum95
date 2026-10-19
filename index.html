@@ -2210,8 +2210,8 @@ function leadHowto() {
   return '<div class="lv sunk ld-how">' +
     step("1", "Every day", "Open ✅ Do next and do what it lists. For a reply, tap it, write your help (a starter is ready) and press Send.") +
     step("2", "Before every post", "📣 Posts → ＋ Add a post. The tracking link is copied for you. Paste it in your story sticker or bio. Everyone who signs up through it is counted for that post, even weeks later.") +
-    step("3", "Monday (or whenever you're ready)", "Do next says \"Send '4 subscribers only <3' to POKE…\". Tap it, then tap ▶️ Start the offer today. The code then lasts 6 days from that day. Copy the Subject and Email text. In Shopify go to Messaging → Create campaign, set the audience to customer tag offer-POKE…, paste, send. Back here tap ✓ I sent it.") +
-    step("4", "The offer's last day (Sunday)", "Same again with \"Ends tonight\". Copy, paste into a Shopify campaign to the same tag, send, tap ✓.") +
+    step("3", "Monday", "Nothing to do. At 8am the code is made, and at 10am everyone who's ready gets \"4 subscribers only <3\" from fatmumtattoos, one personal email each. It ends Sunday midnight. Want to stop it? 🎟 Batches → the batch → ⏸ Pause.") +
+    step("4", "Sunday", "Nothing to do. At 10am \"Ends tonight\" goes to the people who haven't bought. Your only job all week is answering replies.") +
     step("🤖", "What runs by itself", "Shopify sends the help email the day after someone signs up, then the wobbly-lines email 3 days later, and tags them got-help-email / got-wobbly-email so the app knows for sure (✓ in 🧭 People). The app makes the code every Monday, tags people, spots replies, tracks sales and fills your Google Sheet.") +
     step("👀", "Where to look", "⏭ Coming up (top of Do next) shows the next 7 days. 🧭 People shows where everyone is. 📊 Week shows your numbers.") +
     step("⚠️", "If something looks wrong", "\"Server not reachable\" means the server Mac is off or asleep. \"Didn't finish in Shopify\" means tap it to try again. Anything else, ask Claude.") +
@@ -2258,7 +2258,8 @@ function leadReplies() {
 }
 function leadBatches() {
   const list = LD.batches || [];
-  let h = '<div class="dim">Every Monday at 8am, everyone who signed up 4+ days ago is put in a batch and its code is made in Shopify automatically (like POKE19OCT, ending Sunday midnight).</div>' +
+  let h = '<div class="dim">Every Monday at 8am, everyone who signed up 4+ days ago is put in a batch and its code is made in Shopify (like POKE19OCT, ending Sunday midnight). ' +
+    (LD.auto_send === false ? '⏸ Automatic emails are paused. <a class="link" data-a="leadauto" data-arg="1">Turn on</a>' : LD.auto_send === true ? "🤖 The offer goes out by itself Monday 10am and \"Ends tonight\" Sunday 10am. You only answer replies." : "") + "</div>" +
     (LD.ready ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "");
   h += list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((b) => '<div class="li" data-a="leadgo" data-arg="batch|' + esc(b.code) + '" style="cursor:pointer"><span class="lab"><b>' + esc(b.code) + "</b>" + (b.error ? ' <span class="chip bad">⚠ not finished</span>' : "") +
     '<div class="dim">' + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " · " + (b.offer_sent ? "offer sent" : b.small ? Object.values(b.personal || {}).filter(Boolean).length + "/" + b.size + " emailed" : "offer not sent") +
@@ -2311,6 +2312,19 @@ function leadFormHtml() {
     const today = new Date().toISOString().slice(0, 10), last = b.ends === today;
     let h = '<div class="card sunk"><b>🎟 ' + esc(b.code) + "</b> · " + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " midnight<div>" + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + "</div>" +
       (b.error ? '<div class="bad">⚠ ' + esc(b.error) + '</div><button class="btn raised" data-a="leadretry" data-arg="' + esc(b.code) + '">↻ Try again</button>' : "<div>✓ Code made in Shopify automatically · ✓ people tagged <b>" + esc(b.segment) + "</b></div>") + "</div>";
+    if (LD.auto_send === true && !b.error) {            // 🤖 the server sends both emails itself
+      const st = (v) => !v ? "waiting" : String(v).indexOf("skip:") === 0 ? "skipped: " + String(v).slice(5) : String(v).indexOf("sending") === 0 ? "sending…" : "✓ sent";
+      const sentN = (b.people || []).filter((p) => p.offer && String(p.offer).indexOf("skip:") < 0).length;
+      h += '<div class="card sunk">🤖 <b>This sends itself.</b>' +
+        '<div>📨 "4 subscribers only <3": ' + (b.offer_sent ? "✓ sent to " + sentN + (sentN === 1 ? " person" : " people") : "goes out by itself at 10:00 on the Monday") + "</div>" +
+        '<div>⏰ "Ends tonight": ' + (b.last_sent ? "✓ sent" : "goes out by itself at 10:00 on " + esc(b.nice_end) + ", only to people who haven't bought") + "</div>" +
+        '<div class="dim" style="margin-top:4px">You only answer replies in 💬 Replies. Anyone who replies "stop" is taken off by itself, and nobody ever gets the same email twice.</div></div>' +
+        '<div class="lv sunk">' + (b.people || []).map((p) => '<div class="li ld-row"><span class="lab"><b>' + esc(p.name) + "</b>" + (p.bought ? ' <span class="chip ok">💷 bought</span>' : "") +
+          '<div class="dim">Offer: ' + esc(st(p.offer)) + " · Ends tonight: " + esc(st(p.last)) + "</div></span></div>").join("") + "</div>" +
+        '<div class="row"><button class="btn raised" data-a="leadauto" data-arg="0">⏸ Pause automatic emails</button><button class="btn raised" data-a="leadcancel">← Back</button></div>';
+      return h;
+    }
+    if (LD.auto_send === false) h += '<div class="card sunk">⏸ Automatic emails are paused. <a class="link" data-a="leadauto" data-arg="1">Turn them back on</a></div>';
     if (!b.started && !b.offer_sent && !b.error) {
       const e = new Date(Date.now() + 6 * 864e5);
       return h + '<div class="card sunk">The 6 days start when you send it. Tap this on the day you send the offer, and the code ends 6 days later at midnight.</div>' +
@@ -2405,6 +2419,7 @@ function leadAct(a, arg) {
   }
   if (a === "leadretry") return leadNow("/leads/batch/retry", { code: arg });
   if (a === "leadhelpdone") return ask("Mark everyone who has signed up so far as having had the help email (your one-off catch-up campaign)?", () => leadNow("/leads/helpdone", {}));
+  if (a === "leadauto") return ask(arg === "1" ? "Turn automatic offer emails back on?" : "Pause automatic offer emails? Nothing goes out until you turn them back on.", () => leadNow("/leads/settings", { auto_send: arg === "1" }, () => toast(arg === "1" ? "Automatic emails are on ✓" : "Paused ✓ Nothing will send by itself.")));
   if (a === "leadstart") return leadNow("/leads/batch/start", { code: arg }, () => leadOpen({ kind: "batch", code: arg }));
   if (a === "leadcp") { const b = (LD.batches || []).find((x) => x.code === leadForm.code); if (!b) return; return copyText({ osubj: b.offer_subject, otext: b.offer_text, lsubj: b.last_subject, ltext: b.last_text }[arg] || "", arg.slice(1) === "subj" ? "Subject" : "Email text"); }
   if (a === "leadpcp") { const [pid, which] = arg.split("|"), b = (LD.batches || []).find((x) => x.code === leadForm.code), p = b && b.people.find((x) => x.id === pid); if (p) copyText((which === "offer" ? b.offer_subject : b.last_subject) + "\n\n" + personalText(which === "offer" ? b.offer_text : b.last_text, p), "Email for " + (p.first || p.name)); return; }
