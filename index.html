@@ -712,7 +712,7 @@ function winSettings() {
 }
 document.addEventListener("change", (e) => { const k = e.target.dataset && e.target.dataset.pref; if (k) setPref(k, e.target.value); });
 document.body && document.body.classList.toggle("big", prefs.text === "big");
-function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); render(); window.scrollTo(0, 0); }
+function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); if (typeof useLog === "function") useLog("open", kind); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); }
 function home() { stack = []; menuOpen = false; render(); }
 function winOutbox() {
@@ -3186,6 +3186,65 @@ document.addEventListener("toggle", (e) => {
   store.set("socfo", Array.from(socFilmOpen));
 }, true);
 
+// ── 📊 private usage log: what gets opened, tapped, shown and ignored. Counts only, no client names or text, kept on the home server ──
+var USE_DEV = store.get("devid", "") || (() => { const d = Math.random().toString(36).slice(2, 10); store.set("devid", d); return d; })();
+var USE_WINS = ["admin", "todo", "today", "posting", "leads"];               // where to-dos and nudges live
+var USE = store.get("use", {}), useVisible = Date.now(), useDirty = false, useSeen = store.get("useseen", {});   // var: safe if the first render comes earlier
+function useDay() {
+  const d = todayISO();
+  if (!USE[d]) {
+    USE[d] = { open: {}, tap: {}, shown: {}, acted: {}, bean: { shown: 0, go: 0, dismiss: 0 }, fb: 0, secs: 0 };
+    Object.keys(USE).sort().slice(0, -3).forEach((k) => delete USE[k]);   // the phone keeps 3 days, the server keeps them all
+    useSeen = {};
+  }
+  return USE[d];
+}
+const useSave = () => { useDirty = true; store.set("use", USE); store.set("useseen", useSeen); };
+function useLog(kind, key, n) {
+  const u = useDay();
+  if (kind === "secs") u.secs += key; else if (kind === "bean") u.bean[key]++; else u[kind][key] = (u[kind][key] || 0) + (n || 1);
+  useSave();
+}
+const useType = (el) => (el.dataset.a + ":" + String(el.dataset.arg || "").split("|")[0]).slice(0, 40);      // e.g. socgo:hook, client:book, leadgo:reply
+const useItem = (el) => el.dataset.a + "|" + (el.dataset.arg || "") + "|" + (el.dataset.id || "");
+function useScan() {                            // each nudge on screen counts once a day as "shown"
+  if (!USE_WINS) return;
+  const top = stack[stack.length - 1];
+  if (!top || USE_WINS.indexOf(top.kind) < 0) return;
+  useDay();
+  let changed = false;
+  $("main").querySelectorAll(".li[data-a], .li [data-a]").forEach((el) => {
+    const k = "s|" + useItem(el);
+    if (!useSeen[k]) { useSeen[k] = 1; const t = useType(el); USE[todayISO()].shown[t] = (USE[todayISO()].shown[t] || 0) + 1; changed = true; }
+  });
+  if (changed) useSave();
+}
+function useFlush() {
+  if (!useDirty) return;
+  useDirty = false;
+  socPut(Object.keys(USE).map((d) => Object.assign({ id: "usage-" + d + "-" + USE_DEV, kind: "usage", date: d, dev: USE_DEV }, USE[d])), "quiet");
+}
+setInterval(useFlush, 5 * 60000);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { useLog("secs", Math.round((Date.now() - useVisible) / 1000)); useFlush(); } else useVisible = Date.now();
+});
+document.addEventListener("click", (e) => {    // counting only: never changes what a tap does
+  const t = e.target.closest && e.target.closest("[data-a]"); if (!t) return;
+  const a = t.dataset.a;
+  if (a === "usefb") return useFeedback(t.dataset.arg);
+  useLog("tap", a);
+  const k = "a|" + useItem(t);
+  if (useSeen["s|" + useItem(t)] && !useSeen[k]) { useSeen[k] = 1; useLog("acted", useType(t)); }
+  if (a === "beango") useLog("bean", "go"); else if (a === "beanshh" || a === "beannext") useLog("bean", "dismiss");
+}, true);
+function useFeedback(type) {                   // 🙄 / 💡: one box, optional, then a quiet thank-you
+  const top = stack[stack.length - 1], where = top ? top.kind : "home";
+  dialog('<div>' + (type === "wish" ? "What do you wish it could do?" : "What annoyed you?") + ' <span class="dim">(optional)</span></div>' +
+    '<textarea class="inp" id="usefbt" rows="3" style="height:80px;margin-top:6px"></textarea>',
+    [["Save", () => { const tx = ($("usefbt") && $("usefbt").value.trim()) || ""; socPut({ id: nId("fb"), kind: "fb", type: type, where: where, text: tx.slice(0, 1000), at: new Date().toISOString() }, "quiet"); useDay().fb++; useSave(); setTimeout(() => toast("Noted ✓ Thank you."), 0); }, 1], ["Cancel"]],
+    type === "wish" ? "💡" : "🙄", { title: type === "wish" ? "Wish it could…" : "Annoying" });
+}
+
 function winTitle(w) {
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
   if (w.kind === "photo") return "Photo";
@@ -3223,8 +3282,9 @@ function render() {
     const wkey = w.kind + "|" + w.arg, keep = render.lastKey === wkey && !render.noKeep ? fieldSnapshot() : null;
     render.lastKey = wkey; render.noKeep = false;
     $("main").innerHTML = '<div class="win raised"><div class="title">' + (stack.length > 1 ? '<button class="btn raised tb" data-a="back" aria-label="Back">←</button>' : "") +
-      '<span class="t">' + esc(winTitle(w)) + '</span><button class="btn raised tb" data-a="home" aria-label="Close">✕</button></div><div class="body">' + body + "</div></div>";
+      '<span class="t">' + esc(winTitle(w)) + '</span><button class="btn raised tb" data-a="usefb" data-arg="annoyed" aria-label="This is annoying">🙄</button><button class="btn raised tb" data-a="usefb" data-arg="wish" aria-label="I wish it could">💡</button><button class="btn raised tb" data-a="home" aria-label="Close">✕</button></div><div class="body">' + body + "</div></div>";
     if (keep) fieldRestore(keep);
+    useScan();
   }
   drawCharts();
   beanDraw();
@@ -3833,6 +3893,7 @@ function beanDraw() {
   if (beanHidden()) { el.innerHTML = '<div data-a="beanback" title="Bring ' + esc(BEAN.name) + ' back" style="font-size:28px;opacity:.35;cursor:pointer;padding:6px">🫘</div>'; return; }
   const a = assess(), st = a ? a.state : "fine";
   const tip = beanTips[beanI % Math.max(1, beanTips.length)];
+  if (beanOpen && tip && useSeen) { const k = "b|" + String(tip.text).slice(0, 60); if (!useSeen[k]) { useSeen[k] = 1; useDay().bean.shown++; useSave(); } }
   el.innerHTML = (beanOpen && tip ? '<div class="bubble"><div class="bn">' + esc(BEAN.name) + (a ? ' <span class="dim">· ' + esc(a.label) + " " + a.hp + "%</span>" : "") + "</div>" + esc(tip.text) +
     (a ? '<div class="hp"><i style="width:' + a.hp + "%;background:" + (a.hp >= 65 ? "#2e8b57" : a.hp >= 25 ? "#d97a1f" : "#a00000") + '"></i></div>' : "") +
     '<div class="row">' + (tip.open ? '<button class="btn raised" data-a="beango">Show me</button>' : "") + (beanTips.length > 1 ? '<button class="btn raised" data-a="beannext">Next tip</button>' : "") + '<button class="btn raised" data-a="beanshh">Not now</button></div></div>' : "") +
