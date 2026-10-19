@@ -3600,8 +3600,9 @@ function winTodo() {
     .concat([2, 3, 4, 5, 6].map((n) => [addDays(iso, n), new Date(addDays(iso, n) + "T12:00").toLocaleDateString("en-GB", { weekday: "long" })]))
     .concat([[addDays(iso, 7), "Next week"], ["pick", "Pick a date…"]]);
   const impOpts = [[5, "!5 Urgent"], [4, "!4 Important"], [3, "!3 Normal"], [2, "!2 Low"], [1, "!1 Someday"]];
-  const gd = leadTodo(), sd = socTodo();
-  let h = (sd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">🎬 Posting (' + sd.length + ")</div>" + sd.map((x) => '<div class="li" data-a="socgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
+  const gd = leadTodo(), sd = socTodo(), bd = bookTodo();
+  let h = (bd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">📅 Bookings</div>' + bd.map((x) => '<div class="li" data-a="bookgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
+    (sd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">🎬 Posting (' + sd.length + ")</div>" + sd.map((x) => '<div class="li" data-a="socgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
     (gd.length ? '<div class="lv sunk" style="margin-bottom:8px"><div class="grp">📈 Guide (' + gd.length + ")</div>" + gd.map((x) => '<div class="li" data-a="leadgo" data-arg="' + esc(x.go) + '" style="cursor:pointer"><span class="ico">' + esc(x.icon) + '</span><span class="lab">' + esc(x.text) + '</span><span class="st">›</span></div>').join("") + "</div>" : "") +
     '<form id="addf" class="sunk" style="padding:8px"><input class="inp" id="addt" placeholder="What needs doing?" autocomplete="off" enterkeyhint="done">' +
     '<div class="row"><select class="inp" id="addd" style="flex:1">' + dayOpts.map(([v, l]) => '<option value="' + v + '"' + (v === iso ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>" +
@@ -3657,10 +3658,41 @@ function storyText(L) {
   });
   return [L.head, "", lines.join("\n"), "", L.foot].join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
-function winStory() {
-  const t = storyText();
+// ── 📅 more bookings: the availability story on a rhythm, last-minute spots, and a labelled booking link so enquiries are counted ──
+const BOOK_LINK = "https://tally.so/r/eqgokQ";                       // the Tally form has a hidden field "src" that keeps the label
+const storyDone = (id) => !!(SOC[id] && !SOC[id].binned);
+function lastMinute() {                        // a half-day still free 2 or 3 days ahead
+  const a = O() && O().avail; if (!a || !a.ok) return null;
+  for (const n of [2, 3]) {
+    const d = addDays(todayISO(), n), x = a.days.find((y) => y.iso === d); if (!x || x.state === "booked") continue;
+    const half = x.am && x.am.free ? "am" : x.pm && x.pm.free ? "pm" : "";
+    if (half && !storyDone("story-" + d + "-lm")) return { iso: d, half: half, label: x.label };
+  }
+  return null;
+}
+function bookTodo() {                          // calm items only: never in the badge, never from Bean
+  const a = O() && O().avail, t = todayISO(), out = [];
+  if (!a || !a.ok) return out;
+  const mon = addDays(t, -dow(t)), soon = addDays(t, 14);
+  const free = a.days.filter((x) => x.iso > t && x.iso <= soon && ((x.am && x.am.free) || (x.pm && x.pm.free))).length;
+  if (dow(t) === 0 && free && !storyDone("story-" + mon + "-weekly")) out.push({ icon: "📅", text: "This week's availability story is ready (" + free + " day" + (free === 1 ? "" : "s") + " with space)", go: "weekly" });
+  const lm = lastMinute();
+  if (lm) out.push({ icon: "⚡", text: lm.label + (lm.half === "am" ? " morning" : " afternoon") + " is still free. A last-minute story is ready", go: "lm|" + lm.iso + "|" + lm.half });
+  return out;
+}
+function lastMinuteText(lm) {
+  return "Last minute spot ⚡\n\n" + lm.label + ", " + (lm.half === "am" ? "11am" : "1pm") + "\n\nFlash or a small custom. First to book gets it x\n\nTap the link to grab it";
+}
+function winStory(arg) {
+  const p = String(arg || "").split("|"), lm = p[0] === "lm" ? { iso: p[1], half: p[2], label: shortDay(p[1]) } : null;
+  const t = lm ? lastMinuteText(lm) : storyText();
   if (!t) return '<div class="card sunk">Loading the calendar…</div>';
-  return '<button class="btn raised main" style="margin-top:0" data-a="copy">Copy</button><textarea id="story" class="inp sunk" readonly style="height:260px">' + esc(t) + '</textarea><button class="btn raised wide" data-a="storyedit">✏️ Edit the layout</button><div class="dim" style="margin-top:6px">The Mac uses the same layout.</div>';
+  const pid = lm ? "story-" + lm.iso + "-lm" : "story-" + addDays(todayISO(), -dow(todayISO())) + "-weekly", done = storyDone(pid);
+  return (lm ? '<div class="card sunk">⚡ <b>Last-minute spot</b>: ' + esc(lm.label) + (lm.half === "am" ? " morning" : " afternoon") + " is still free.</div>" : "") +
+    '<button class="btn raised main" style="margin-top:0" data-a="copy">📋 Copy the text</button><textarea id="story" class="inp sunk" readonly style="height:' + (lm ? 150 : 260) + 'px">' + esc(t) + "</textarea>" +
+    '<div class="row"><button class="btn raised" data-a="storylink" data-arg="' + (lm ? "lastminute" : "story") + '">🔗 Copy the link for the sticker</button><button class="btn raised' + (done ? "" : " main") + '" data-a="storyposted" data-arg="' + esc(pid) + "|" + (lm ? "lastminute" : "weekly") + '">' + (done ? "✓ Posted" : "✓ I posted it") + "</button></div>" +
+    '<div class="dim" style="margin-top:4px">The link is labelled, so bookings from this story are counted.</div>' +
+    (lm ? "" : '<button class="btn raised wide" data-a="storyedit">✏️ Edit the layout</button><div class="dim" style="margin-top:6px">The Mac uses the same layout.</div>');
 }
 function storyEdit() {
   const L = storyLayout();
@@ -3997,6 +4029,9 @@ document.addEventListener("click", async (e) => {
     if (list === outbox && i === 0 && sending) return toast("That one is sending right now.");
     ask("Bin \"" + (list[i].label || "this") + "\"? It won't be sent.", () => { list.splice(i, 1); saveBox(); render(); }); }
   else if (a === "storyedit") storyEdit();
+  else if (a === "storylink") copyText(BOOK_LINK + "?src=" + arg, "Link");
+  else if (a === "storyposted") { const [pid, type] = String(arg).split("|"); if (!storyDone(pid)) socPut({ id: pid, kind: "story", type: type, date: todayISO() }); toast("Nice ✓ Any bookings from it get counted."); }
+  else if (a === "bookgo") open_("story", arg === "weekly" ? undefined : arg);
   else if (a === "tpl") editTpl(arg);
   else if (a === "toggle") {
     const nv = !on(arg);
