@@ -2184,7 +2184,7 @@ async function leadNow(path, body, done) {             // things that need the s
 }
 const leadDay = (r) => LEAD_OLD[r.email_day] || r.email_day || "other";
 const leadOverdue = () => ((LD && LD.replies) || []).filter((r) => !r.replied && r.date && Date.now() - Date.parse(r.date) > 864e5);
-const leadTodo = () => (LD && LD.todo) || [];
+const leadTodo = () => ((LD && LD.todo) || []).filter((x) => !/by itself/.test(x.text || ""));   // "goes out by itself" is news, not a job
 function leadSlug(s) { return (String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").split("-").slice(0, 6).join("-").slice(0, 40)) || "post"; }
 function leadCampaign(p) { return p.campaign || todayISO() + "-" + leadSlug(p.what); }
 function leadLinkOf(p) { return p.link || LEAD_LINK + "?utm_source=ig&utm_medium=" + p.type + "&utm_campaign=" + leadCampaign(p); }
@@ -2260,7 +2260,7 @@ function leadBatches() {
   const list = LD.batches || [];
   let h = '<div class="dim">Every Monday at 8am, everyone who signed up 4+ days ago is put in a batch and its code is made in Shopify (like POKE19OCT, ending Sunday midnight). ' +
     (LD.auto_send === false ? '⏸ Automatic emails are paused. <a class="link" data-a="leadauto" data-arg="1">Turn on</a>' : LD.auto_send === true ? "🤖 The offer goes out by itself Monday 10am and \"Ends tonight\" Sunday 10am. You only answer replies." : "") + "</div>" +
-    (LD.ready ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "");
+    (LD.ready && LD.auto_send !== true ? '<button class="btn raised wide" data-a="leaddraft">🎟 Make a batch now (' + LD.ready + " ready)</button>" : "");   // automatic mode makes it every Monday
   h += list.length ? '<div class="lv sunk" style="margin-top:8px">' + list.map((b) => '<div class="li" data-a="leadgo" data-arg="batch|' + esc(b.code) + '" style="cursor:pointer"><span class="lab"><b>' + esc(b.code) + "</b>" + (b.error ? ' <span class="chip bad">⚠ not finished</span>' : "") +
     '<div class="dim">' + b.size + (b.size === 1 ? " person" : " people") + " · ends " + esc(b.nice_end) + " · " + (b.offer_sent ? "offer sent" : b.small ? Object.values(b.personal || {}).filter(Boolean).length + "/" + b.size + " emailed" : "offer not sent") +
     " · " + (b.buyers || 0) + " bought" + (b.revenue ? " · " + gbp(b.revenue) : "") + '</div></span><span class="st">›</span></div>').join("") + "</div>" : "";
