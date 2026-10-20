@@ -3660,7 +3660,7 @@ function storyText(L) {
   return [L.head, "", lines.join("\n"), "", L.foot].join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 // ── 📅 more bookings: the availability story on a rhythm, last-minute spots, and a labelled booking link so enquiries are counted ──
-const BOOK_LINK = "https://tally.so/r/eqgokQ";                       // the Tally form has a hidden field "src" that keeps the label
+const BOOK_LINK = "https://www.fatmum.co.uk/pages/book-in";          // his own booking form. ?src= labels where the booking came from
 const storyDone = (id) => !!(SOC[id] && !SOC[id].binned);
 function lastMinute() {                        // a half-day still free 2 or 3 days ahead
   const a = O() && O().avail; if (!a || !a.ok) return null;
@@ -3745,8 +3745,9 @@ function flCodes(t) {                           // "130C", "#130 c", "flash 130c
   return out;
 }
 const FL_VAR = /\bvariation|\bvar\b|\bsimilar|\bversion|\bsomething like\b|\binspired\b/i;   // "130A variation": they want one like it, not that design
-function flCodesFor(r) {
-  const v = FL_VAR.test(String(r.flash || "")), c = flCodes(r.flash).map((x) => Object.assign(x, { vary: v }));
+function flCodesFor(r) {                        // "130A, 128B variation": only 128B is a variation (checked per design)
+  const c = [];
+  String(r.flash || "").split(/[,+&\n]|\band\b/i).forEach((part) => flCodes(part).forEach((x) => { if (!c.some((y) => y.n === x.n && y.l === x.l)) c.push(Object.assign(x, { vary: FL_VAR.test(part) })); }));
   if (flPick[r.id] && !c.some((x) => x.n + x.l === flPick[r.id])) c.push(flCodes(flPick[r.id])[0]);
   return c.filter(Boolean);
 }
