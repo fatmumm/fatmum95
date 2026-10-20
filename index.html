@@ -3923,7 +3923,8 @@ async function flPrep(file) {                  // keeps PNG as PNG (see-through 
 }
 document.addEventListener("change", async (e) => {
   if (e.target.id !== "flfile") return;
-  const files = Array.from(e.target.files || []).slice(0, 8); if (!files.length) return;
+  const num = (f) => Number(((f.name || "").match(/(\d+)\.\w+$/) || [])[1] || 1e9);   // 130.png before 131.png, so sheet numbers line up
+  const files = Array.from(e.target.files || []).sort((x, y) => num(x) - num(y) || (x.name < y.name ? -1 : 1)).slice(0, 8); if (!files.length) return;
   setBusy(1);
   try {
     const imgs = [];
