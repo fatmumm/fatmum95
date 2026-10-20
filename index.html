@@ -3721,6 +3721,7 @@ function copyStory() {
 const FLASH_LINE = "I only tattoo each design once. If you like it, grab it before someone else does ❤️";
 const FLASH_PAGE = "https://www.fatmum.co.uk/pages/flashdesign";
 const FL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const flLetterAt = (i) => i < 26 ? FL_LETTERS[i] : FL_LETTERS[Math.floor(i / 26) - 1] + FL_LETTERS[i % 26];   // A…Z, then AA, AB… (big sheets)
 let FL = store.get("flash", null);             // {sheets, mails, warn, at} from the home server
 let flBusy = false, flNew = null, flEdit = null, flPickFor = null, flAud = null;
 let flClaimed = store.get("flclaimed", {});     // booking id → the codes this phone already told the server about
@@ -3736,12 +3737,12 @@ document.head.insertAdjacentHTML("beforeend", "<style>" +
   "</style>");
 const flSheet = (n) => FL && (FL.sheets || []).find((s) => s.n === Number(n));
 const flThumb = (u, w) => u ? u + (u.includes("?") ? "&" : "?") + "width=" + (w || 360) : "";
-const flNextLetter = (ls) => FL_LETTERS.split("").find((c) => !ls.some((x) => x.l === c)) || "";
+const flNextLetter = (ls) => { for (let i = 0; i < 702; i++) { const c = flLetterAt(i); if (!ls.some((x) => x.l === c)) return c; } return ""; };
 function flCodes(t) {                           // "130C", "#130 c", "flash 130c", "130-C", "sheet 12" (same rules as the server)
   t = String(t || "").replace(/£\s*\d+|\d+\s*(?:cm|mm|in|inch|inches|x|by)\b|\d{1,2}(?:am|pm)\b/gi, " ");
-  const out = [], re = /(?:#|\bflash\s*(?:no\.?|number|#)?\s*|\bsheet\s*)?\b(\d{1,4})\s*[-\s.]?\s*([a-zA-Z])?(?![a-zA-Z])/gi;
+  const out = [], re = /(?:#|\bflash\s*(?:no\.?|number|#)?\s*|\bsheet\s*)?\b(\d{1,4})(?:([a-zA-Z]{1,2})|\s*[-\s.]?\s*([a-zA-Z]))?(?![a-zA-Z])/gi;
   let m;
-  while ((m = re.exec(t)) && out.length < 6) { const n = Number(m[1]), l = (m[2] || "").toUpperCase(); if (n && !out.some((o) => o.n === n && o.l === l)) out.push({ n: n, l: l }); }
+  while ((m = re.exec(t)) && out.length < 6) { const n = Number(m[1]), l = (m[2] || m[3] || "").toUpperCase(); if (n && !out.some((o) => o.n === n && o.l === l)) out.push({ n: n, l: l }); }
   return out;
 }
 const FL_VAR = /\bvariation|\bvar\b|\bsimilar|\bversion|\bsomething like\b|\binspired\b/i;   // "130A variation": they want one like it, not that design
