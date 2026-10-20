@@ -430,6 +430,7 @@ async function syncOnce(force) {
     }
     save(); lastSync = Date.now(); render(); beanSay(true);
     notesSync();
+    flashLoad();
     if (d.officeError) retryLater("✓ bookings synced, office busy");
     else { backoff = 0; setStatus((DRY ? "TEST · " : "") + "✓ synced " + new Date().toTimeString().slice(0, 5) + via); }
   } catch (e) {
@@ -681,7 +682,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
-  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -3303,7 +3304,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -3369,7 +3370,7 @@ function winClient(id) {
   let h = '<div class="card sunk"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="min-width:0"><div class="name">' + esc(r.name) + '</div><div class="sub">' +
     (r.iso ? esc(shortDay(r.iso)) + " · " + esc(r.time) : esc(r.slot || "no date")) + "</div></div>" + (r.paid ? '<span class="chip ok">✓ ' + money(r.paid.amt) + " " + esc(r.paid.how) + "</span>" : r.deposit ? '<span class="chip ' + (r.iso && r.iso <= t ? "bad" : "dim") + '">' + money(owed(r)) + " to pay</span>" : chipFor(r)) + "</div>" +
     '<div class="sub" style="color:#000;margin-top:8px">' + esc(r.pkg) + (r.price ? " · " + money(r.price) : "") + "</div>" +
-    '<div class="details">' + det.map((x) => "<b>" + x[0] + "</b><span>" + x[1] + "</span>").join("") + "</div></div>";
+    '<div class="details">' + det.map((x) => "<b>" + x[0] + "</b><span>" + x[1] + "</span>").join("") + "</div></div>" + flashCard(r);
   const MAIN = { new: ["Send deposit invoice", "inv"], expired: ["Deposit paid", "dep"], deposit: ["Deposit paid", "dep"], book: ["Send calendar invite", "book"],
     remind: ["Send reminder", "remind"], due: ["Take payment " + money(owed(r)), "pay"], booked: [r.iso && r.iso <= addDays(t, 0) ? "Take payment " + money(owed(r)) : "Take payment " + money(owed(r)), "pay"],
     aftercare: ["Send aftercare", "aftercare"], ticket: [r.deposit ? "Take payment" : "Deposit paid", r.deposit ? "pay" : "dep"], tbc: ["📅 Pick their date", "slot"] };
@@ -3671,7 +3672,7 @@ function lastMinute() {                        // a half-day still free 2 or 3 d
   return null;
 }
 function bookTodo() {                          // calm items only: never in the badge, never from Bean
-  const a = O() && O().avail, t = todayISO(), out = [];
+  const a = O() && O().avail, t = todayISO(), out = flGoneTodo();
   if (!a || !a.ok) return out;
   const mon = addDays(t, -dow(t)), soon = addDays(t, 14);
   const free = a.days.filter((x) => x.iso > t && x.iso <= soon && ((x.am && x.am.free) || (x.pm && x.pm.free))).length;
@@ -3714,6 +3715,323 @@ function copyStory() {
   try { ok = document.execCommand("copy"); } catch (e) {}
   if (navigator.clipboard && !ok) navigator.clipboard.writeText(t.value).then(() => toast("Copied. Paste it into your story."), () => toast("Press and hold the text, Select All, Copy."));
   else toast(ok ? "Copied. Paste it into your story." : "Press and hold the text, Select All, Copy.");
+}
+
+// ── 🌸 Flash: one-off designs, lettered per sheet (130A, 130B…). The home server keeps them and the website stamps GONE on top ──
+const FLASH_LINE = "I only tattoo each design once. If you like it, grab it before someone else does ❤️";
+const FLASH_PAGE = "https://www.fatmum.co.uk/pages/flashdesign";
+const FL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+let FL = store.get("flash", null);             // {sheets, mails, warn, at} from the home server
+let flBusy = false, flNew = null, flEdit = null, flPickFor = null, flAud = null;
+let flClaimed = store.get("flclaimed", {});     // booking id → the codes this phone already told the server about
+let flPick = store.get("flpick", {});           // booking id → a design picked by hand ("the frog one")
+document.head.insertAdjacentHTML("beforeend", "<style>" +
+  ".flw{position:relative;margin:6px 0;background:repeating-conic-gradient(#e4e4e4 0% 25%,#fff 0% 50%) 50%/18px 18px;-webkit-user-select:none;user-select:none}" +
+  ".flw img{width:100%;display:block;pointer-events:none}.flw[data-mode=new],.flw[data-mode=sheet]{touch-action:none}" +
+  ".flp{position:absolute;transform:translate(-50%,-50%);min-width:28px;height:28px;padding:0 4px;box-sizing:border-box;border-radius:14px;background:#000080;color:#fff;font:bold 15px/24px Tahoma,sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.55)}" +
+  ".flp.claimed{background:#c00000}.flp.tattooed{background:#555}.flp.pick{outline:3px solid #ffd400}" +
+  ".flgone{position:absolute;transform:translate(-50%,-50%) rotate(-14deg);border:3px solid #c00000;color:#c00000;font:bold 20px/1 Tahoma,sans-serif;padding:3px 6px;background:rgba(255,255,255,.75);letter-spacing:.06em}" +
+  ".flgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.flt{position:relative;background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/12px 12px;aspect-ratio:4/5;overflow:hidden;cursor:pointer}" +
+  ".flt img{width:100%;height:100%;object-fit:contain}.flt b{position:absolute;left:3px;top:3px;background:#000080;color:#fff;font-size:12px;padding:1px 4px}.flt i{position:absolute;left:3px;bottom:3px;right:3px;background:rgba(255,255,255,.85);font-size:11px;font-style:normal;padding:1px 3px}" +
+  "</style>");
+const flSheet = (n) => FL && (FL.sheets || []).find((s) => s.n === Number(n));
+const flThumb = (u, w) => u ? u + (u.includes("?") ? "&" : "?") + "width=" + (w || 360) : "";
+const flNextLetter = (ls) => FL_LETTERS.split("").find((c) => !ls.some((x) => x.l === c)) || "";
+function flCodes(t) {                           // "130C", "#130 c", "flash 130c", "130-C", "sheet 12" (same rules as the server)
+  t = String(t || "").replace(/£\s*\d+|\d+\s*(?:cm|mm|in|inch|inches|x|by)\b|\d{1,2}(?:am|pm)\b/gi, " ");
+  const out = [], re = /(?:#|\bflash\s*(?:no\.?|number|#)?\s*|\bsheet\s*)?\b(\d{1,4})\s*[-\s.]?\s*([a-zA-Z])?(?![a-zA-Z])/gi;
+  let m;
+  while ((m = re.exec(t)) && out.length < 6) { const n = Number(m[1]), l = (m[2] || "").toUpperCase(); if (n && !out.some((o) => o.n === n && o.l === l)) out.push({ n: n, l: l }); }
+  return out;
+}
+const FL_VAR = /\bvariation|\bvar\b|\bsimilar|\bversion|\bsomething like\b|\binspired\b/i;   // "130A variation": they want one like it, not that design
+function flCodesFor(r) {
+  const v = FL_VAR.test(String(r.flash || "")), c = flCodes(r.flash).map((x) => Object.assign(x, { vary: v }));
+  if (flPick[r.id] && !c.some((x) => x.n + x.l === flPick[r.id])) c.push(flCodes(flPick[r.id])[0]);
+  return c.filter(Boolean);
+}
+function flLook(c, rid) {                       // → [icon, text, state] for one code on a request card
+  const sh = flSheet(c.n);
+  if (!FL) return ["⏳", "Checking flash " + c.n + c.l + "…", "wait"];
+  if (!sh) return ["⚠️", "There's no sheet " + c.n + " on the flash page", "bad"];
+  if (!c.l) return sh.letters.length ? ["❓", "Which design on sheet " + c.n + "? Tap to pick", "pick"] : ["✏️", "Letter sheet " + c.n + " so I can track it", "letter"];
+  const x = sh.letters.find((y) => y.l === c.l);
+  if (!x) return sh.letters.length ? ["⚠️", "Sheet " + c.n + " has no " + c.l + ". Tap to pick", "pick"] : ["✏️", "Letter sheet " + c.n + " so I can track " + c.n + c.l, "letter"];
+  const by = x.claim || {};
+  if (c.vary) return ["🔁", "Variation of " + c.n + c.l + (x.state !== "free" ? " (the original is " + x.state + ")" : " (the original is still free)"), "vary"];
+  if (x.state === "free") return ["✓", c.n + c.l + " is free", "free"];
+  if (x.state === "tattooed") return ["⚠️", c.n + c.l + " is already tattooed" + (by.name && by.rid !== rid ? " (" + by.name + ")" : ""), "bad"];
+  return by.rid === rid ? ["✓", c.n + c.l + " is theirs", "ok"] : ["⚠️", c.n + c.l + " is already claimed by " + (by.name || "someone"), "bad"];
+}
+function flashCard(r) {                          // the check on a client card
+  if (!STANDALONE || !serverUrl()) return "";
+  const codes = flCodesFor(r);
+  if (!codes.length) return r.flash || r.design ? '<div class="lv sunk" style="margin-top:8px"><div class="li" data-a="flpick" data-arg="' + esc(r.id) + '" style="cursor:pointer"><span class="ico">🌸</span><span class="lab">Which design? Tap to pick it from your flash</span><span class="st">›</span></div></div>' : "";
+  return '<div class="lv sunk" style="margin-top:8px">' + codes.map((c) => {
+    const [ic, txt, st] = flLook(c, r.id);
+    const go = st === "pick" ? 'data-a="flpick" data-arg="' + esc(r.id) + '"' : st === "letter" ? 'data-a="flletter" data-arg="' + c.n + '"' : 'data-a="flopen" data-arg="s|' + c.n + '"';
+    return '<div class="li" ' + go + ' style="cursor:pointer"><span class="ico">' + ic + '</span><span class="lab' + (st === "bad" ? " bad" : "") + '">' + esc(txt) + '</span><span class="st">›</span></div>';
+  }).join("") + "</div>";
+}
+async function flashLoad(check) {
+  if (!STANDALONE || !serverUrl() || flBusy || srvDown()) return;
+  flBusy = true;
+  try {
+    const r = await nsrv("/flash/list", { check: !!check }, 25000);
+    FL = { sheets: r.sheets || [], mails: r.mails || {}, warn: r.warn || "", at: Date.now() }; store.set("flash", FL);
+    await flashReconcile();
+    render();
+  } catch (e) {} finally { flBusy = false; }
+}
+async function flashReconcile() {               // deposit in → the design is claimed. Cancelled → free again. Idempotent on the server.
+  if (!FL) return;
+  let changed = false;
+  for (const r of rows()) {
+    const want = (r.deposit || r.paid) && !r.cancelled ? flCodesFor(r).filter((c) => c.l && !c.vary).map((c) => c.n + c.l).join(",") : "";
+    const had = flClaimed[r.id] || "";
+    if (want === had) continue;
+    changed = true;
+    try {
+      if (had) await nsrv("/flash/unclaim", { rid: r.id });
+      let keep = "";
+      if (want) {
+        const res = await nsrv("/flash/claim", { code: want, rid: r.id, name: r.name || r.first || "", date: r.iso || "" });
+        keep = (res.results || []).filter((x) => !["needs letters", "which letter?", "no such sheet"].includes(x.result)).map((x) => x.code).join(",");
+        if (keep !== want) { if (keep) flClaimed[r.id] = keep; else delete flClaimed[r.id]; store.set("flclaimed", flClaimed); continue; }
+      }
+      if (want) flClaimed[r.id] = want; else delete flClaimed[r.id];
+      store.set("flclaimed", flClaimed);
+    } catch (e) { return; }                       // server away: try again next sync
+  }
+  if (!changed) return;
+  const r2 = await nsrv("/flash/list", {}, 25000).catch(() => null);
+  if (r2) { FL = { sheets: r2.sheets || [], mails: r2.mails || {}, warn: FL.warn, at: Date.now() }; store.set("flash", FL); }
+}
+function flGoneTodo() {                          // a design just got claimed: one calm story item, gone after 3 days or once posted
+  if (!FL) return [];
+  const cut = new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 19), out = [];
+  (FL.sheets || []).forEach((s) => s.letters.forEach((x) => {
+    if (x.state === "claimed" && x.at >= cut && !storyDone("gone-" + s.n + x.l)) out.push({ icon: "🌸", text: s.n + x.l + " is gone. A \"this one's gone\" story is ready", go: "gone|" + s.n + x.l });
+  }));
+  return out.slice(0, 2);
+}
+function flPins(ls, opts) {
+  opts = opts || {};
+  return ls.map((x) => opts.gone && x.state !== "free" ? '<span class="flgone" style="left:' + x.x + "%;top:" + x.y + '%">GONE</span>'
+    : '<span class="flp ' + esc(x.state || "free") + (opts.pick === x.l ? " pick" : "") + '"' + (opts.n ? ' data-a="flpin" data-arg="' + opts.n + "|" + esc(x.l) + '"' : "") + ' data-l="' + esc(x.l) + '" style="left:' + x.x + "%;top:" + x.y + '%">' + esc(x.l) + "</span>").join("");
+}
+function winFlash(arg) {
+  const p = String(arg || "").split("|");
+  if (!STANDALONE || !serverUrl()) return '<div class="card sunk">Flash lives on your home server. Add it in ⚙️ Settings first.</div>';
+  if (p[0] === "new") return flNewHtml();
+  if (p[0] === "done") return flDoneHtml(p[1]);
+  if (p[0] === "gone") return flGoneHtml(p[1]);
+  if (p[0] === "s" || p[0] === "l") return flSheetHtml(Number(p[1]), p[0] === "l");
+  if (!FL) { flashLoad(true); return '<div class="card sunk">Loading your flash…</div>'; }
+  const sh = (FL.sheets || []).filter((s) => !s.retired), left = (s) => s.letters.filter((x) => x.state === "free").length;
+  const mails = Object.entries(FL.mails || {}).filter(([k]) => !/^test/.test(k)).map(([, m]) => m).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 1);
+  return '<button class="btn raised main" style="margin-top:0" data-a="flnew">📤 New flash</button>' +
+    (flPickFor ? '<div class="card sunk">Pick the design for <b>' + esc((byId(flPickFor) || {}).first || "them") + '</b>: open the sheet, then tap its letter. <a class="link" data-a="flpickx">Stop</a></div>' : "") +
+    (FL.warn ? '<div class="card sunk bad">⚠ ' + esc(FL.warn) + "</div>" : "") +
+    (mails.length ? '<div class="dim" style="margin:4px 0 8px">Last waiting-list email: sheet ' + esc(mails[0].ns.join(", ")) + ", " + mails[0].sent + " of " + mails[0].total + " sent" + (mails[0].err ? ", " + mails[0].err + " failed" : "") + "</div>" : "") +
+    '<div class="flgrid">' + sh.map((s) => '<div class="flt" data-a="flopen" data-arg="s|' + s.n + '"><img loading="lazy" src="' + esc(flThumb(s.url, 300)) + '" alt=""><b>' + s.n + "</b><i>" +
+      (s.letters.length ? (left(s) ? left(s) + " of " + s.letters.length + " free" : "all gone ❤️") : "no letters yet") + "</i></div>").join("") + "</div>" +
+    '<div class="dim" style="margin-top:8px">Old sheets only need letters when someone books from one. The app asks you then.</div>';
+}
+function flSheetHtml(n, lettering) {
+  const s = flSheet(n); if (!s) return '<div class="card sunk">No sheet ' + n + " yet. Pull down to refresh.</div>";
+  if (lettering) {
+    if (!flEdit || flEdit.n !== n) flEdit = { n: n, letters: s.letters.map((x) => Object.assign({}, x)), added: [] };
+    return '<div class="card sunk">Tap the middle of each design to drop the next letter (<b>' + esc(flNextLetter(flEdit.letters) || "no more") + "</b>). Drag a letter to move it.</div>" +
+      '<div class="flw" id="flw" data-mode="sheet"><img src="' + esc(flThumb(s.url, 1400)) + '" alt="">' + flPins(flEdit.letters) + "</div>" +
+      '<div class="row"><button class="btn raised" data-a="flundo">↩ Undo</button><button class="btn raised main" data-a="flsaveletters">Save letters</button></div>';
+  }
+  const pick = flPickFor && byId(flPickFor);
+  return (pick ? '<div class="card sunk">Tap the design <b>' + esc(pick.first) + "</b> is booking.</div>" : "") +
+    '<div class="flw" id="flw" data-mode="view" data-n="' + n + '"><img src="' + esc(flThumb(s.url, 1400)) + '" alt="">' + flPins(s.letters, { n: n }) + "</div>" +
+    (s.letters.length ? '<div class="lv sunk">' + s.letters.map((x) => '<div class="li" data-a="flpin" data-arg="' + n + "|" + x.l + '" style="cursor:pointer"><span class="ico">' + (x.state === "free" ? "🟢" : x.state === "claimed" ? "🔴" : "⚫️") + '</span><span class="lab"><b>' + n + x.l + "</b> " + esc(x.state === "free" ? "free" : x.state + (x.claim && x.claim.name ? ": " + x.claim.name : "")) + '</span><span class="st">›</span></div>').join("") + "</div>" : '<div class="card sunk">No letters on this sheet yet.</div>') +
+    '<div class="row"><button class="btn raised" data-a="flletter" data-arg="' + n + '">✏️ ' + (s.letters.length ? "Change letters" : "Letter this sheet") + '</button><button class="btn raised" data-a="flretire" data-arg="' + n + '">' + (s.retired ? "Bring it back" : "Take it off the site") + "</button></div>";
+}
+function flNewHtml() {
+  if (!flNew || !flNew.imgs.length) return '<div class="card sunk">Pick one or more sheets. No-background PNGs stay see-through all the way to your website.</div>' +
+    '<label class="btn raised main" style="display:block;text-align:center">📤 Pick sheets<input type="file" id="flfile" accept="image/png,image/jpeg" multiple style="display:none"></label>';
+  if (flNew.step === "send") return flSendHtml();
+  const i = flNew.i, im = flNew.imgs[i];
+  return '<div class="dim">Sheet ' + (i + 1) + " of " + flNew.imgs.length + " · " + im.w + "×" + im.h + " " + (im.mime === "image/png" ? "PNG" : "JPEG") + "</div>" +
+    (!im.alpha ? '<div class="card sunk bad">⚠ This one has a background. Was it saved as PNG? It will show with that background on your website.</div>' : "") +
+    '<div class="card sunk">Tap the middle of each design to drop the next letter (<b>' + esc(flNextLetter(im.letters) || "no more") + "</b>). Drag a letter to move it.</div>" +
+    '<div class="flw" id="flw" data-mode="new"><img src="' + esc(im.url) + '" alt="">' + flPins(im.letters) + "</div>" +
+    '<div class="row"><button class="btn raised" data-a="flundo">↩ Undo</button>' + (i > 0 ? '<button class="btn raised" data-a="flprev">‹ Back</button>' : "") +
+    '<button class="btn raised main" data-a="flnext">' + (i < flNew.imgs.length - 1 ? "Next sheet ›" : "Next ›") + "</button></div>" +
+    '<a class="link" data-a="flcancel">Start again</a>';
+}
+function flMailText() {
+  return "Hey (their name),\n\nNew one-off flash just landed and you get first look, before it goes on Instagram.\n\n" + FLASH_LINE +
+    "\n\nEvery design has a number and a letter under it on my site (like 130A). Tap the one you want and book it here: " + FLASH_PAGE + "?src=waitlist\n\nAron x";
+}
+function flSendHtml() {
+  const lettered = flNew.imgs.every((x) => x.letters.length);
+  if (flAud === null) { flAud = "…"; nsrv("/flash/audience", {}, 30000).then((r) => { flAud = r; render(); }, () => { flAud = { count: 0, names: [], err: 1 }; render(); }); }
+  const who = flAud === "…" ? "Counting your waiting list…" : flAud.err ? "⚠ Couldn't read the waiting list right now" : flAud.count + " people: " + esc(flAud.names.join(", "));
+  return '<div class="h">Ready to put up</div><div class="photos">' + flNew.imgs.map((x) => '<img src="' + esc(x.url) + '" style="background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/12px 12px">').join("") + "</div>" +
+    (lettered ? "" : '<div class="card sunk bad">⚠ A sheet has no letters. Clients won\'t be able to pick from it.</div>') +
+    '<div class="chk" id="flmc" data-a="flmailtoggle"><span class="bx sunk">' + (flNew.mail ? "✓" : "") + "</span><span>Email the waiting list (" + who + ")</span></div>" +
+    (flNew.mail ? '<label class="field">Subject</label><input class="inp" id="flsub" value="' + esc(flNew.subject) + '"><label class="field">Email. Each person gets their own first name, and the sheets go in under the first lines</label><textarea class="inp" id="fltext" style="height:200px">' + esc(flNew.text) + "</textarea>" : "") +
+    '<button class="btn raised main" data-a="flputup">Put it up</button><a class="link" data-a="flprev">‹ Back to the letters</a>';
+}
+function flCaption(ns) {
+  return "New flash" + (ns.length > 1 ? " sheets " : " sheet ") + ns.join(" + ") + " 🌸\n\n" + FLASH_LINE +
+    "\n\nPick yours on my site (link in bio). Put the number and letter in the booking form, like " + ns[0] + "A x";
+}
+function flDoneHtml(arg) {
+  const ns = String(arg || "").split(",").filter(Boolean);
+  const story = "New one-off flash is up 🌸\n\n" + FLASH_LINE + "\n\nTap the link to grab yours";
+  return '<div class="card sunk">✓ Sheet ' + esc(ns.join(" and ")) + " is on your flash page with letters." + (flNew && flNew.sentTo ? " The waiting-list email is going out to " + flNew.sentTo + " people." : "") + "</div>" +
+    '<div class="h">Post caption</div><textarea class="inp sunk" id="flcap" readonly style="height:150px">' + esc(flCaption(ns)) + '</textarea><button class="btn raised wide" data-a="flcopy" data-arg="flcap">📋 Copy the caption</button>' +
+    '<div class="h">Story</div><textarea class="inp sunk" id="flstory" readonly style="height:110px">' + esc(story) + '</textarea>' +
+    '<div class="row"><button class="btn raised" data-a="flcopy" data-arg="flstory">📋 Copy the story</button><button class="btn raised" data-a="fllink" data-arg="flash">🔗 Copy the link</button></div>' +
+    '<div class="dim">The link is labelled, so bookings from it are counted.</div>';
+}
+function flGoneHtml(code) {
+  const c = flCodes(code)[0] || {}, s = flSheet(c.n); if (!s) return '<div class="card sunk">Loading…</div>';
+  const left = s.letters.filter((x) => x.state === "free").length, pid = "gone-" + c.n + c.l, done = storyDone(pid);
+  const t = c.n + c.l + " is gone ❤️\n\n" + FLASH_LINE + "\n\n" + (left ? left + " left on this sheet. Tap the link to grab one" : "That's the whole sheet gone. Thank you x");
+  return '<div class="dim">Screenshot this for the story:</div><div class="flw"><img src="' + esc(flThumb(s.url, 1400)) + '" alt="">' + flPins(s.letters, { gone: 1 }) + "</div>" +
+    '<textarea class="inp sunk" id="flgt" readonly style="height:120px">' + esc(t) + "</textarea>" +
+    '<div class="row"><button class="btn raised" data-a="flcopy" data-arg="flgt">📋 Copy the text</button><button class="btn raised" data-a="fllink" data-arg="gone">🔗 Copy the link</button></div>' +
+    '<button class="btn raised wide' + (done ? "" : " main") + '" data-a="storyposted" data-arg="' + esc(pid) + '|gone">' + (done ? "✓ Posted" : "✓ I posted it") + "</button>";
+}
+function blobB64(b) { return new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = no; fr.readAsDataURL(b); }); }
+async function flPrep(file) {                  // keeps PNG as PNG (see-through stays see-through). Only shrinks sheets wider than 2400px.
+  const png = file.type === "image/png" || /\.png$/i.test(file.name || "");
+  const url = URL.createObjectURL(file);
+  const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("couldn't open that picture")); i.src = url; });
+  const W = img.naturalWidth, H = img.naturalHeight, sc = Math.min(1, 2400 / Math.max(W, H));
+  const sm = document.createElement("canvas"); sm.width = 64; sm.height = 64;
+  const sg = sm.getContext("2d"); sg.drawImage(img, 0, 0, 64, 64);
+  const px = sg.getImageData(0, 0, 64, 64).data; let clear = 0;
+  for (let k = 3; k < px.length; k += 4) if (px[k] < 250) clear++;
+  let blob = file;
+  if (sc < 1) {
+    const c = document.createElement("canvas"); c.width = Math.round(W * sc); c.height = Math.round(H * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);   // a fresh canvas is see-through, so PNG alpha survives
+    blob = await new Promise((ok) => c.toBlob(ok, png ? "image/png" : "image/jpeg", 0.92));
+  }
+  return { url: url, w: Math.round(W * sc), h: Math.round(H * sc), mime: png ? "image/png" : "image/jpeg", alpha: png && clear > 40, data: await blobB64(blob), size: blob.size, letters: [] };
+}
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "flfile") return;
+  const files = Array.from(e.target.files || []).slice(0, 8); if (!files.length) return;
+  setBusy(1);
+  try {
+    const imgs = [];
+    for (const f of files) imgs.push(await flPrep(f));
+    const big = imgs.find((x) => x.size > 14.5e6);
+    if (big) return toast("⚠ One sheet is over 14 MB even after shrinking. Export it a bit smaller and try again.");
+    flNew = { imgs: imgs, i: 0, step: "letters", mail: true, subject: "", text: flMailText() }; flAud = null;
+  } catch (err) { toast("⚠ " + err.message); } finally { setBusy(-1); render(); }
+});
+let flDrag = null;
+document.addEventListener("pointerdown", (e) => {
+  const w = e.target.closest && e.target.closest("#flw"); if (!w || w.dataset.mode === "view") return;
+  const pin = e.target.classList.contains("flp") ? e.target : null;
+  flDrag = { w: w, pin: pin, x0: e.clientX, y0: e.clientY, moved: false };
+  if (pin) { try { pin.setPointerCapture(e.pointerId); } catch (er) {} }
+  e.preventDefault();
+});
+document.addEventListener("pointermove", (e) => {
+  if (!flDrag || !flDrag.pin) return;
+  if (Math.abs(e.clientX - flDrag.x0) + Math.abs(e.clientY - flDrag.y0) > 6) flDrag.moved = true;
+  const b = flDrag.w.getBoundingClientRect(), x = Math.max(0, Math.min(100, (e.clientX - b.left) / b.width * 100)), y = Math.max(0, Math.min(100, (e.clientY - b.top) / b.height * 100));
+  flDrag.pin.style.left = x + "%"; flDrag.pin.style.top = y + "%"; flDrag.nx = x; flDrag.ny = y;
+});
+document.addEventListener("pointerup", (e) => {
+  const d = flDrag; flDrag = null; if (!d) return;
+  const ls = flEditLetters(); if (!ls) return;
+  if (d.pin) { if (d.moved) { const x = ls.find((y) => y.l === d.pin.dataset.l); if (x) { x.x = d.nx; x.y = d.ny; } } return; }
+  if (Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) > 10) return;
+  const l = flNextLetter(ls); if (!l) return toast("That's every letter used.");
+  const b = d.w.getBoundingClientRect();
+  ls.push({ l: l, x: (e.clientX - b.left) / b.width * 100, y: (e.clientY - b.top) / b.height * 100, state: "free" });
+  if (flEdit && flEdit.added) flEdit.added.push(l);
+  render();
+});
+function flEditLetters() {
+  const w = stack[stack.length - 1]; if (!w || w.kind !== "flash") return null;
+  if (String(w.arg) === "new" && flNew) return flNew.imgs[flNew.i].letters;
+  if (String(w.arg || "").startsWith("l|") && flEdit) return flEdit.letters;
+  return null;
+}
+function flPinTap(n, l) {
+  const s = flSheet(n), x = s && s.letters.find((y) => y.l === l); if (!x) return;
+  if (flPickFor) {
+    const r = byId(flPickFor); if (!r) { flPickFor = null; return; }
+    if (x.state !== "free" && !(x.claim && x.claim.rid === r.id)) return toast("⚠ " + n + l + " is already " + x.state + (x.claim && x.claim.name ? " (" + x.claim.name + ")" : "") + ".");
+    return ask("Is " + r.first + " booking " + n + l + "?", () => { flPick[r.id] = n + l; store.set("flpick", flPick); const rid = r.id; flPickFor = null; open_("client", rid); flashReconcile().then(render); });
+  }
+  const by = x.claim && x.claim.name ? " (" + x.claim.name + ")" : "";
+  dialog("<b>" + n + l + "</b> is " + esc(x.state) + esc(by) + ". Change it?", [["Free", () => flSetState(n, l, "free")], ["Claimed", () => flSetState(n, l, "claimed")], ["Tattooed", () => flSetState(n, l, "tattooed")], ["Close"]], "🌸", { title: "Flash " + n + l });
+}
+async function flSetState(n, l, st) {
+  setBusy(1);
+  try { await nsrv("/flash/state", { n: n, l: l, state: st }, 30000); await flashLoad(); toast(n + l + " is " + st + " ✓ The website updates in a minute."); }
+  catch (e) { toast("⚠ " + e.message); } finally { setBusy(-1); }
+}
+async function flPutUp() {
+  if (flNew.mail) { flNew.subject = ($("flsub") || {}).value || flNew.subject; flNew.text = ($("fltext") || {}).value || flNew.text; }
+  const ns = [];
+  setBusy(1);
+  try {
+    for (const im of flNew.imgs) {
+      if (im.n) { ns.push(im.n); continue; }       // already up from an earlier try
+      const r = await nsrv("/flash/add", { img: im.data, mime: im.mime, letters: im.letters.map((x) => ({ l: x.l, x: x.x, y: x.y })) }, 240000);
+      im.n = r.sheet.n; ns.push(im.n);
+    }
+    if (flNew.mail) {
+      let sub = (flNew.subject.trim() || "New one-off flash just landed x").replace(/\s*·\s*sheet [\d +]+$/, "");
+      if (!/^New one-off flash/.test(sub)) sub = "New one-off flash: " + sub;
+      const m = await nsrv("/flash/mail", { subject: sub + " · sheet " + ns.join(" + "), text: flNew.text.replace(/^\s*Hey \(their name\),?/i, "{hi}"), ns: ns }, 60000);
+      flNew.sentTo = m.count || 0;
+    }
+    await flashLoad();
+    stack = stack.filter((w) => w.kind !== "flash" || !String(w.arg || "").startsWith("new"));
+    open_("flash", "done|" + ns.join(","));
+  } catch (e) { toast("⚠ " + e.message + (ns.length ? ". Sheet " + ns.join(", ") + " is up. Tap Put it up again to finish." : "")); } finally { setBusy(-1); }
+}
+function flashAct(a, arg) {
+  if (a === "flopen") open_("flash", arg);
+  else if (a === "flnew") { flNew = null; flAud = null; open_("flash", "new"); }
+  else if (a === "flcancel") { flNew = null; render(); }
+  else if (a === "flundo") {
+    const ls = flEditLetters(); if (!ls || !ls.length) return;
+    if (flEdit && String((stack[stack.length - 1] || {}).arg).startsWith("l|")) { const l = flEdit.added.pop(); if (!l) return toast("Only letters added just now can be undone."); const i = ls.findIndex((x) => x.l === l); if (i >= 0) ls.splice(i, 1); }
+    else ls.pop();
+    render();
+  }
+  else if (a === "flnext") { if (!flNew.imgs[flNew.i].letters.length) return ask("No letters on this sheet. Carry on anyway?", () => { flStep(1); }); flStep(1); }
+  else if (a === "flprev") { if (flNew.step === "send") flNew.step = "letters"; else flNew.i = Math.max(0, flNew.i - 1); render(); }
+  else if (a === "flmailtoggle") { flNew.mail = !flNew.mail; render(); }
+  else if (a === "flputup") flPutUp();
+  else if (a === "flsaveletters") {
+    const n = flEdit.n, ls = flEdit.letters.map((x) => ({ l: x.l, x: x.x, y: x.y }));
+    setBusy(1);
+    nsrv("/flash/letters", { n: n, letters: ls }, 30000).then(async () => { flEdit = null; await flashLoad(); stack.pop(); open_("flash", "s|" + n); toast("Letters saved ✓ The website updates in a minute."); },
+      (e) => toast("⚠ " + e.message)).finally(() => setBusy(-1));
+  }
+  else if (a === "flletter") { flEdit = null; open_("flash", "l|" + arg); }
+  else if (a === "flpin") { const [n, l] = String(arg).split("|"); flPinTap(Number(n), l); }
+  else if (a === "flretire") { const s = flSheet(arg); if (!s) return;
+    ask(s.retired ? "Put sheet " + s.n + " back on the website?" : "Take sheet " + s.n + " off the website? Its number stays, so nothing else moves.", async () => {
+      setBusy(1); try { await nsrv("/flash/retire", { n: s.n, retired: !s.retired }, 30000); await flashLoad(); } catch (e) { toast("⚠ " + e.message); } finally { setBusy(-1); } }); }
+  else if (a === "flpick") { flPickFor = arg; open_("flash"); }
+  else if (a === "flpickx") { flPickFor = null; render(); }
+  else if (a === "flcopy") { const el = $(arg); if (el) copyText(el.value, "Text"); }
+  else if (a === "fllink") copyText(FLASH_PAGE + "?src=" + arg, "Link");
+}
+function flStep(d) {
+  if (flNew.i + d < flNew.imgs.length) { flNew.i += d; render(); window.scrollTo(0, 0); return; }
+  if (!flNew.subject) flNew.subject = "New one-off flash just landed x";
+  flNew.step = "send"; render(); window.scrollTo(0, 0);
 }
 
 // ── Takings ──
@@ -4028,10 +4346,11 @@ document.addEventListener("click", async (e) => {
   else if (a === "boxbin") { const list = arg[0] === "f" ? failed : outbox, i = Number(arg.slice(1));
     if (list === outbox && i === 0 && sending) return toast("That one is sending right now.");
     ask("Bin \"" + (list[i].label || "this") + "\"? It won't be sent.", () => { list.splice(i, 1); saveBox(); render(); }); }
+  else if (a.startsWith("fl")) flashAct(a, arg);
   else if (a === "storyedit") storyEdit();
   else if (a === "storylink") copyText(BOOK_LINK + "?src=" + arg, "Link");
   else if (a === "storyposted") { const [pid, type] = String(arg).split("|"); if (!storyDone(pid)) socPut({ id: pid, kind: "story", type: type, date: todayISO() }); toast("Nice ✓ Any bookings from it get counted."); }
-  else if (a === "bookgo") open_("story", arg === "weekly" ? undefined : arg);
+  else if (a === "bookgo") String(arg).startsWith("gone|") ? open_("flash", arg) : open_("story", arg === "weekly" ? undefined : arg);
   else if (a === "tpl") editTpl(arg);
   else if (a === "toggle") {
     const nv = !on(arg);
