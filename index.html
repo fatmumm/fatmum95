@@ -64,9 +64,17 @@ html{-webkit-text-size-adjust:100%}
 .ts-h #tsel{font-size:12px;flex:1}.ts-go{margin-left:auto}
 .ts-w{display:flex;gap:6px;padding:6px 8px 0}.ts-w input{flex:1;min-width:0;font:14px Tahoma,sans-serif;padding:6px}
 .ts-g{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px 8px 0}
-.ts-b{display:flex;flex-direction:column;align-items:center;padding:6px 2px;font-size:11px;min-width:0}.ts-b i{font-style:normal;font-size:20px}.ts-b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ts-b{display:flex;flex-direction:column;align-items:center;padding:6px 1px;font-size:10px;letter-spacing:-.3px;min-width:0}.ts-b i{font-style:normal;font-size:20px}.ts-b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .ts-b.on{background:#ffd400;box-shadow:inset 1px 1px #404040}
+.ts .ts-g .ts-b span{font-size:11px;letter-spacing:-.2px}
 .tq{padding:0 8px}.tq-r{display:grid;grid-template-columns:42% 1fr 64px;gap:6px;align-items:center;font-size:13px;padding:3px 0}.tq-bar{height:12px;background:#fff}.tq-bar i{display:block;height:100%;background:#000080}.tq-v{text-align:right}.tq-all{font-weight:700}
+.ts-now{display:flex;align-items:center;gap:6px;padding:6px 8px 0;font-size:13px}.ts-now span{flex:1;min-width:0}.ts-now .btn{flex:none;padding:4px 8px}
+.ts-slim{display:flex;align-items:center;gap:6px;padding:6px 8px 0;font-size:12px;cursor:pointer}.ts-slim .tg-bar{flex:1}
+.tg{padding:0 8px 6px}.tg-r{display:grid;grid-template-columns:40% 1fr 92px;gap:6px;align-items:center;font-size:13px;padding:4px 0}.tg-v{text-align:right;font-size:12px}
+.tg-bar{display:block;height:14px;background:#fff}.tg-bar i{display:block;height:100%;background:#000080}.tg-bar i.full{background:#2e8b57}.tg-bar i.ok{background:#2e8b57}.tg-bar i.over{background:#c0281e}
+.tg-sh{display:flex;align-items:center;gap:4px}.tg-sh .tg-r{flex:1}.tg-sh .btn{padding:3px 6px;font-size:12px}
+.tg-st{padding:6px 0 0;font-size:14px}.tg-st small{color:#555}
+.tf{padding:6px 8px;font-size:13px}.tf-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.tf-g label{display:flex;flex-direction:column;font-size:12px}.tf-g input{font:15px Tahoma,sans-serif;padding:5px}.tf-row{padding:2px 0}
 .tl-t{flex:none;width:92px;font:13px Tahoma,sans-serif}.tl-d{flex:none;font-size:12px}
 .tform label{display:flex;flex-direction:column;font-size:13px;margin:0 0 8px;text-align:left}.tform input,.tform select{font:15px Tahoma,sans-serif;padding:6px;margin-top:2px}
 .hw-h{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-size:14px;cursor:pointer}
@@ -1802,8 +1810,8 @@ function habitWidget() {
 }
 
 // ── ⏱ Time log: two weeks of where the hours go (22 Oct to 4 Nov 2026). One tap per switch ──
-const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Draw / sketchbook", "Draw"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post / socials", "Post"],
-  ["club", "💌", "Club letters", "Club"], ["pack", "📦", "Pack & post", "Pack"], ["admin", "📧", "Emails / admin", "Admin"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
+const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Sketchbook", "Sketch"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post", "Post"],
+  ["club", "💌", "Club", "Club"], ["pack", "📦", "Pack / ship", "Ship"], ["admin", "📧", "Admin", "Admin"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
 const TLOG_FROM = "2026-10-22", TLOG_UNTIL = "2026-11-08";       // the strip hides itself a few days after the 4 Nov send
 let TLOG = store.get("tlog", []), TWHAT = store.get("twhat", {});
 const tcat = (k) => TCATS.find((c) => c[0] === k) || TCATS[TCATS.length - 1];
@@ -1812,7 +1820,7 @@ const tFrom = () => { const d = TLOG.length ? tDay(Math.min(...TLOG.map((x) => x
 const tHM = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? m + "m" : Math.floor(m / 60) + "h " + pad(m % 60) + "m"; };
 const tClock = (ms) => { const d = new Date(ms); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
 const tDay = (ms) => { const d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
-function tSave() { store.set("tlog", TLOG); store.set("twhat", TWHAT); clearTimeout(tSave.t); tSave.t = setTimeout(tBackup, 3000); }
+function tSave() { store.set("tlog", TLOG); store.set("twhat", TWHAT); clearTimeout(tSave.t); tSave.t = setTimeout(tBackup, 3000); tSyncSoon(); }
 function tStart(cat) {
   const now = Date.now(), r = tRunning();
   if (r && r.cat === cat) return;
@@ -1820,7 +1828,7 @@ function tStart(cat) {
   TLOG.push({ id: nId("t"), cat: cat, what: TWHAT[cat] || "", s: now, e: null });
   tSave(); render();
 }
-function tStop() { const r = tRunning(); if (r) { r.e = Date.now(); tSave(); render(); } }
+function tStop() { const r = tRunning(); if (r) { r.e = Date.now(); tSave(); tSyncSoon(5000); render(); } }
 function tStrip() {
   const t = todayISO();
   if (pref("tstrip") === false || t > TLOG_UNTIL) return "";
@@ -1828,7 +1836,7 @@ function tStrip() {
   const btns = TCATS.map((x) => '<button class="btn raised ts-b' + (r && r.cat === x[0] ? " on" : "") + '" data-a="tgo" data-arg="' + x[0] + '"><i>' + x[1] + "</i><span>" + esc(x[3]) + "</span></button>").join("");
   return '<div class="ts raised"><div class="ts-h" data-a="open" data-arg="time">' + (r ? "<b>" + c[1] + " " + esc(c[2]) + '</b><span id="tsel"> · ' + tHM(Date.now() - r.s) + " since " + tClock(r.s) + "</span>" : "<b>⏱ What are you doing?</b>") + "<span class=\"ts-go\">›</span></div>" +
     (r ? '<div class="ts-w"><input id="tswhat" class="sunk" placeholder="What? (optional, a few words)" value="' + esc(r.what || "") + '"><button class="btn raised" data-a="tstop">⏹ Stop</button></div>' : "") +
-    '<div class="ts-g">' + btns + "</div></div>";
+    '<div class="ts-g">' + btns + "</div>" + tNowLine() + tSlim() + "</div>";
 }
 document.addEventListener("input", (e) => {
   if (e.target.id !== "tswhat") return;
@@ -1864,10 +1872,10 @@ function winTime() {
   const rows = ps.map((p) => { const c = tcat(p.cat);
     return '<div class="li" data-a="tedit" data-arg="' + p.id + '"><span class="tl-t">' + tClock(p.s) + "–" + (p.open ? "now" : tClock(p.e)) + '</span><span class="lab">' + c[1] + " " + esc(c[2]) + (p.what ? '<br><small>' + esc(p.what) + "</small>" : "") + '</span><span class="tl-d">' + tHM(p.e - p.s) + "</span></div>"; }).join("");
   const dayName = day === t ? "Today" : new Date(day + "T12:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
-  return '<div class="nt"><div class="nt-bar"><span class="nt-btn" data-a="tday" data-arg="-1">‹</span><span class="nt-c"><b>' + dayName + "</b> · " + tHM(ps.reduce((a, p) => a + p.e - p.s, 0)) + '</span><span class="nt-btn" data-a="tday" data-arg="1">›</span></div>' +
+  return '<div class="nt"><div class="h">This week</div>' + tGoals() + tFriCard() + '<div class="nt-bar"><span class="nt-btn" data-a="tday" data-arg="-1">‹</span><span class="nt-c"><b>' + dayName + "</b> · " + tHM(ps.reduce((a, p) => a + p.e - p.s, 0)) + '</span><span class="nt-btn" data-a="tday" data-arg="1">›</span></div>' +
     '<div class="lv sunk">' + (rows || '<div class="nt-empty">Nothing logged ' + (day === t ? "yet today. Tap what you\'re doing on the home screen." : "that day.") + "</div>") + "</div>" +
     '<div class="row btns"><button class="btn raised" data-a="tadd" data-arg="' + day + '">+ Add one I missed</button></div>' +
-    '<div class="h">This week</div><div class="tq">' + tBars(tTotals(mon, t)) + "</div>" +
+    '<div class="h">This week, all categories</div><div class="tq">' + tBars(tTotals(mon, t)) + "</div>" +
     '<div class="h">Whole log (from ' + new Date(tFrom() + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ')</div><div class="tq">' + tBars(tTotals(tFrom(), null)) + "</div>" +
     '<div class="row btns"><button class="btn raised" data-a="tsend"><b>📤 Send my log</b> (due 4 Nov)</button></div>' +
     '<div class="nt-hint">Tap a category on the home screen when you switch tasks. It ends the last one and starts the new one. Tap an entry here to fix its times. A copy is kept in 📝 Notes as "Time log".</div></div>';
@@ -1909,6 +1917,92 @@ async function tSend() {
     if (navigator.share) { await navigator.share({ text: text + "\n\n" + csv }); return; }
   } catch (e) { if (e && e.name === "AbortError") return; }
   copyText(text + "\n\n" + csv, "Time log");
+}
+// the week plan, by day (0 = Sunday): [morning, afternoon], each [what to do, categories it starts]
+const TPLAN = {
+  0: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
+  1: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
+  2: [["Paint 3 hrs, phone in another room", ["paint"]], ["Sketchbook, camera rolling for a how-to", ["draw", "film"]]],
+  3: [["Paint 3 hrs", ["paint"]], ["Sketchbook or club letter writing", ["draw", "club"]]],
+  4: [["Edit 2 to 3 shorts and schedule them", ["edit"]], ["Emails, newsletter, shop admin (stop at 2 hrs)", ["admin"]]],
+  5: [["Paint 3 hrs", ["paint"]], ["Ship: club letters, orders, shirt prep. Then a 20-minute review", ["pack"]]],
+  6: [["Flex: catch-up, or printing in shirt week", ["other"]], ["Off", []]]};
+const TDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const TGOALS = [["paint", "🎨 Painting", 9], ["draw", "✏️ Sketchbook", 6]];
+const T_SHORTS = 3, T_ADMIN_CAP = 2, T_PAINTDAYS = [2, 3, 5], T_PAINT_HRS = 3;
+let TSHORTS = store.get("tshorts", {}), TFRI = store.get("tfri", {}), TBEST = store.get("tbest", 0);
+function tNow(when) {
+  const d = when ? new Date(when) : new Date(), h = d.getHours(), p = TPLAN[d.getDay()];
+  if (h >= 18) return { label: TDAYS[d.getDay()] + " evening", text: "Off", cats: [] };
+  const half = h < 13 ? 0 : 1;
+  return { label: TDAYS[d.getDay()] + (half ? " afternoon" : " morning"), text: p[half][0], cats: p[half][1] };
+}
+const tMonday = (iso) => { const d = new Date((iso || todayISO()) + "T12:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return tDay(d.getTime()); };
+const tHours = (cat, from, to) => (tTotals(from, to)[cat] || 0) / 3600000;
+function tStreak() {                          // Tue, Wed and Fri in a row with 3+ hrs painted. Other days don't count, today can still happen
+  const t = todayISO(), first = tFrom();
+  let d = t, n = 0, k = 0;
+  while (d >= first && k++ < 400) {
+    const dow = new Date(d + "T12:00").getDay();
+    if (T_PAINTDAYS.includes(dow)) {
+      const ok = tHours("paint", d, d) >= T_PAINT_HRS;
+      if (ok) n++;
+      else if (d !== t) break;
+    }
+    d = addDays(d, -1);
+  }
+  if (n > TBEST) { TBEST = n; store.set("tbest", n); }
+  return n;
+}
+function tBar(label, have, goal, unit, limit) {
+  const pct = Math.min(100, Math.round(100 * have / goal)), full = !limit && have >= goal, over = limit && have > goal;
+  const v = unit === "h" ? (Math.round(have * 10) / 10) + " / " + goal + " hrs" : have + " / " + goal;
+  return '<div class="tg-r"><span class="tg-n">' + label + (full ? " 🏆" : "") + '</span><span class="tg-bar sunk"><i class="' + (over ? "over" : full ? "full" : limit ? "ok" : "") + '" style="width:' + pct + '%"></i></span><span class="tg-v">' + v + (full ? " ✓" : over ? " ⚠" : "") + "</span></div>";
+}
+function tGoals() {
+  const mon = tMonday(), t = todayISO(), shorts = TSHORTS[mon] || 0, st = tStreak();
+  return '<div class="tg">' + TGOALS.map((g) => tBar(g[1], tHours(g[0], mon, t), g[2], "h")).join("") +
+    '<div class="tg-sh">' + tBar("✂️ Shorts edited", shorts, T_SHORTS, "n") + '<button class="btn raised" data-a="tshort" data-arg="1">+1 short</button>' + (shorts ? '<button class="btn raised" data-a="tshort" data-arg="-1">−</button>' : "") + "</div>" +
+    tBar("📧 Admin today (limit)", Math.round(tHours("admin", t, t) * 10) / 10, T_ADMIN_CAP, "h", true) +
+    '<div class="tg-st">🔥 <b>' + st + "</b> paint day" + (st === 1 ? "" : "s") + " in a row · 🏆 best " + Math.max(st, TBEST) + '<br><small>Tue, Wed and Fri with 3+ hrs painted. Other days never break it.</small></div></div>';
+}
+function tNowLine() {
+  const n = tNow(), r = tRunning(), on = r && n.cats.includes(r.cat);
+  const go = n.cats.length && !on ? n.cats.map((c) => '<button class="btn raised" data-a="tgo" data-arg="' + c + '">▶ ' + tcat(c)[1] + "</button>").join("") : on ? "<span>✓</span>" : "";
+  return '<div class="ts-now"><span><b>Now · ' + n.label + ":</b> " + esc(n.text) + "</span>" + go + "</div>";
+}
+function tSlim() {
+  const mon = tMonday(), h = tHours("paint", mon, todayISO()), pct = Math.min(100, Math.round(100 * h / 9));
+  return '<div class="ts-slim" data-a="open" data-arg="time">🎨 <span class="tg-bar sunk"><i class="' + (h >= 9 ? "full" : "") + '" style="width:' + pct + '%"></i></span> ' + (Math.round(h * 10) / 10) + "/9 hrs · 🔥 " + tStreak() + "</div>";
+}
+function tFriCard() {
+  const t = todayISO(), dow = new Date(t + "T12:00").getDay(), mon = tMonday(), f = TFRI[mon];
+  const past = Object.keys(TFRI).sort().reverse().filter((k) => k !== mon || f).map((k) => { const x = TFRI[k];
+    return "<div class=\"tf-row\">w/c " + new Date(k + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ": 📰 " + x.news + " · 💌 " + x.club + " · 🎨 " + x.paint + " hrs · 📱 " + x.posts + "</div>"; }).join("");
+  if (!(dow === 5 || dow === 6 || dow === 0) || f) return past ? '<div class="h">Friday numbers</div><div class="tf">' + past + "</div>" : "";
+  const paint = Math.round(tHours("paint", mon, t) * 10) / 10;
+  return '<div class="h">Friday numbers</div><div class="tf card sunk"><div class="tf-g">' +
+    '<label>📰 Newsletter subs<input id="tfn" type="number" inputmode="numeric" class="sunk"></label><label>💌 Club subs<input id="tfc2" type="number" inputmode="numeric" class="sunk"></label>' +
+    '<label>🎨 Painting hrs<input id="tfp" type="number" step="0.5" inputmode="decimal" class="sunk" value="' + paint + '"></label><label>📱 Posts shipped<input id="tfo" type="number" inputmode="numeric" class="sunk"></label></div>' +
+    '<button class="btn raised" data-a="tfri"><b>Save this week</b></button></div>' + (past ? '<div class="tf">' + past + "</div>" : "");
+}
+function tFriSave() {
+  const v = (id) => { const x = $(id).value.trim(); return x === "" ? null : Number(x); };
+  const row = { news: v("tfn"), club: v("tfc2"), paint: v("tfp"), posts: v("tfo") };
+  if (Object.values(row).some((x) => x == null || isNaN(x))) { toast("⚠ Fill in all four numbers."); return; }
+  TFRI[tMonday()] = row; store.set("tfri", TFRI); tSyncSoon(500); render();
+}
+function tSyncSoon(ms) {                     // everything to the "Time log", "Friday numbers" and "To-dos" tabs, at most every 2 minutes
+  clearTimeout(tSyncSoon.t);
+  tSyncSoon.t = setTimeout(tSyncNow, ms == null ? 120000 : ms);
+}
+function tSyncNow() {
+  if (!TLOG.length && !Object.keys(TFRI).length) return;
+  const rows = tPieces(null, null).map((p) => [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], p.what || ""]);
+  const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0]);
+  const v = todoView(), todos = v ? v.tasks.map((x) => [x.title || "", x.due || "", x.done || ""]) : [];
+  outbox = outbox.filter((x) => x.fn !== "timeSync"); saveBox();
+  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos }, DRY], label: "Time log" });
 }
 function tBackup() {                          // a copy in 📝 Notes, so the log can't vanish with the phone's storage
   if (!TLOG.length) return;
@@ -4418,7 +4512,7 @@ document.addEventListener("click", async (e) => {
   }
   if (a === "menu") { menuOpen = !menuOpen; render(); }
   else if (a === "reload") { load(true); }
-  else if (a === "open") open_(arg);
+  else if (a === "open") { open_(arg); if (arg === "time") tSyncSoon(1500); }
   else if (a === "back") back();
   else if (a === "home") home();
   else if (!D) return;
@@ -4506,6 +4600,8 @@ document.addEventListener("click", async (e) => {
   else if (a === "tedit") tEdit(arg);
   else if (a === "tadd") tEdit("", arg);
   else if (a === "tsend") tSend();
+  else if (a === "tshort") { const m = tMonday(); TSHORTS[m] = Math.max(0, (TSHORTS[m] || 0) + Number(arg)); store.set("tshorts", TSHORTS); tSyncSoon(); render(); }
+  else if (a === "tfri") tFriSave();
   else if (a === "tday") { const t = todayISO(), d = addDays(tDayView || t, Number(arg)); tDayView = d >= t ? null : d; render(); }
   else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => habitKey(hh) === arg); if (h) todoChange(Object.assign({ kind: "habit", date: todayISO(), kept: !(h.log || []).includes(todayISO()) }, habitRef(h))); }
   else if (a === "habits") habitsManager();
