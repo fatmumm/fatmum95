@@ -75,6 +75,7 @@ html{-webkit-text-size-adjust:100%}
 .tg-sh{display:flex;align-items:center;gap:4px}.tg-sh .tg-r{flex:1}.tg-sh .btn{padding:3px 6px;font-size:12px}
 .tg-st{padding:6px 0 0;font-size:14px}.tg-st small{color:#555}
 .tf{padding:6px 8px;font-size:13px}.tf-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.tf-g label{display:flex;flex-direction:column;font-size:12px}.tf-g input{font:15px Tahoma,sans-serif;padding:5px}.tf-row{padding:2px 0}
+.pl-e{flex:none;font-size:22px;width:30px}.pl-bar{margin:4px 0 2px}.pl-in{color:#2e8b57}.pl-s .lab{cursor:pointer}
 .tl-t{flex:none;width:92px;font:13px Tahoma,sans-serif}.tl-d{flex:none;font-size:12px}
 .tform label{display:flex;flex-direction:column;font-size:13px;margin:0 0 8px;text-align:left}.tform input,.tform select{font:15px Tahoma,sans-serif;padding:6px;margin-top:2px}
 .hw-h{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-size:14px;cursor:pointer}
@@ -699,7 +700,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -1997,12 +1998,14 @@ function tSyncSoon(ms) {                     // everything to the "Time log", "F
   tSyncSoon.t = setTimeout(tSyncNow, ms == null ? 120000 : ms);
 }
 function tSyncNow() {
-  if (!TLOG.length && !Object.keys(TFRI).length) return;
+  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length) return;
   const rows = tPieces(null, null).map((p) => [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], p.what || ""]);
   const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0]);
   const v = todoView(), todos = v ? v.tasks.map((x) => [x.title || "", x.due || "", x.done || ""]) : [];
+  const plans = [];
+  PLANS.forEach((p) => p.steps.slice().sort((a, b) => a.off - b.off).forEach((s) => plans.push([pTpl(p.tpl).label + ": " + p.name, s.text, sDate(p, s), sDone(s) ? "yes" : ""])));
   outbox = outbox.filter((x) => x.fn !== "timeSync"); saveBox();
-  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos }, DRY], label: "Time log" });
+  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos, plans: plans }, DRY], label: "Time log" });
 }
 function tBackup() {                          // a copy in 📝 Notes, so the log can't vanish with the phone's storage
   if (!TLOG.length) return;
@@ -2011,6 +2014,146 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
   const n = NOTES[id] || { id: id, folder: "" };
   n.blocks = [{ t: "title", text: "⏱ Time log (backup)" }, { t: "p", text: tSummary() }, { t: "p", text: "" }].concat(tCSV().split("\n").map((l) => ({ t: "p", text: l })));
   noteTouch(n);
+}
+
+// ── 🚀 Plans: a T-shirt drop or a month of snail mail laid out from one date. Steps reach To-do a week before they're due ──
+const PLAN_TPL = {
+  shirt: { emoji: "👕", label: "T-shirt drop", dlabel: "Drop day", tag: "", steps: [[-21, "Final design + mockups"], [-18, "Order blanks / print run"], [-14, "Photoshoot"],
+    [-12, "Edit photos, draft Shopify listing"], [-10, "Email Earlybird tag: it's coming"], [-7, "IG teaser post"], [-4, "IG reel / close-ups"],
+    [-2, "Stories countdown + reminder email"], [-1, "Final checks: stock, prices, email scheduled"], [0, "DROP: publish, email, IG post + stories"],
+    [1, "Story: sizes left"], [3, "72-hour check: all 15 sold?"], [3, "Pack and ship orders"]] },
+  snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Design sticker"], [-18, "Sketchbook spread"], [-14, "Write the essay / letter"],
+    [-12, "Introduction print"], [-10, "Make prints"], [-8, "Make postcards"], [-5, "Roster check + print labels"], [-3, "Pack envelopes"],
+    [-2, "Post international"], [0, "Post UK"]] }};
+const PLAN_AHEAD = 7;                          // days before a step is due that it lands in To-do
+let PLANS = store.get("plans", []), PLANTPL = store.get("plantpl", {}), pDraft = null;
+const pSave = () => { store.set("plans", PLANS); store.set("plantpl", PLANTPL); tSyncSoon(); };
+const pTpl = (k) => Object.assign({}, PLAN_TPL[k], PLANTPL[k] ? { steps: PLANTPL[k] } : {});
+const pFind = (id) => PLANS.find((p) => p.id === id);
+const sDate = (p, s) => addDays(p.date, s.off);
+const pNice = (iso) => new Date(iso + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+function sTask(s) { const v = s.cid && todoView(); return v ? v.tasks.find((x) => x.cid === s.cid) : null; }
+function sDone(s) { const t = sTask(s); return t ? !!t.done : !!s.done; }
+function pProgress(p) { const n = p.steps.filter(sDone).length; return [n, p.steps.length]; }
+function pNext(p) { return p.steps.filter((s) => !sDone(s)).sort((a, b) => a.off - b.off)[0]; }
+function planFeed() {                         // steps due within a week go into To-do, once each
+  const lim = addDays(todayISO(), PLAN_AHEAD);
+  let n = 0;
+  PLANS.filter((p) => !p.finished).forEach((p) => {
+    const t = pTpl(p.tpl);
+    p.steps.forEach((s) => {
+      if (s.cid || s.done || sDate(p, s) > lim) return;
+      s.cid = "pl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      n++;
+      const c = { kind: "add", text: t.emoji + " " + p.name + ": " + s.text + (t.tag || ""), due: sDate(p, s), cid: s.cid };
+      c.id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); c.at = new Date().toISOString().slice(0, 19);
+      pendingTodo.push(c);
+      enqueue({ fn: "deskTodo", args: [KEY, c, DRY], todo: c.id, label: "To-do" });
+    });
+  });
+  if (n) { store.set("todoq", pendingTodo); pSave(); }
+  PLANS.forEach((p) => { if (!p.finished && p.steps.length && p.steps.every(sDone)) { p.finished = todayISO(); pSave(); } });
+  return n;
+}
+setInterval(() => { if (!document.hidden && planFeed()) render(); }, 60000);
+setTimeout(() => { if (planFeed()) render(); }, 2500);
+function planCard(p) {
+  const t = pTpl(p.tpl), [d, all] = pProgress(p), nx = pNext(p);
+  return '<div class="li" data-a="popen" data-arg="' + p.id + '"><span class="pl-e">' + t.emoji + '</span><span class="lab"><b>' + esc(p.name) + "</b> · " + pNice(p.date) +
+    '<span class="tg-bar sunk pl-bar"><i class="' + (d === all ? "full" : "") + '" style="width:' + Math.round(100 * d / Math.max(1, all)) + '%"></i></span><small>' +
+    (nx ? "Next: " + pNice(sDate(p, nx)) + " · " + esc(nx.text) : "🏆 All done") + '</small></span><span class="tl-d">' + d + "/" + all + "</span></div>";
+}
+function winPlans() {
+  const run = PLANS.filter((p) => !p.finished).sort((a, b) => a.date < b.date ? -1 : 1), fin = PLANS.filter((p) => p.finished).sort((a, b) => a.date < b.date ? 1 : -1);
+  return '<div class="nt"><div class="row btns"><button class="btn raised" data-a="pnew" data-arg="shirt">+ 👕 T-shirt drop</button><button class="btn raised" data-a="pnew" data-arg="snail">+ 💌 Snail mail</button></div>' +
+    '<div class="lv sunk">' + (run.map(planCard).join("") || '<div class="nt-empty">No plans running. Start one above.</div>') + "</div>" +
+    (fin.length ? '<div class="h">Finished</div><div class="lv sunk">' + fin.slice(0, 12).map(planCard).join("") + "</div>" : "") +
+    '<div class="nt-hint">Pick a date and the steps are laid out for you. Each one lands in ✅ To-do a week before it\'s due. Tick it there or here, it shows in both.</div></div>';
+}
+function pNew(tpl, base) {
+  const t = pTpl(tpl), mon = new Date(); mon.setMonth(mon.getMonth() + (tpl === "snail" ? 1 : 0));
+  const name = base ? base.name.replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/, new Date(addDays(base.date, 31) + "T12:00").toLocaleDateString("en-GB", { month: "short" })) : tpl === "snail" ? "Snail mail " + mon.toLocaleDateString("en-GB", { month: "short" }) : "";
+  const date = base ? (() => { const d = new Date(base.date + "T12:00"); d.setMonth(d.getMonth() + 1); return isoOf(d); })() : addDays(todayISO(), 21);
+  dialog('<div class="tform"><label>Name<input id="pnm" class="sunk" value="' + esc(name) + '" placeholder="' + (tpl === "shirt" ? "e.g. Better Together" : "e.g. Snail mail Nov") + '"></label>' +
+    '<label>' + t.dlabel + '<input id="pdt" type="date" class="sunk" value="' + date + '"></label></div>',
+    [["Next ›", () => {
+      const nm = $("pnm").value.trim(), dt = $("pdt").value;
+      if (!nm || !dt) { toast("⚠ Give it a name and a date."); return false; }
+      const steps = (base ? base.steps.map((s) => [s.off, s.text]) : t.steps).map((x, i) => ({ k: i, off: x[0], text: x[1], done: null, cid: null }));
+      const today = todayISO();
+      steps.forEach((s) => { if (addDays(dt, s.off) < today) { s.done = today; s.auto = true; } });
+      pDraft = { id: nId("p"), tpl: tpl, name: nm, date: dt, steps: steps, made: today, finished: null };
+      open_("plan", "draft"); return true;
+    }, 1], ["Cancel"]], t.emoji);
+}
+function winPlan(arg) {
+  const draft = arg === "draft", p = draft ? pDraft : pFind(arg);
+  if (!p) return '<div class="card sunk">That plan has gone.</div>';
+  const t = pTpl(p.tpl), today = todayISO(), wk = addDays(today, PLAN_AHEAD), [d, all] = pProgress(p);
+  const row = (s) => { const dd = sDate(p, s), on = sDone(s);
+    return '<div class="li pl-s' + (on ? " dim" : "") + '"><span class="hw-tick' + (on ? " on" : "") + '" data-a="ptick" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '">' + (on ? "✓" : "") + '</span><span class="lab" data-a="pedit" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '"><small>' + pNice(dd) + (s.off ? " · D" + (s.off > 0 ? "+" : "") + s.off : " · the day") + "</small><br>" + esc(s.text) + (s.cid && !draft ? ' <small class="pl-in">in To-do</small>' : "") + "</span></div>"; };
+  const by = (f) => p.steps.slice().sort((a, b) => a.off - b.off || a.k - b.k).filter(f);
+  const groups = draft ? [["Steps (past dates are ticked as done, untick any you still need)", by(() => true)]] :
+    [["This week", by((s) => !sDone(s) && sDate(p, s) <= wk)], ["Coming up", by((s) => !sDone(s) && sDate(p, s) > wk)], ["Done", by(sDone)]];
+  return '<div class="nt"><div class="nt-bar"><span class="nt-c">' + t.emoji + " <b>" + esc(p.name) + "</b> · " + t.dlabel + " " + pNice(p.date) + '</span></div>' +
+    (!draft ? '<div class="tg"><div class="tg-r"><span class="tg-n">Progress' + (d === all ? " 🏆" : "") + '</span><span class="tg-bar sunk"><i class="' + (d === all ? "full" : "") + '" style="width:' + Math.round(100 * d / Math.max(1, all)) + '%"></i></span><span class="tg-v">' + d + " / " + all + "</span></div></div>" : "") +
+    groups.filter((g) => g[1].length).map((g) => '<div class="h">' + g[0] + '</div><div class="lv sunk">' + g[1].map(row).join("") + "</div>").join("") +
+    '<div class="row btns">' + (draft ? '<button class="btn raised" data-a="pstart"><b>Start plan</b></button>' :
+      '<button class="btn raised" data-a="padd" data-arg="' + p.id + '">+ Add step</button><button class="btn raised" data-a="pdate" data-arg="' + p.id + '">Change date</button>') + "</div>" +
+    (!draft ? '<div class="row btns"><button class="btn raised" data-a="psavetpl" data-arg="' + p.id + '">Save as my ' + esc(t.label) + " steps</button>" + (p.tpl === "snail" ? '<button class="btn raised" data-a="pnext" data-arg="' + p.id + '">Next month ›</button>' : "") +
+      '<button class="btn raised" data-a="pdel" data-arg="' + p.id + '">Delete plan</button></div>' : "") +
+    '<div class="nt-hint">Tap a step to rename it or move it. Steps land in ✅ To-do ' + PLAN_AHEAD + " days before they're due.</div></div>";
+}
+function pStep(arg) { const [pid, k] = arg.split("|"), p = pid === "draft" ? pDraft : pFind(pid); return [p, p && p.steps.find((s) => String(s.k) === k)]; }
+function pTick(arg) {
+  const [p, s] = pStep(arg); if (!s) return;
+  const now = !sDone(s), t = sTask(s);
+  s.done = now ? todayISO() : null; delete s.auto;
+  if (t && p !== pDraft) todoChange(Object.assign({ kind: "tick", done: s.done }, taskRef(t)));
+  if (p !== pDraft) { if (!now) p.finished = null; pSave(); planFeed(); }
+  render();
+}
+function pEdit(arg) {
+  const [p, s] = pStep(arg); if (!s) return;
+  dialog('<div class="tform"><label>Step<input id="pst" class="sunk" value="' + esc(s.text) + '"></label><label>Days from ' + esc(pTpl(p.tpl).dlabel.toLowerCase()) + ' (minus = before)<input id="pso" type="number" class="sunk" value="' + s.off + '"></label></div>',
+    [["Save", () => {
+      const txt = $("pst").value.trim(), off = parseInt($("pso").value, 10);
+      if (!txt || isNaN(off)) { toast("⚠ Give it a name and a number of days."); return false; }
+      const moved = off !== s.off; s.text = txt; s.off = off;
+      const t = sTask(s); if (t && moved && p !== pDraft) todoChange(Object.assign({ kind: "due", due: sDate(p, s) }, taskRef(t)));
+      if (p !== pDraft) { pSave(); planFeed(); } render();
+    }, 1], ["Delete step", () => { p.steps = p.steps.filter((x) => x !== s); if (p !== pDraft) pSave(); render(); }], ["Cancel"]], "✏️");
+}
+function pAdd(id) {
+  const p = pFind(id); if (!p) return;
+  dialog('<div class="tform"><label>Step<input id="pst" class="sunk"></label><label>Days from ' + esc(pTpl(p.tpl).dlabel.toLowerCase()) + ' (minus = before)<input id="pso" type="number" class="sunk" value="0"></label></div>',
+    [["Add", () => {
+      const txt = $("pst").value.trim(), off = parseInt($("pso").value, 10);
+      if (!txt || isNaN(off)) { toast("⚠ Give it a name and a number of days."); return false; }
+      p.steps.push({ k: Math.max(-1, ...p.steps.map((x) => x.k)) + 1, off: off, text: txt, done: null, cid: null }); p.finished = null; pSave(); planFeed(); render();
+    }, 1], ["Cancel"]], "➕");
+}
+function pDate(id) {
+  const p = pFind(id); if (!p) return;
+  dialog('<div class="tform"><label>' + pTpl(p.tpl).dlabel + '<input id="pdt" type="date" class="sunk" value="' + p.date + '"></label></div>',
+    [["Move plan", () => {
+      const dt = $("pdt").value; if (!dt) return false;
+      p.date = dt;
+      const today = todayISO();
+      p.steps.forEach((s) => {
+        if (s.auto && sDate(p, s) >= today) { s.done = null; delete s.auto; p.finished = null; }      // ticked only because it was in the past
+        const t = sTask(s); if (t && !t.done) todoChange(Object.assign({ kind: "due", due: sDate(p, s) }, taskRef(t)));
+      });
+      pSave(); planFeed(); render();
+    }, 1], ["Cancel"]], "🗓");
+}
+function pStart() {
+  const p = pDraft; if (!p) return;
+  PLANS.push(p); pDraft = null; pSave();
+  stack = stack.filter((w) => !(w.kind === "plan" && w.arg === "draft")); open_("plan", p.id);
+  planFeed(); render();
+  const v = todoView(), old = p.tpl === "shirt" && v && v.tasks.find((x) => !x.done && /^Run the shirt drop/i.test(x.title || ""));
+  if (old) ask('Tick off the old "' + old.title + '" to-do? This plan covers it now.', () => todoChange(Object.assign({ kind: "tick", done: todayISO() }, taskRef(old))));
 }
 
 // ── 🪝 Hooks: ✍️ Maker (with a Breakthrough Advertising cheat sheet) · 📚 Reference · ⭐ My hooks ──
@@ -3475,6 +3618,7 @@ function winTitle(w) {
   if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
   if (w.kind === "note") { const n = NOTES[w.arg]; return n ? (n.folder || "Notes") : "Note"; }
   if (w.kind === "ref") return "Refs";
+  if (w.kind === "plan") { const p = w.arg === "draft" ? pDraft : pFind(w.arg); return p ? (w.arg === "draft" ? "New " : "") + pTpl(p.tpl).label : "Plan"; }
   if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
 }
@@ -3527,7 +3671,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -4602,6 +4746,16 @@ document.addEventListener("click", async (e) => {
   else if (a === "tsend") tSend();
   else if (a === "tshort") { const m = tMonday(); TSHORTS[m] = Math.max(0, (TSHORTS[m] || 0) + Number(arg)); store.set("tshorts", TSHORTS); tSyncSoon(); render(); }
   else if (a === "tfri") tFriSave();
+  else if (a === "popen") open_("plan", arg);
+  else if (a === "pnew") pNew(arg);
+  else if (a === "pstart") pStart();
+  else if (a === "ptick") pTick(arg);
+  else if (a === "pedit") pEdit(arg);
+  else if (a === "padd") pAdd(arg);
+  else if (a === "pdate") pDate(arg);
+  else if (a === "psavetpl") { const p = pFind(arg); if (p) { PLANTPL[p.tpl] = p.steps.slice().sort((x, y) => x.off - y.off).map((x) => [x.off, x.text]); pSave(); toast("Saved. New " + pTpl(p.tpl).label + " plans start with these steps."); } }
+  else if (a === "pnext") { const p = pFind(arg); if (p) pNew(p.tpl, p); }
+  else if (a === "pdel") { const p = pFind(arg); if (p) ask("Delete the " + p.name + " plan? Its to-dos stay in your list.", () => { PLANS = PLANS.filter((x) => x !== p); pSave(); stack = stack.filter((w) => !(w.kind === "plan" && w.arg === arg)); render(); }); }
   else if (a === "tday") { const t = todayISO(), d = addDays(tDayView || t, Number(arg)); tDayView = d >= t ? null : d; render(); }
   else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => habitKey(hh) === arg); if (h) todoChange(Object.assign({ kind: "habit", date: todayISO(), kept: !(h.log || []).includes(todayISO()) }, habitRef(h))); }
   else if (a === "habits") habitsManager();
