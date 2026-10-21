@@ -312,7 +312,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone"];
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -1974,13 +1974,9 @@ function tGoals() {
     tBar("📧 Admin today (limit)", Math.round(tHours("admin", t, t) * 10) / 10, T_ADMIN_CAP, "h", true) +
     '<div class="tg-st">🔥 <b>' + st + "</b> paint day" + (st === 1 ? "" : "s") + " in a row · 🏆 best " + Math.max(st, TBEST) + '<br><small>Tue, Wed and Fri with 3+ hrs painted. Other days never break it.</small></div></div>';
 }
-const T_FOCUS = ["paint", "draw"];
 function tNowLine() {
   const n = tNow(), r = tRunning(), on = r && n.cats.includes(r.cat);
-  let go = n.cats.length && !on ? n.cats.map((c) => '<button class="btn raised" data-a="tgo" data-arg="' + c + '">▶ ' + tcat(c)[1] + "</button>").join("") : on ? "<span>✓</span>" : "";
-  const fc = n.cats.find((c) => T_FOCUS.includes(c));
-  if (fc && !(r && r.focus)) go += '<button class="btn raised" data-a="tfocus" data-arg="' + fc + '">🎧 Focus</button>';
-  if (r && r.focus) go += '<button class="btn raised" data-a="tfocusoff">🎧 End focus</button>';
+  const go = n.cats.length && !on ? n.cats.map((c) => '<button class="btn raised" data-a="tgo" data-arg="' + c + '">▶ ' + tcat(c)[1] + "</button>").join("") : on ? "<span>✓</span>" : "";
   const drift = r && n.cats.length && !on ? ' <small class="ts-drift">· you\'re on ' + tcat(r.cat)[1] + " " + esc(tcat(r.cat)[3]) + "</small>" : "";
   return '<div class="ts-now"><span><b>Now · ' + n.label + ":</b> " + esc(n.text) + drift + "</span>" + go + "</div>" + tUpNext();
 }
@@ -1991,14 +1987,6 @@ function tUpNext() {                           // the next few to-dos due today 
   if (!due.length) return "";
   return '<div class="un">' + due.slice(0, 3).map((x) => '<div class="un-r"><span class="hw-tick" data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '"></span><span class="un-t">' + esc(x.title || "") + (x.due < t ? ' <small class="un-o">overdue</small>' : "") + "</span></div>").join("") +
     (due.length > 3 ? '<div class="un-m" data-a="open" data-arg="todo">+' + (due.length - 3) + " more ›</div>" : "") + "</div>";
-}
-function tFocus(cat) {
-  tStart(cat); const r = tRunning(); if (r) { r.focus = true; tSave(); render(); }
-  location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Bean focus on");
-}
-function tFocusOff() {
-  const r = tRunning(); if (r) { r.focus = false; tSave(); render(); }
-  location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Bean focus off");
 }
 function tCapture() {                          // get a thought out of your head in two taps
   const done = (what) => { closeDialog(); toast(what); };
@@ -2034,6 +2022,9 @@ async function tRestore(manual) {              // phone storage gone (new instal
   const when = new Date(b.at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " " + tClock(b.at);
   ask("Bring back your time log, plans, links and Friday numbers from " + when + "?", () => { tApplyBackup(b); planFeed(); render(); toast("Back. Everything from " + when + " is restored."); });
 }
+failed = failed.filter((x) => x.fn !== "timeSync"); saveBox();     // each sync sends everything, so an old failed one is never needed
+setTimeout(() => tSyncSoon(4000), 3000);
+document.addEventListener("visibilitychange", () => { if (document.hidden && (TLOG.length || PLANS.length || LINKS.length)) { clearTimeout(tSyncSoon.t); tSyncNow(); } });
 setTimeout(() => {
   const empty = !TLOG.length && !LINKS.length && !Object.keys(TFRI).length && !PLANS.filter((p) => !p.auto).length;
   if (empty && KEY && !store.get("trestask", 0)) { store.set("trestask", 1); tRestore(false); }
@@ -4877,8 +4868,6 @@ document.addEventListener("click", async (e) => {
   else if (a === "popen") open_("plan", arg);
   else if (a === "lmake") lMake(arg);
   else if (a === "tcap") tCapture();
-  else if (a === "tfocus") tFocus(arg);
-  else if (a === "tfocusoff") tFocusOff();
   else if (a === "trestore") tRestore(true);
   else if (a === "lcopy") { const l = LINKS.find((x) => x.id === arg); if (l) copyText(l.url, "Link"); }
   else if (a === "ldel") { const l = LINKS.find((x) => x.id === arg); if (l) ask("Remove " + l.name + " from the list? The link itself keeps working.", () => { LINKS = LINKS.filter((x) => x !== l); if (lLast === l) lLast = null; store.set("links", LINKS); tSyncSoon(3000); render(); }); }
