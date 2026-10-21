@@ -59,6 +59,16 @@ html{-webkit-text-size-adjust:100%}
 .rv-sl{font:12px Tahoma,sans-serif}.rv-sl input{flex:1;min-width:90px}
 .hw-sub{font-size:12px;color:#333;padding:3px 8px 0}
 .hw{margin:4px 8px 0;background:#c0c0c0;padding:0 0 4px}
+.ts{margin:4px 8px 0;background:#c0c0c0;padding:0 0 6px}
+.ts-h{display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:5px 8px;font-size:14px;cursor:pointer}
+.ts-h #tsel{font-size:12px;flex:1}.ts-go{margin-left:auto}
+.ts-w{display:flex;gap:6px;padding:6px 8px 0}.ts-w input{flex:1;min-width:0;font:14px Tahoma,sans-serif;padding:6px}
+.ts-g{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px 8px 0}
+.ts-b{display:flex;flex-direction:column;align-items:center;padding:6px 2px;font-size:11px;min-width:0}.ts-b i{font-style:normal;font-size:20px}.ts-b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ts-b.on{background:#ffd400;box-shadow:inset 1px 1px #404040}
+.tq{padding:0 8px}.tq-r{display:grid;grid-template-columns:42% 1fr 64px;gap:6px;align-items:center;font-size:13px;padding:3px 0}.tq-bar{height:12px;background:#fff}.tq-bar i{display:block;height:100%;background:#000080}.tq-v{text-align:right}.tq-all{font-weight:700}
+.tl-t{flex:none;width:92px;font:13px Tahoma,sans-serif}.tl-d{flex:none;font-size:12px}
+.tform label{display:flex;flex-direction:column;font-size:13px;margin:0 0 8px;text-align:left}.tform input,.tform select{font:15px Tahoma,sans-serif;padding:6px;margin-top:2px}
 .hw-h{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-size:14px;cursor:pointer}
 .hw-h span{font-size:12px}
 .hw-row{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:14px}
@@ -681,12 +691,12 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { hwidget: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
+const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
@@ -703,7 +713,7 @@ function winSettings() {
   h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
     '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
     '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
-  h += '<div class="h">Home screen</div><div class="lv sunk"><div class="li" data-a="preftoggle" data-arg="hwidget">' + box(pref("hwidget") !== false) + '<span class="lab">Show the 🔥 habits widget</span></div></div>';
+  h += '<div class="h">Home screen</div><div class="lv sunk"><div class="li" data-a="preftoggle" data-arg="hwidget">' + box(pref("hwidget") !== false) + '<span class="lab">Show the 🔥 habits widget</span></div><div class="li" data-a="preftoggle" data-arg="tstrip">' + box(pref("tstrip") !== false) + '<span class="lab">Show the ⏱ time log buttons</span></div></div>';
   h += '<div class="h">Text size</div><div class="lv sunk">' + row("🔠", "Text", sel("text", pref("text"), [["normal", "Normal"], ["big", "Big"]])) + "</div>";
   h += '<div class="h">Home server</div><div class="dim" style="margin-bottom:6px">Makes syncing near-instant when your phone is on Tailscale. Leave empty to always use Google.</div>' +
     '<input class="inp" data-pref="server" value="' + esc(pref("server") || "") + '" placeholder="https://….ts.net:8446" autocapitalize="off" autocorrect="off" spellcheck="false">' +
@@ -1789,6 +1799,124 @@ function habitWidget() {
     '<div class="hw-sub">' + dn + "/" + today.length + " done today</div>" +
     (rows || '<div class="hw-row dim">No habits due today.</div>') + (today.length > 4 ? '<div class="hw-more" data-a="open" data-arg="habits">+' + (today.length - 4) + " more ›</div>" : "") +
     (missed ? '<div class="hw-miss" data-a="open" data-arg="habits">⚠ ' + missed + " missed yesterday · tap to fill in</div>" : "") + "</div>";
+}
+
+// ── ⏱ Time log: two weeks of where the hours go (22 Oct to 4 Nov 2026). One tap per switch ──
+const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Draw / sketchbook", "Draw"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post / socials", "Post"],
+  ["club", "💌", "Club letters", "Club"], ["pack", "📦", "Pack & post", "Pack"], ["admin", "📧", "Emails / admin", "Admin"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
+const TLOG_FROM = "2026-10-22", TLOG_UNTIL = "2026-11-08";       // the strip hides itself a few days after the 4 Nov send
+let TLOG = store.get("tlog", []), TWHAT = store.get("twhat", {});
+const tcat = (k) => TCATS.find((c) => c[0] === k) || TCATS[TCATS.length - 1];
+const tRunning = () => TLOG.find((x) => !x.e);
+const tFrom = () => { const d = TLOG.length ? tDay(Math.min(...TLOG.map((x) => x.s))) : TLOG_FROM; return d < TLOG_FROM ? d : TLOG_FROM; };
+const tHM = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? m + "m" : Math.floor(m / 60) + "h " + pad(m % 60) + "m"; };
+const tClock = (ms) => { const d = new Date(ms); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+const tDay = (ms) => { const d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+function tSave() { store.set("tlog", TLOG); store.set("twhat", TWHAT); clearTimeout(tSave.t); tSave.t = setTimeout(tBackup, 3000); }
+function tStart(cat) {
+  const now = Date.now(), r = tRunning();
+  if (r && r.cat === cat) return;
+  if (r) r.e = now;
+  TLOG.push({ id: nId("t"), cat: cat, what: TWHAT[cat] || "", s: now, e: null });
+  tSave(); render();
+}
+function tStop() { const r = tRunning(); if (r) { r.e = Date.now(); tSave(); render(); } }
+function tStrip() {
+  const t = todayISO();
+  if (pref("tstrip") === false || t > TLOG_UNTIL) return "";
+  const r = tRunning(), c = r && tcat(r.cat);
+  const btns = TCATS.map((x) => '<button class="btn raised ts-b' + (r && r.cat === x[0] ? " on" : "") + '" data-a="tgo" data-arg="' + x[0] + '"><i>' + x[1] + "</i><span>" + esc(x[3]) + "</span></button>").join("");
+  return '<div class="ts raised"><div class="ts-h" data-a="open" data-arg="time">' + (r ? "<b>" + c[1] + " " + esc(c[2]) + '</b><span id="tsel"> · ' + tHM(Date.now() - r.s) + " since " + tClock(r.s) + "</span>" : "<b>⏱ What are you doing?</b>") + "<span class=\"ts-go\">›</span></div>" +
+    (r ? '<div class="ts-w"><input id="tswhat" class="sunk" placeholder="What? (optional, a few words)" value="' + esc(r.what || "") + '"><button class="btn raised" data-a="tstop">⏹ Stop</button></div>' : "") +
+    '<div class="ts-g">' + btns + "</div></div>";
+}
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "tswhat") return;
+  const r = tRunning(); if (!r) return;
+  r.what = e.target.value.slice(0, 200); TWHAT[r.cat] = r.what; tSave();
+});
+function tPieces(from, to) {                  // entries cut at midnight, so each day adds up on its own
+  const out = [];
+  TLOG.slice().sort((a, b) => a.s - b.s).forEach((x) => {
+    let s = x.s; const e = x.e || Date.now();
+    while (s < e) {
+      const d = new Date(s); d.setHours(24, 0, 0, 0);
+      const cut = Math.min(e, d.getTime());
+      const day = tDay(s);
+      if ((!from || day >= from) && (!to || day <= to)) out.push({ id: x.id, cat: x.cat, what: x.what, s: s, e: cut, day: day, open: !x.e && cut === e });
+      s = cut;
+    }
+  });
+  return out;
+}
+function tTotals(from, to) { const t = {}; tPieces(from, to).forEach((p) => { t[p.cat] = (t[p.cat] || 0) + (p.e - p.s); }); return t; }
+function tBars(tot) {
+  const max = Math.max(1, ...Object.values(tot)), all = Object.values(tot).reduce((a, b) => a + b, 0);
+  if (!all) return '<div class="nt-empty">Nothing logged yet.</div>';
+  return TCATS.filter((c) => tot[c[0]]).sort((a, b) => tot[b[0]] - tot[a[0]]).map((c) =>
+    '<div class="tq-r"><span class="tq-n">' + c[1] + " " + esc(c[2]) + '</span><span class="tq-bar sunk"><i style="width:' + Math.round(100 * tot[c[0]] / max) + '%"></i></span><span class="tq-v">' + tHM(tot[c[0]]) + "</span></div>").join("") +
+    '<div class="tq-r tq-all"><span class="tq-n">All</span><span></span><span class="tq-v">' + tHM(all) + "</span></div>";
+}
+let tDayView = null;
+function winTime() {
+  const t = todayISO(), day = tDayView || t, ps = tPieces(day, day).reverse();
+  const mon = (() => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return tDay(d.getTime()); })();
+  const rows = ps.map((p) => { const c = tcat(p.cat);
+    return '<div class="li" data-a="tedit" data-arg="' + p.id + '"><span class="tl-t">' + tClock(p.s) + "–" + (p.open ? "now" : tClock(p.e)) + '</span><span class="lab">' + c[1] + " " + esc(c[2]) + (p.what ? '<br><small>' + esc(p.what) + "</small>" : "") + '</span><span class="tl-d">' + tHM(p.e - p.s) + "</span></div>"; }).join("");
+  const dayName = day === t ? "Today" : new Date(day + "T12:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+  return '<div class="nt"><div class="nt-bar"><span class="nt-btn" data-a="tday" data-arg="-1">‹</span><span class="nt-c"><b>' + dayName + "</b> · " + tHM(ps.reduce((a, p) => a + p.e - p.s, 0)) + '</span><span class="nt-btn" data-a="tday" data-arg="1">›</span></div>' +
+    '<div class="lv sunk">' + (rows || '<div class="nt-empty">Nothing logged ' + (day === t ? "yet today. Tap what you\'re doing on the home screen." : "that day.") + "</div>") + "</div>" +
+    '<div class="row btns"><button class="btn raised" data-a="tadd" data-arg="' + day + '">+ Add one I missed</button></div>' +
+    '<div class="h">This week</div><div class="tq">' + tBars(tTotals(mon, t)) + "</div>" +
+    '<div class="h">Whole log (from ' + new Date(tFrom() + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ')</div><div class="tq">' + tBars(tTotals(tFrom(), null)) + "</div>" +
+    '<div class="row btns"><button class="btn raised" data-a="tsend"><b>📤 Send my log</b> (due 4 Nov)</button></div>' +
+    '<div class="nt-hint">Tap a category on the home screen when you switch tasks. It ends the last one and starts the new one. Tap an entry here to fix its times. A copy is kept in 📝 Notes as "Time log".</div></div>';
+}
+function tTimeIn(day, hm) { const m = String(hm || "").match(/^(\d{1,2}):?(\d{2})$/); if (!m) return null; const d = new Date(day + "T00:00"); d.setHours(+m[1], +m[2], 0, 0); return d.getTime(); }
+function tEdit(id, day) {
+  const x = id ? TLOG.find((y) => y.id === id) : { id: "", cat: "other", what: "", s: tTimeIn(day, "09:00"), e: tTimeIn(day, "10:00") };
+  if (!x) return;
+  const d0 = tDay(x.s);
+  const opts = TCATS.map((c) => '<option value="' + c[0] + '"' + (c[0] === x.cat ? " selected" : "") + ">" + c[1] + " " + esc(c[2]) + "</option>").join("");
+  dialog('<div class="tform"><label>What kind<select id="tfc" class="sunk">' + opts + '</select></label><label>Day<input id="tfd" type="date" class="sunk" value="' + d0 + '"></label>' +
+    '<label>Start<input id="tfs" type="time" class="sunk" value="' + tClock(x.s) + '"></label><label>End<input id="tfe" type="time" class="sunk" value="' + (x.e ? tClock(x.e) : "") + '" placeholder="still going"></label>' +
+    '<label>What did you do<input id="tfw" class="sunk" value="' + esc(x.what || "") + '"></label></div>',
+    [["Save", () => {
+      const d = $("tfd").value || d0, s = tTimeIn(d, $("tfs").value);
+      let e = $("tfe").value ? tTimeIn(d, $("tfe").value) : null;
+      if (s == null) { toast("⚠ The start time needs to look like 14:30."); return false; }
+      if (e != null && e <= s) e += 86400000;                     // past midnight
+      if (e == null && (!x.id || x.e)) { toast("⚠ Give it an end time."); return false; }
+      if (!x.id) { x.id = nId("t"); TLOG.push(x); }
+      Object.assign(x, { cat: $("tfc").value, what: $("tfw").value.slice(0, 200), s: s, e: e });
+      tSave(); render();
+    }, 1]].concat(id ? [["Delete", () => { ask("Delete this entry?", () => { TLOG = TLOG.filter((y) => y.id !== id); tSave(); render(); }); return false; }]] : []).concat([["Cancel"]]), "⏱");
+}
+function tCSV() {
+  const q = (v) => /[",\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  return ["date,start,end,minutes,category,what"].concat(tPieces(tFrom(), null).map((p) =>
+    [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], q(p.what || "")].join(","))).join("\n");
+}
+function tSummary() {
+  const tot = tTotals(tFrom(), null), all = Object.values(tot).reduce((a, b) => a + b, 0);
+  return "Time log " + tFrom() + " to " + todayISO() + "\n\n" + TCATS.filter((c) => tot[c[0]]).sort((a, b) => tot[b[0]] - tot[a[0]]).map((c) => c[2] + ": " + tHM(tot[c[0]])).join("\n") + "\n\nTotal: " + tHM(all);
+}
+async function tSend() {
+  const text = tSummary(), csv = tCSV();
+  try {
+    const f = new File([csv], "time-log.csv", { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: text }); return; }
+    if (navigator.share) { await navigator.share({ text: text + "\n\n" + csv }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  copyText(text + "\n\n" + csv, "Time log");
+}
+function tBackup() {                          // a copy in 📝 Notes, so the log can't vanish with the phone's storage
+  if (!TLOG.length) return;
+  let id = store.get("tnote", "");
+  if (!id || !NOTES[id]) { id = nId("n"); store.set("tnote", id); }
+  const n = NOTES[id] || { id: id, folder: "" };
+  n.blocks = [{ t: "title", text: "⏱ Time log (backup)" }, { t: "p", text: tSummary() }, { t: "p", text: "" }].concat(tCSV().split("\n").map((l) => ({ t: "p", text: l })));
+  noteTouch(n);
 }
 
 // ── 🪝 Hooks: ✍️ Maker (with a Breakthrough Advertising cheat sheet) · 📚 Reference · ⭐ My hooks ──
@@ -3274,7 +3402,8 @@ function render() {
   $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
     render.lastKey = null;
-    $("main").innerHTML = '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
+    if (document.activeElement && document.activeElement.id === "tswhat") { const el = $("tsel"), r = tRunning(); if (el && r) el.textContent = " · " + tHM(Date.now() - r.s) + " since " + tClock(r.s); return; }
+    $("main").innerHTML = tStrip() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
@@ -3304,7 +3433,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -4372,6 +4501,12 @@ document.addEventListener("click", async (e) => {
   else if (a === "topen") { openTask = openTask === arg ? null : arg; render(); }
   else if (a === "timp") { const [k, nn] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "imp", n: Number(nn) }, taskRef(x))); }
   else if (a === "tdue") { const [k, dd] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "due", due: dd || null }, taskRef(x))); }
+  else if (a === "tgo") tStart(arg);
+  else if (a === "tstop") tStop();
+  else if (a === "tedit") tEdit(arg);
+  else if (a === "tadd") tEdit("", arg);
+  else if (a === "tsend") tSend();
+  else if (a === "tday") { const t = todayISO(), d = addDays(tDayView || t, Number(arg)); tDayView = d >= t ? null : d; render(); }
   else if (a === "habit") { const v = todoView(); const h = v && v.habits.find((hh) => habitKey(hh) === arg); if (h) todoChange(Object.assign({ kind: "habit", date: todayISO(), kept: !(h.log || []).includes(todayISO()) }, habitRef(h))); }
   else if (a === "habits") habitsManager();
   else if (a === "hday") {
