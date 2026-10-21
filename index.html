@@ -75,6 +75,7 @@ html{-webkit-text-size-adjust:100%}
 .tg-sh{display:flex;align-items:center;gap:4px}.tg-sh .tg-r{flex:1}.tg-sh .btn{padding:3px 6px;font-size:12px}
 .tg-st{padding:6px 0 0;font-size:14px}.tg-st small{color:#555}
 .tf{padding:6px 8px;font-size:13px}.tf-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.tf-g label{display:flex;flex-direction:column;font-size:12px}.tf-g input{font:15px Tahoma,sans-serif;padding:5px}.tf-row{padding:2px 0}
+.lk-u{word-break:break-all;color:#333}.lk-new{margin:6px 8px;padding:8px}.lk-f{padding:6px 8px 0}
 .pl-e{flex:none;font-size:22px;width:30px}.pl-bar{margin:4px 0 2px}.pl-in{color:#2e8b57}.pl-s .lab{cursor:pointer}
 .tl-t{flex:none;width:92px;font:13px Tahoma,sans-serif}.tl-d{flex:none;font-size:12px}
 .tform label{display:flex;flex-direction:column;font-size:13px;margin:0 0 8px;text-align:left}.tform input,.tform select{font:15px Tahoma,sans-serif;padding:6px;margin-top:2px}
@@ -700,7 +701,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -1979,18 +1980,19 @@ function tSlim() {
 function tFriCard() {
   const t = todayISO(), dow = new Date(t + "T12:00").getDay(), mon = tMonday(), f = TFRI[mon];
   const past = Object.keys(TFRI).sort().reverse().filter((k) => k !== mon || f).map((k) => { const x = TFRI[k];
-    return "<div class=\"tf-row\">w/c " + new Date(k + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ": 📰 " + x.news + " · 💌 " + x.club + " · 🎨 " + x.paint + " hrs · 📱 " + x.posts + "</div>"; }).join("");
+    return "<div class=\"tf-row\">w/c " + new Date(k + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ": 📰 " + x.news + " · 💌 " + x.club + " · 🎨 " + x.paint + " hrs · 📱 " + x.posts + (x.early != null ? " · 🐣 " + x.early : "") + "</div>"; }).join("");
   if (!(dow === 5 || dow === 6 || dow === 0) || f) return past ? '<div class="h">Friday numbers</div><div class="tf">' + past + "</div>" : "";
   const paint = Math.round(tHours("paint", mon, t) * 10) / 10;
   return '<div class="h">Friday numbers</div><div class="tf card sunk"><div class="tf-g">' +
     '<label>📰 Newsletter subs<input id="tfn" type="number" inputmode="numeric" class="sunk"></label><label>💌 Club subs<input id="tfc2" type="number" inputmode="numeric" class="sunk"></label>' +
-    '<label>🎨 Painting hrs<input id="tfp" type="number" step="0.5" inputmode="decimal" class="sunk" value="' + paint + '"></label><label>📱 Posts shipped<input id="tfo" type="number" inputmode="numeric" class="sunk"></label></div>' +
+    '<label>🎨 Painting hrs<input id="tfp" type="number" step="0.5" inputmode="decimal" class="sunk" value="' + paint + '"></label><label>📱 Posts shipped<input id="tfo" type="number" inputmode="numeric" class="sunk"></label>' +
+    '<label>🐣 Earlybird subs<input id="tfe" type="number" inputmode="numeric" class="sunk"></label></div>' +
     '<button class="btn raised" data-a="tfri"><b>Save this week</b></button></div>' + (past ? '<div class="tf">' + past + "</div>" : "");
 }
 function tFriSave() {
   const v = (id) => { const x = $(id).value.trim(); return x === "" ? null : Number(x); };
-  const row = { news: v("tfn"), club: v("tfc2"), paint: v("tfp"), posts: v("tfo") };
-  if (Object.values(row).some((x) => x == null || isNaN(x))) { toast("⚠ Fill in all four numbers."); return; }
+  const row = { news: v("tfn"), club: v("tfc2"), paint: v("tfp"), posts: v("tfo"), early: v("tfe") };
+  if (Object.values(row).some((x) => x == null || isNaN(x))) { toast("⚠ Fill in all five numbers."); return; }
   TFRI[tMonday()] = row; store.set("tfri", TFRI); tSyncSoon(500); render();
 }
 function tSyncSoon(ms) {                     // everything to the "Time log", "Friday numbers" and "To-dos" tabs, at most every 2 minutes
@@ -1998,14 +2000,15 @@ function tSyncSoon(ms) {                     // everything to the "Time log", "F
   tSyncSoon.t = setTimeout(tSyncNow, ms == null ? 120000 : ms);
 }
 function tSyncNow() {
-  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length) return;
+  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length && !LINKS.length) return;
   const rows = tPieces(null, null).map((p) => [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], p.what || ""]);
-  const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0]);
+  const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0, TFRI[k].early == null ? "" : TFRI[k].early]);
+  const links = LINKS.map((l) => [l.made, l.name, (LSPOTS.find((x) => x[0] === l.spot) || LSPOTS[0])[1].replace(/^\S+\s/, ""), l.campaign, l.url]);
   const v = todoView(), todos = v ? v.tasks.map((x) => [x.title || "", x.due || "", x.done || ""]) : [];
   const plans = [];
   PLANS.forEach((p) => p.steps.slice().sort((a, b) => a.off - b.off).forEach((s) => plans.push([pTpl(p.tpl).label + ": " + p.name, s.text, sDate(p, s), sDone(s) ? "yes" : ""])));
   outbox = outbox.filter((x) => x.fn !== "timeSync"); saveBox();
-  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos, plans: plans }, DRY], label: "Time log" });
+  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos, plans: plans, links: links }, DRY], label: "Time log" });
 }
 function tBackup() {                          // a copy in 📝 Notes, so the log can't vanish with the phone's storage
   if (!TLOG.length) return;
@@ -2016,12 +2019,50 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
   noteTouch(n);
 }
 
+// ── 🔗 Links: paste a link, name it, pick where it goes. It comes back tracked (utm) and logged for later ──
+const LSPOTS = [["bio", "📸 Bio", "instagram", "bio"], ["story", "📱 Story", "instagram", "story"], ["news", "📰 Newsletter", "newsletter", "email"]];
+let LINKS = store.get("links", []), lLast = null;
+const lSlug = (s) => String(s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+function lBuild(raw, spot, name) {
+  let u = String(raw || "").trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+  let url;
+  try { url = new URL(u); } catch (e) { return null; }
+  const sp = LSPOTS.find((x) => x[0] === spot) || LSPOTS[0];
+  [...url.searchParams.keys()].filter((k) => /^utm_/i.test(k)).forEach((k) => url.searchParams.delete(k));
+  url.searchParams.set("utm_source", sp[2]); url.searchParams.set("utm_medium", sp[3]); url.searchParams.set("utm_campaign", lSlug(name));
+  return url.toString();
+}
+function winLinks() {
+  const rows = LINKS.slice().reverse().map((l) => { const sp = LSPOTS.find((x) => x[0] === l.spot) || LSPOTS[0];
+    return '<div class="li"><span class="lab"><b>' + esc(l.name) + "</b> · " + sp[1] + ' · <small>' + pNice(l.made) + '</small><br><small class="lk-u">' + esc(l.url) + '</small></span><button class="btn raised" data-a="lcopy" data-arg="' + l.id + '">Copy</button><button class="btn raised" data-a="ldel" data-arg="' + l.id + '">✕</button></div>'; }).join("");
+  return '<div class="nt"><div class="tform lk-f"><label>Link<input id="lu" class="sunk" inputmode="url" placeholder="Paste the link, e.g. fatmum.co.uk/pages/earlybird"></label>' +
+    '<label>What is it<input id="ln" class="sunk" placeholder="e.g. Better Together earlybird"></label></div>' +
+    '<div class="row btns">' + LSPOTS.map((s) => '<button class="btn raised" data-a="lmake" data-arg="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" +
+    (lLast ? '<div class="card sunk lk-new"><b>✅ Ready to paste</b><br><small class="lk-u">' + esc(lLast.url) + '</small><div class="row btns"><button class="btn raised" data-a="lcopy" data-arg="' + lLast.id + '"><b>Copy link</b></button></div></div>' : "") +
+    '<div class="h">Your links</div><div class="lv sunk">' + (rows || '<div class="nt-empty">None yet. Paste a link above, name it, then tap where it\'s going.</div>') + "</div>" +
+    '<div class="nt-hint">Each spot gets its own tracking, so later you can see which link brought people to the shop. The list also goes to your Google Sheet.</div></div>';
+}
+function lMake(spot) {
+  const raw = $("lu").value, name = $("ln").value.trim();
+  if (!name) { toast("⚠ Give the link a name, e.g. Better Together earlybird."); return; }
+  const url = lBuild(raw, spot, name);
+  if (!url) { toast("⚠ That doesn't look like a link."); return; }
+  const l = { id: nId("l"), name: name.slice(0, 80), spot: spot, campaign: lSlug(name), url: url, made: todayISO() };
+  LINKS.push(l); store.set("links", LINKS); lLast = l; tSyncSoon(3000);
+  render.noKeep = true; render();
+  copyText(url, "Link");
+}
+
 // ── 🚀 Plans: a T-shirt drop or a month of snail mail laid out from one date. Steps reach To-do a week before they're due ──
 const PLAN_TPL = {
-  shirt: { emoji: "👕", label: "T-shirt drop", dlabel: "Drop day", tag: "", steps: [[-21, "Final design + mockups"], [-18, "Order blanks / print run"], [-14, "Photoshoot"],
-    [-12, "Edit photos, draft Shopify listing"], [-10, "Email Earlybird tag: it's coming"], [-7, "IG teaser post"], [-4, "IG reel / close-ups"],
-    [-2, "Stories countdown + reminder email"], [-1, "Final checks: stock, prices, email scheduled"], [0, "DROP: publish, email, IG post + stories"],
-    [1, "Story: sizes left"], [3, "72-hour check: all 15 sold?"], [3, "Pack and ship orders"]] },
+  shirt: { emoji: "👕", label: "T-shirt drop", dlabel: "Drop day", tag: "", steps: [[-21, "Earlybird sign-up live, link in bio"], [-20, "Email Earlybird list: something's coming, plus an IG teaser"],
+    [-16, "Reel: sewing in the labels"], [-14, "Newsletter: club plug + Earlybird sign-up"], [-12, "Photoshoot"], [-9, "Design reveal + the story behind it"],
+    [-7, "Close-ups + early access sign-up push"], [-6, "Draft Shopify listing + set up Earlybird early access"], [-5, "Model / fit shots + size guide"],
+    [-3, "Reveal price and date, last call for Earlybird"], [-2, "Stories countdown + Earlybird email: tomorrow 7pm"],
+    [-1, "Earlybird early access opens 7pm (final checks first)"], [0, "Public drop 7pm: email, IG post + stories"],
+    [1, "Pack and post orders + sizes-left story"], [3, "72-hour check: all 15 sold?"]] },
   snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Design sticker"], [-18, "Sketchbook spread"], [-14, "Write the essay / letter"],
     [-12, "Introduction print"], [-10, "Make prints"], [-8, "Make postcards"], [-5, "Roster check + print labels"], [-3, "Pack envelopes"],
     [-2, "Post international"], [0, "Post UK"]] }};
@@ -2032,17 +2073,17 @@ const pTpl = (k) => Object.assign({}, PLAN_TPL[k], PLANTPL[k] ? { steps: PLANTPL
 const pFind = (id) => PLANS.find((p) => p.id === id);
 const sDate = (p, s) => addDays(p.date, s.off);
 const pNice = (iso) => new Date(iso + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-function sTask(s) { const v = s.cid && todoView(); return v ? v.tasks.find((x) => x.cid === s.cid) : null; }
+function sTask(s) { const v = (s.cid || s.task != null) && todoView(); return v ? v.tasks.find((x) => (s.cid && x.cid === s.cid) || (s.task != null && x.id === s.task)) : null; }
 function sDone(s) { const t = sTask(s); return t ? !!t.done : !!s.done; }
 function pProgress(p) { const n = p.steps.filter(sDone).length; return [n, p.steps.length]; }
 function pNext(p) { return p.steps.filter((s) => !sDone(s)).sort((a, b) => a.off - b.off)[0]; }
 function planFeed() {                         // steps due within a week go into To-do, once each
   const lim = addDays(todayISO(), PLAN_AHEAD);
-  let n = 0;
+  let n = pSnailEnsure() ? 1 : 0;
   PLANS.filter((p) => !p.finished).forEach((p) => {
     const t = pTpl(p.tpl);
     p.steps.forEach((s) => {
-      if (s.cid || s.done || sDate(p, s) > lim) return;
+      if (s.cid || s.task != null || s.done || sDate(p, s) > lim) return;
       s.cid = "pl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       n++;
       const c = { kind: "add", text: t.emoji + " " + p.name + ": " + s.text + (t.tag || ""), due: sDate(p, s), cid: s.cid };
@@ -2065,10 +2106,10 @@ function planCard(p) {
 }
 function winPlans() {
   const run = PLANS.filter((p) => !p.finished).sort((a, b) => a.date < b.date ? -1 : 1), fin = PLANS.filter((p) => p.finished).sort((a, b) => a.date < b.date ? 1 : -1);
-  return '<div class="nt"><div class="row btns"><button class="btn raised" data-a="pnew" data-arg="shirt">+ 👕 T-shirt drop</button><button class="btn raised" data-a="pnew" data-arg="snail">+ 💌 Snail mail</button></div>' +
+  return '<div class="nt"><div class="row btns"><button class="btn raised" data-a="pnew" data-arg="shirt">+ 👕 T-shirt drop</button></div>' +
     '<div class="lv sunk">' + (run.map(planCard).join("") || '<div class="nt-empty">No plans running. Start one above.</div>') + "</div>" +
     (fin.length ? '<div class="h">Finished</div><div class="lv sunk">' + fin.slice(0, 12).map(planCard).join("") + "</div>" : "") +
-    '<div class="nt-hint">Pick a date and the steps are laid out for you. Each one lands in ✅ To-do a week before it\'s due. Tick it there or here, it shows in both.</div></div>';
+    '<div class="nt-hint">Pick a date and the steps are laid out for you. Each one lands in ✅ To-do a week before it\'s due. Tick it there or here, it shows in both. 💌 Snail mail runs by itself, posting on the 1st, and rolls on to next month.</div></div>';
 }
 function pNew(tpl, base) {
   const t = pTpl(tpl), mon = new Date(); mon.setMonth(mon.getMonth() + (tpl === "snail" ? 1 : 0));
@@ -2091,7 +2132,7 @@ function winPlan(arg) {
   if (!p) return '<div class="card sunk">That plan has gone.</div>';
   const t = pTpl(p.tpl), today = todayISO(), wk = addDays(today, PLAN_AHEAD), [d, all] = pProgress(p);
   const row = (s) => { const dd = sDate(p, s), on = sDone(s);
-    return '<div class="li pl-s' + (on ? " dim" : "") + '"><span class="hw-tick' + (on ? " on" : "") + '" data-a="ptick" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '">' + (on ? "✓" : "") + '</span><span class="lab" data-a="pedit" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '"><small>' + pNice(dd) + (s.off ? " · D" + (s.off > 0 ? "+" : "") + s.off : " · the day") + "</small><br>" + esc(s.text) + (s.cid && !draft ? ' <small class="pl-in">in To-do</small>' : "") + "</span></div>"; };
+    return '<div class="li pl-s' + (on ? " dim" : "") + '"><span class="hw-tick' + (on ? " on" : "") + '" data-a="ptick" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '">' + (on ? "✓" : "") + '</span><span class="lab" data-a="pedit" data-arg="' + (draft ? "draft" : p.id) + "|" + s.k + '"><small>' + pNice(dd) + (s.off ? " · D" + (s.off > 0 ? "+" : "") + s.off : " · the day") + "</small><br>" + esc(s.text) + ((s.cid || s.task != null) && !draft ? ' <small class="pl-in">in To-do</small>' : "") + "</span></div>"; };
   const by = (f) => p.steps.slice().sort((a, b) => a.off - b.off || a.k - b.k).filter(f);
   const groups = draft ? [["Steps (past dates are ticked as done, untick any you still need)", by(() => true)]] :
     [["This week", by((s) => !sDone(s) && sDate(p, s) <= wk)], ["Coming up", by((s) => !sDone(s) && sDate(p, s) > wk)], ["Done", by(sDone)]];
@@ -2100,9 +2141,31 @@ function winPlan(arg) {
     groups.filter((g) => g[1].length).map((g) => '<div class="h">' + g[0] + '</div><div class="lv sunk">' + g[1].map(row).join("") + "</div>").join("") +
     '<div class="row btns">' + (draft ? '<button class="btn raised" data-a="pstart"><b>Start plan</b></button>' :
       '<button class="btn raised" data-a="padd" data-arg="' + p.id + '">+ Add step</button><button class="btn raised" data-a="pdate" data-arg="' + p.id + '">Change date</button>') + "</div>" +
-    (!draft ? '<div class="row btns"><button class="btn raised" data-a="psavetpl" data-arg="' + p.id + '">Save as my ' + esc(t.label) + " steps</button>" + (p.tpl === "snail" ? '<button class="btn raised" data-a="pnext" data-arg="' + p.id + '">Next month ›</button>' : "") +
-      '<button class="btn raised" data-a="pdel" data-arg="' + p.id + '">Delete plan</button></div>' : "") +
+    (!draft ? '<div class="row btns"><button class="btn raised" data-a="psavetpl" data-arg="' + p.id + '">Save as my ' + esc(t.label) + " steps</button>" + (p.tpl !== "snail" ? '<button class="btn raised" data-a="pdel" data-arg="' + p.id + '">Delete plan</button>' : "") + "</div>" : "") +
     '<div class="nt-hint">Tap a step to rename it or move it. Steps land in ✅ To-do ' + PLAN_AHEAD + " days before they're due.</div></div>";
+}
+const SM_DAY = 1;                              // snail mail goes out on the 1st of every month
+const SM_LINK = [[/sticker/i, "sticker"], [/spread/i, "spread"], [/essay|letter/i, "essay"], [/intro/i, "intro"], [/\bprints?\b/i, "prints"], [/postcard/i, "postcards"]];
+function smNext(after) { const d = new Date(after + "T12:00"); if (d.getDate() > SM_DAY) d.setMonth(d.getMonth() + 1); d.setDate(SM_DAY); return isoOf(d); }
+function smCycle(date, link) {
+  const t = pTpl("snail"), today = todayISO(), v = link && todoView();
+  const used = new Set();
+  const steps = t.steps.map((x, i) => ({ k: i, off: x[0], text: x[1], done: null, cid: null }));
+  steps.forEach((s) => {
+    const key = SM_LINK.find((m) => m[0].test(s.text));
+    const old = key && v && v.tasks.find((x) => !x.done && x.id != null && !used.has(x.id) && /snail|\bsm\b/i.test(x.title || "") && key[0].test(x.title || ""));
+    if (old) { s.task = old.id; used.add(old.id); }                                   // his existing to-do stands in for this step
+    else if (addDays(date, s.off) < today) { s.done = today; s.auto = true; }
+  });
+  return { id: nId("p"), tpl: "snail", name: "Snail mail " + new Date(date + "T12:00").toLocaleDateString("en-GB", { month: "short" }), date: date, steps: steps, made: today, finished: null, auto: true };
+}
+function pSnailEnsure() {                      // always one snail mail plan running, rolling over to the next 1st once posting day has passed
+  const today = todayISO();
+  let cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), changed = false;
+  if (cur && today > cur.date) { cur.finished = today; const next = smCycle(smNext(addDays(cur.date, 1)), false); PLANS.push(next); cur = next; changed = true; }
+  if (!cur) { if (!todoView()) return false; PLANS.push(smCycle(smNext(today), true)); changed = true; }
+  if (changed) pSave();
+  return changed;
 }
 function pStep(arg) { const [pid, k] = arg.split("|"), p = pid === "draft" ? pDraft : pFind(pid); return [p, p && p.steps.find((s) => String(s.k) === k)]; }
 function pTick(arg) {
@@ -3671,7 +3734,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -4747,6 +4810,9 @@ document.addEventListener("click", async (e) => {
   else if (a === "tshort") { const m = tMonday(); TSHORTS[m] = Math.max(0, (TSHORTS[m] || 0) + Number(arg)); store.set("tshorts", TSHORTS); tSyncSoon(); render(); }
   else if (a === "tfri") tFriSave();
   else if (a === "popen") open_("plan", arg);
+  else if (a === "lmake") lMake(arg);
+  else if (a === "lcopy") { const l = LINKS.find((x) => x.id === arg); if (l) copyText(l.url, "Link"); }
+  else if (a === "ldel") { const l = LINKS.find((x) => x.id === arg); if (l) ask("Remove " + l.name + " from the list? The link itself keeps working.", () => { LINKS = LINKS.filter((x) => x !== l); if (lLast === l) lLast = null; store.set("links", LINKS); tSyncSoon(3000); render(); }); }
   else if (a === "pnew") pNew(arg);
   else if (a === "pstart") pStart();
   else if (a === "ptick") pTick(arg);
