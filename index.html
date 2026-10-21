@@ -75,6 +75,8 @@ html{-webkit-text-size-adjust:100%}
 .tg-sh{display:flex;align-items:center;gap:4px}.tg-sh .tg-r{flex:1}.tg-sh .btn{padding:3px 6px;font-size:12px}
 .tg-st{padding:6px 0 0;font-size:14px}.tg-st small{color:#555}
 .tf{padding:6px 8px;font-size:13px}.tf-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.tf-g label{display:flex;flex-direction:column;font-size:12px}.tf-g input{font:15px Tahoma,sans-serif;padding:5px}.tf-row{padding:2px 0}
+.ts-cap{margin-left:auto;padding:0 10px;font-size:18px;cursor:pointer}.ts-cap+.ts-go{margin-left:0}.ts-drift{color:#666;font-weight:400}
+.un{padding:4px 8px 0}.un-r{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px}.un-t{flex:1;min-width:0}.un-o{color:#666}.un-m{font-size:12px;padding:2px 0 0 32px;cursor:pointer}.pa{font-size:13px;padding:3px 0}
 .lk-u{word-break:break-all;color:#333}.lk-new{margin:6px 8px;padding:8px}.lk-f{padding:6px 8px 0}
 .pl-e{flex:none;font-size:22px;width:30px}.pl-bar{margin:4px 0 2px}.pl-in{color:#2e8b57}.pl-s .lab{cursor:pointer}
 .tl-t{flex:none;width:92px;font:13px Tahoma,sans-serif}.tl-d{flex:none;font-size:12px}
@@ -708,6 +710,10 @@ const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
 const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
+if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones, the rest stay in the Start menu and Settings
+  const keep = ["today", "inbox", "bookings", "todo", "time", "plans", "posting", "notes", "settings"];
+  prefs.hide = APPS.map((a) => a[0]).filter((k) => !keep.includes(k)); store.set("prefs", prefs); store.set("iconsv2", 1);
+}
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
 const BADGE_COLOURS = { yellow: ["🟡 Yellow", "#ff0", "#000"], red: ["🔴 Red", "#d00000", "#fff"], green: ["🟢 Green", "#008000", "#fff"], blue: ["🔵 Blue", "#000080", "#fff"], off: ["Off (no number)", "", ""] };
@@ -723,7 +729,7 @@ function winSettings() {
   h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
     '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
     '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
-  h += '<div class="h">Home screen</div><div class="lv sunk"><div class="li" data-a="preftoggle" data-arg="hwidget">' + box(pref("hwidget") !== false) + '<span class="lab">Show the 🔥 habits widget</span></div><div class="li" data-a="preftoggle" data-arg="tstrip">' + box(pref("tstrip") !== false) + '<span class="lab">Show the ⏱ time log buttons</span></div></div>';
+  h += '<div class="h">Home screen</div><div class="lv sunk"><div class="li" data-a="preftoggle" data-arg="hwidget">' + box(pref("hwidget") !== false) + '<span class="lab">Show the 🔥 habits widget</span></div><div class="li" data-a="preftoggle" data-arg="tstrip">' + box(pref("tstrip") !== false) + '<span class="lab">Show the ⏱ time log buttons</span></div><div class="li" data-a="trestore"><span class="lab">⏱ Restore time log, plans and links from backup</span></div></div>';
   h += '<div class="h">Text size</div><div class="lv sunk">' + row("🔠", "Text", sel("text", pref("text"), [["normal", "Normal"], ["big", "Big"]])) + "</div>";
   h += '<div class="h">Home server</div><div class="dim" style="margin-bottom:6px">Makes syncing near-instant when your phone is on Tailscale. Leave empty to always use Google.</div>' +
     '<input class="inp" data-pref="server" value="' + esc(pref("server") || "") + '" placeholder="https://….ts.net:8446" autocapitalize="off" autocorrect="off" spellcheck="false">' +
@@ -1814,7 +1820,7 @@ function habitWidget() {
 // ── ⏱ Time log: two weeks of where the hours go (22 Oct to 4 Nov 2026). One tap per switch ──
 const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Sketchbook", "Sketch"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post", "Post"],
   ["club", "💌", "Club", "Club"], ["pack", "📦", "Pack / ship", "Ship"], ["admin", "📧", "Admin", "Admin"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
-const TLOG_FROM = "2026-10-22", TLOG_UNTIL = "2026-11-08";       // the strip hides itself a few days after the 4 Nov send
+const TLOG_FROM = "2026-10-22";
 let TLOG = store.get("tlog", []), TWHAT = store.get("twhat", {});
 const tcat = (k) => TCATS.find((c) => c[0] === k) || TCATS[TCATS.length - 1];
 const tRunning = () => TLOG.find((x) => !x.e);
@@ -1833,10 +1839,10 @@ function tStart(cat) {
 function tStop() { const r = tRunning(); if (r) { r.e = Date.now(); tSave(); tSyncSoon(5000); render(); } }
 function tStrip() {
   const t = todayISO();
-  if (pref("tstrip") === false || t > TLOG_UNTIL) return "";
+  if (pref("tstrip") === false) return "";
   const r = tRunning(), c = r && tcat(r.cat);
   const btns = TCATS.map((x) => '<button class="btn raised ts-b' + (r && r.cat === x[0] ? " on" : "") + '" data-a="tgo" data-arg="' + x[0] + '"><i>' + x[1] + "</i><span>" + esc(x[3]) + "</span></button>").join("");
-  return '<div class="ts raised"><div class="ts-h" data-a="open" data-arg="time">' + (r ? "<b>" + c[1] + " " + esc(c[2]) + '</b><span id="tsel"> · ' + tHM(Date.now() - r.s) + " since " + tClock(r.s) + "</span>" : "<b>⏱ What are you doing?</b>") + "<span class=\"ts-go\">›</span></div>" +
+  return '<div class="ts raised"><div class="ts-h" data-a="open" data-arg="time">' + (r ? "<b>" + c[1] + " " + esc(c[2]) + '</b><span id="tsel"> · ' + tHM(Date.now() - r.s) + " since " + tClock(r.s) + "</span>" : "<b>⏱ What are you doing?</b>") + "<span class=\"ts-cap\" data-a=\"tcap\">✚</span><span class=\"ts-go\">›</span></div>" +
     (r ? '<div class="ts-w"><input id="tswhat" class="sunk" placeholder="What? (optional, a few words)" value="' + esc(r.what || "") + '"><button class="btn raised" data-a="tstop">⏹ Stop</button></div>' : "") +
     '<div class="ts-g">' + btns + "</div>" + tNowLine() + tSlim() + "</div>";
 }
@@ -1875,7 +1881,7 @@ function winTime() {
     return '<div class="li" data-a="tedit" data-arg="' + p.id + '"><span class="tl-t">' + tClock(p.s) + "–" + (p.open ? "now" : tClock(p.e)) + '</span><span class="lab">' + c[1] + " " + esc(c[2]) + (p.what ? '<br><small>' + esc(p.what) + "</small>" : "") + '</span><span class="tl-d">' + tHM(p.e - p.s) + "</span></div>"; }).join("");
   const dayName = day === t ? "Today" : new Date(day + "T12:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
   return '<div class="nt"><div class="h">This week</div>' + tGoals() + tFriCard() + '<div class="nt-bar"><span class="nt-btn" data-a="tday" data-arg="-1">‹</span><span class="nt-c"><b>' + dayName + "</b> · " + tHM(ps.reduce((a, p) => a + p.e - p.s, 0)) + '</span><span class="nt-btn" data-a="tday" data-arg="1">›</span></div>' +
-    '<div class="lv sunk">' + (rows || '<div class="nt-empty">Nothing logged ' + (day === t ? "yet today. Tap what you\'re doing on the home screen." : "that day.") + "</div>") + "</div>" +
+    '<div class="tq">' + tPlanVsActual(day) + '</div><div class="lv sunk">' + (rows || '<div class="nt-empty">Nothing logged ' + (day === t ? "yet today. Tap what you\'re doing on the home screen." : "that day.") + "</div>") + "</div>" +
     '<div class="row btns"><button class="btn raised" data-a="tadd" data-arg="' + day + '">+ Add one I missed</button></div>' +
     '<div class="h">This week, all categories</div><div class="tq">' + tBars(tTotals(mon, t)) + "</div>" +
     '<div class="h">Whole log (from ' + new Date(tFrom() + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ')</div><div class="tq">' + tBars(tTotals(tFrom(), null)) + "</div>" +
@@ -1968,11 +1974,70 @@ function tGoals() {
     tBar("📧 Admin today (limit)", Math.round(tHours("admin", t, t) * 10) / 10, T_ADMIN_CAP, "h", true) +
     '<div class="tg-st">🔥 <b>' + st + "</b> paint day" + (st === 1 ? "" : "s") + " in a row · 🏆 best " + Math.max(st, TBEST) + '<br><small>Tue, Wed and Fri with 3+ hrs painted. Other days never break it.</small></div></div>';
 }
+const T_FOCUS = ["paint", "draw"];
 function tNowLine() {
   const n = tNow(), r = tRunning(), on = r && n.cats.includes(r.cat);
-  const go = n.cats.length && !on ? n.cats.map((c) => '<button class="btn raised" data-a="tgo" data-arg="' + c + '">▶ ' + tcat(c)[1] + "</button>").join("") : on ? "<span>✓</span>" : "";
-  return '<div class="ts-now"><span><b>Now · ' + n.label + ":</b> " + esc(n.text) + "</span>" + go + "</div>";
+  let go = n.cats.length && !on ? n.cats.map((c) => '<button class="btn raised" data-a="tgo" data-arg="' + c + '">▶ ' + tcat(c)[1] + "</button>").join("") : on ? "<span>✓</span>" : "";
+  const fc = n.cats.find((c) => T_FOCUS.includes(c));
+  if (fc && !(r && r.focus)) go += '<button class="btn raised" data-a="tfocus" data-arg="' + fc + '">🎧 Focus</button>';
+  if (r && r.focus) go += '<button class="btn raised" data-a="tfocusoff">🎧 End focus</button>';
+  const drift = r && n.cats.length && !on ? ' <small class="ts-drift">· you\'re on ' + tcat(r.cat)[1] + " " + esc(tcat(r.cat)[3]) + "</small>" : "";
+  return '<div class="ts-now"><span><b>Now · ' + n.label + ":</b> " + esc(n.text) + drift + "</span>" + go + "</div>" + tUpNext();
 }
+function tUpNext() {                           // the next few to-dos due today (or late), right under the plan
+  const v = todoView(); if (!v) return "";
+  const t = todayISO(), due = v.tasks.filter((x) => !x.done && x.due && x.due <= t)
+    .sort((a, b) => ((a.due < t) === (b.due < t) ? (b.imp || 3) - (a.imp || 3) : a.due < t ? -1 : 1));
+  if (!due.length) return "";
+  return '<div class="un">' + due.slice(0, 3).map((x) => '<div class="un-r"><span class="hw-tick" data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '"></span><span class="un-t">' + esc(x.title || "") + (x.due < t ? ' <small class="un-o">overdue</small>' : "") + "</span></div>").join("") +
+    (due.length > 3 ? '<div class="un-m" data-a="open" data-arg="todo">+' + (due.length - 3) + " more ›</div>" : "") + "</div>";
+}
+function tFocus(cat) {
+  tStart(cat); const r = tRunning(); if (r) { r.focus = true; tSave(); render(); }
+  location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Bean focus on");
+}
+function tFocusOff() {
+  const r = tRunning(); if (r) { r.focus = false; tSave(); render(); }
+  location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Bean focus off");
+}
+function tCapture() {                          // get a thought out of your head in two taps
+  const done = (what) => { closeDialog(); toast(what); };
+  dialog('<textarea id="capt" class="sunk" rows="3" style="width:100%;box-sizing:border-box;font:16px Tahoma,sans-serif;padding:6px" placeholder="What\'s on your mind? (add a day like fri for a to-do)"></textarea>',
+    [["✅ To-do", () => { const x = $("capt").value.trim(); if (!x) return false; todoChange({ kind: "add", text: x, cid: "c" + Date.now().toString(36) }); done("Added to your to-dos."); return true; }, 1],
+     ["📝 Note", () => { const x = $("capt").value.trim(); if (!x) return false; const n = { id: nId("n"), folder: "", blocks: [{ t: "title", text: x.split("\n")[0] }].concat(x.split("\n").slice(1).map((l) => ({ t: "p", text: l }))) }; noteTouch(n); done("Saved to Notes."); return true; }],
+     ["🪝 Hook", () => { const x = $("capt").value.trim(); if (!x) return false; hookOp({ kind: "add", items: [{ id: "h" + Date.now().toString(36), text: x, tags: [] }] }); done("Saved to your hooks."); return true; }],
+     ["Cancel"]], "✚");
+  setTimeout(() => { const e = $("capt"); if (e) e.focus(); }, 60);
+}
+function tPlanVsActual(day) {                  // per block: what the week plan said, and what got logged in that window
+  const dow = new Date(day + "T12:00").getDay(), ps = tPieces(day, day), base = new Date(day + "T00:00").getTime();
+  return [[0, 13, "Morning"], [13, 18, "Afternoon"]].map((w, i) => {
+    const pl = TPLAN[dow][i]; if (!pl[1].length) return "";
+    const ws = base + w[0] * 3600000, we = base + w[1] * 3600000;
+    const ms = ps.filter((p) => pl[1].includes(p.cat)).reduce((a, p) => a + Math.max(0, Math.min(p.e, we) - Math.max(p.s, ws)), 0);
+    const goal = (pl[0].match(/(\d+) hrs?/) || [])[1], ok = goal ? ms >= goal * 3600000 : ms > 0;
+    return '<div class="pa">' + w[2] + ": " + esc(pl[0].split(/[,(]/)[0].trim()) + " · did " + tHM(ms) + (goal ? " of " + goal + "h" : "") + (ok ? " ✓" : "") + "</div>";
+  }).join("");
+}
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS }; }
+function tApplyBackup(b) {
+  TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
+  PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
+  store.set("tlog", TLOG); store.set("twhat", TWHAT); store.set("tfri", TFRI); store.set("tshorts", TSHORTS); store.set("tbest", TBEST);
+  store.set("plans", PLANS); store.set("plantpl", PLANTPL); store.set("links", LINKS);
+}
+async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
+  let b = null;
+  try { b = await call("appRestore", KEY); } catch (e) { if (manual) toast("⚠ Couldn't reach the backup. Try again with signal."); return; }
+  const n = b ? (b.tlog || []).length + (b.plans || []).length + (b.links || []).length + Object.keys(b.tfri || {}).length : 0;
+  if (!n) { if (manual) toast("There's no backup yet. It's made the first time the app syncs your log."); return; }
+  const when = new Date(b.at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " " + tClock(b.at);
+  ask("Bring back your time log, plans, links and Friday numbers from " + when + "?", () => { tApplyBackup(b); planFeed(); render(); toast("Back. Everything from " + when + " is restored."); });
+}
+setTimeout(() => {
+  const empty = !TLOG.length && !LINKS.length && !Object.keys(TFRI).length && !PLANS.filter((p) => !p.auto).length;
+  if (empty && KEY && !store.get("trestask", 0)) { store.set("trestask", 1); tRestore(false); }
+}, 1200);
 function tSlim() {
   const mon = tMonday(), h = tHours("paint", mon, todayISO()), pct = Math.min(100, Math.round(100 * h / 9));
   return '<div class="ts-slim" data-a="open" data-arg="time">🎨 <span class="tg-bar sunk"><i class="' + (h >= 9 ? "full" : "") + '" style="width:' + pct + '%"></i></span> ' + (Math.round(h * 10) / 10) + "/9 hrs · 🔥 " + tStreak() + "</div>";
@@ -2008,7 +2073,7 @@ function tSyncNow() {
   const plans = [];
   PLANS.forEach((p) => p.steps.slice().sort((a, b) => a.off - b.off).forEach((s) => plans.push([pTpl(p.tpl).label + ": " + p.name, s.text, sDate(p, s), sDone(s) ? "yes" : ""])));
   outbox = outbox.filter((x) => x.fn !== "timeSync"); saveBox();
-  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos, plans: plans, links: links }, DRY], label: "Time log" });
+  enqueue({ fn: "timeSync", args: [KEY, { rows: rows, fri: fri, todos: todos, plans: plans, links: links, backup: tBackupData() }, DRY], label: "Time log" });
 }
 function tBackup() {                          // a copy in 📝 Notes, so the log can't vanish with the phone's storage
   if (!TLOG.length) return;
@@ -4811,6 +4876,10 @@ document.addEventListener("click", async (e) => {
   else if (a === "tfri") tFriSave();
   else if (a === "popen") open_("plan", arg);
   else if (a === "lmake") lMake(arg);
+  else if (a === "tcap") tCapture();
+  else if (a === "tfocus") tFocus(arg);
+  else if (a === "tfocusoff") tFocusOff();
+  else if (a === "trestore") tRestore(true);
   else if (a === "lcopy") { const l = LINKS.find((x) => x.id === arg); if (l) copyText(l.url, "Link"); }
   else if (a === "ldel") { const l = LINKS.find((x) => x.id === arg); if (l) ask("Remove " + l.name + " from the list? The link itself keeps working.", () => { LINKS = LINKS.filter((x) => x !== l); if (lLast === l) lLast = null; store.set("links", LINKS); tSyncSoon(3000); render(); }); }
   else if (a === "pnew") pNew(arg);
