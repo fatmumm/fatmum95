@@ -63,10 +63,10 @@ html{-webkit-text-size-adjust:100%}
 .ts-h{display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:5px 8px;font-size:14px;cursor:pointer}
 .ts-h #tsel{font-size:12px;flex:1}.ts-go{margin-left:auto}
 .ts-w{display:flex;gap:6px;padding:6px 8px 0}.ts-w input{flex:1;min-width:0;font:14px Tahoma,sans-serif;padding:6px}
-.ts-g{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px 8px 0}
+.ts-g{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:6px 8px 0}
 .ts-b{display:flex;flex-direction:column;align-items:center;padding:6px 1px;font-size:10px;letter-spacing:-.3px;min-width:0}.ts-b i{font-style:normal;font-size:20px}.ts-b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .ts-b.on{background:#ffd400;box-shadow:inset 1px 1px #404040}
-.ts .ts-g .ts-b span{font-size:11px;letter-spacing:-.2px}
+.ts .ts-g .ts-b{padding:6px 2px}.ts .ts-g .ts-b span{font-size:11px;letter-spacing:-.2px}
 .tq{padding:0 8px}.tq-r{display:grid;grid-template-columns:42% 1fr 64px;gap:6px;align-items:center;font-size:13px;padding:3px 0}.tq-bar{height:12px;background:#fff}.tq-bar i{display:block;height:100%;background:#000080}.tq-v{text-align:right}.tq-all{font-weight:700}
 .ts-now{display:flex;align-items:center;gap:6px;padding:6px 8px 0;font-size:13px}.ts-now span{flex:1;min-width:0}.ts-now .btn{flex:none;padding:4px 8px}
 .ts-slim{display:flex;align-items:center;gap:6px;padding:6px 8px 0;font-size:12px;cursor:pointer}.ts-slim .tg-bar{flex:1}
@@ -1820,8 +1820,8 @@ function habitWidget() {
 }
 
 // ── ⏱ Time log: two weeks of where the hours go (22 Oct to 4 Nov 2026). One tap per switch ──
-const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Sketchbook", "Sketch"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post", "Post"],
-  ["club", "💌", "Club", "Club"], ["pack", "📦", "Pack / ship", "Ship"], ["admin", "📧", "Admin", "Admin"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
+const TCATS = [["paint", "🎨", "Paint", "Paint"], ["draw", "✏️", "Sketchbook", "Sketch"], ["film", "🎥", "Film", "Film"], ["edit", "✂️", "Edit", "Edit"], ["post", "📱", "Post", "Post"], ["club", "💌", "Club", "Club"],
+  ["shirt", "👕", "T-shirts", "Shirts"], ["pack", "📦", "Pack / ship", "Ship"], ["admin", "📧", "Admin", "Admin"], ["code", "💻", "Vibe code", "Code"], ["tattoo", "🖋", "Tattoo", "Tattoo"], ["other", "❔", "Other", "Other"]];
 const TLOG_FROM = "2026-10-22";
 let TLOG = store.get("tlog", []), TWHAT = store.get("twhat", {});
 const tcat = (k) => TCATS.find((c) => c[0] === k) || TCATS[TCATS.length - 1];
@@ -1936,7 +1936,7 @@ const TPLAN = {
   3: [["Paint 3 hrs", ["paint"]], ["Sketchbook or club letter writing", ["draw", "club"]]],
   4: [["Edit 2 to 3 shorts and schedule them", ["edit"]], ["Emails, newsletter, shop admin (stop at 2 hrs)", ["admin"]]],
   5: [["Paint 3 hrs", ["paint"]], ["Ship: club letters, orders, shirt prep. Then a 20-minute review", ["pack"]]],
-  6: [["Flex: catch-up, or printing in shirt week", ["other"]], ["Off", []]]};
+  6: [["Flex: catch-up, or printing in shirt week", ["other", "shirt"]], ["Off", []]]};
 const TDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TGOALS = [["paint", "🎨 Painting", 9], ["draw", "✏️ Sketchbook", 6]];
 const T_SHORTS = 3, T_ADMIN_CAP = 2, T_PAINTDAYS = [2, 3, 5], T_PAINT_HRS = 3;
