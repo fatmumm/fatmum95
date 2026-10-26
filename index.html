@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -588,16 +588,17 @@ function confirmMails(title, intro, mails, send) {
 
 // ── doing things (the screen updates as soon as the answer lands) ──
 const ACT_LABEL = { deposit_invoice: "Deposit invoice", deposit_paid: "Deposit paid", book: "Calendar invite", pay: "Payment",
-  receipt: "Receipt", balance: "Invoice for the rest", mail: "Email", gone: "Slot released", cancel: "Cancelled", hide: "Removed", undo: "Payment undone" };
+  receipt: "Receipt", balance: "Invoice for the rest", price: "Price changed", mail: "Email", gone: "Slot released", cancel: "Cancelled", hide: "Removed", undo: "Payment undone" };
 function applyLocal(r, what, o) {                // what the screen shows straight away
   const t = todayISO(), d = new Date(), short = d.getDate() + " " + MON[d.getMonth()];
   if (what === "pay") { r.paid = { amt: Number(o.amt), how: o.how, day: short }; if (o.receipt) r.rec = "R-…"; if (o.aftercare) r.aftercare = true; }
   else if (what === "undo") r.paid = null;
   else if (what === "deposit_paid") { r.deposit = true; r.depIso = t; r.owed = Math.max(0, r.price - DEPOSIT); if (o.send) r.confirmed = true; }
   else if (what === "deposit_invoice") { r.invIso = t; r.holdIso = addDays(t, 2); r.depInv = "FM-…"; if (Number(o.total) > 0) r.price = Number(o.total); }
+  else if (what === "price") { r.price = Number(o.total); r.owed = Math.max(0, r.price - (r.deposit ? DEPOSIT : 0)); }
   else if (what === "book") r.booked = true;
   else if (what === "receipt") r.rec = r.rec || "R-…";
-  else if (what === "balance") r.inv = r.inv || "FM-…";
+  else if (what === "balance") { r.inv = r.inv || "FM-…"; if (o.total > 0 && o.total !== r.price) { r.price = o.total; r.owed = Math.max(0, o.total - (r.deposit ? DEPOSIT : 0)); } }
   else if (what === "mail") { const f = { reminder: "reminder", aftercare: "aftercare", late: "late", chase_deposit: "chasedDep", chase_balance: "chasedRest", healing: "healing", healed_photo: "healedAsk", review: "reviewAsk" }[o.kind]; if (f) r[f] = true; }
   else if (what === "gone" || what === "cancel") r.cancelled = true;
   r.waiting = true;
@@ -678,9 +679,17 @@ function startPay(r) {
       store.set("how", how);
       const mails = [];
       const rp = Object.assign({}, r, { paid: { amt: amt, how: how } });
-      if (rec) mails.push({ label: "Receipt", to: r.email, mail: fill("receipt", rp, { number: "{number}" }), attach: "Receipt R-(next number).pdf" });
-      if (aft) mails.push({ label: "Aftercare", to: r.email, mail: fill("aftercare", rp) });
-      const go = (ms) => act(r.id, "pay", { how: how, amt: amt, receipt: rec, receiptMail: rec ? ms[0] : null, aftercare: aft, aftercareMail: aft ? ms[rec ? 1 : 0] : null });
+      if (rec && aft) {                              // one email: the receipt, then the aftercare, one greeting and one sign-off
+        const rm = fill("receipt", rp, { number: "{number}" }), am = fill("aftercare", rp);
+        const top = rm.body.replace(/\n+\s*Aron x\s*$/, "");
+        const care = am.body.replace(/^\s*(Hi|Hey|Hello)[^\n]*\n+/, "");
+        mails.push({ label: "Receipt + aftercare", to: r.email, mail: { subject: rm.subject, body: top + "\n\n" + care }, attach: "Receipt R-(next number).pdf" });
+      } else {
+        if (rec) mails.push({ label: "Receipt", to: r.email, mail: fill("receipt", rp, { number: "{number}" }), attach: "Receipt R-(next number).pdf" });
+        if (aft) mails.push({ label: "Aftercare", to: r.email, mail: fill("aftercare", rp) });
+      }
+      const go = (ms) => act(r.id, "pay", { how: how, amt: amt, receipt: rec, receiptMail: rec ? ms[0] : null, aftercare: aft,
+        aftercareMail: aft && !rec ? ms[0] : null, aftercareInReceipt: rec && aft });
       if (!mails.length) { setTimeout(() => ask("Mark " + r.first + " as paid " + money(amt) + " by " + how + "?", () => go([])), 0); return; }
       setTimeout(() => confirmMails("Paid " + money(amt) + " " + how + ": send these?", "", mails, go), 0);
     }, 1], ["Cancel"]], "💷", { title: "Take payment" });
@@ -694,11 +703,37 @@ function startMail(r, kind, extra) {
 function startLate(r) {
   dialog("Running late to " + esc(r.first) + " by:", [5, 10, 15, 30].map((n) => [n + "m", () => { setTimeout(() => startMail(r, "late", { minutes: n }), 0); }]).concat([["✕"]]), "⏰");
 }
-function startDoc(r, kind) {
+function startDoc(r, kind, total) {
+  if (kind === "balance" && total == null) {      // the price can change on the day, so check it first
+    const dep = r.deposit ? DEPOSIT : 0;
+    dialog('<label class="field">The whole tattoo price for ' + esc(r.first) + ' (£)</label><input class="inp money" id="tot" inputmode="decimal" value="' + (r.price || "") + '">' +
+      '<div id="totline" style="margin-top:6px;font-weight:600"></div>',
+      [["Next", () => {
+        const t = Number(String($("tot").value).replace(/[£,]/g, ""));
+        if (!(t > 0)) return false;
+        setTimeout(() => startDoc(r, kind, t), 0);
+      }, 1], ["Cancel"]], "🧾", { title: "Invoice for the rest" });
+    const tl = () => { const t = Number(String($("tot").value).replace(/[£,]/g, "")); $("totline").textContent = t > 0 ? (dep ? "£" + dep + " deposit paid, " : "") + money(Math.max(0, t - dep)) + " to pay" : ""; };
+    $("tot").oninput = tl; tl();
+    return;
+  }
+  if (kind === "balance" && total !== r.price) { r = Object.assign({}, r, { price: total, owed: Math.max(0, total - (r.deposit ? DEPOSIT : 0)) }); }
   const no = kind === "receipt" ? r.rec : r.inv;
   const tk = kind === "receipt" ? "receipt" : "balance";
   confirmMails((no ? "Send " + no + " again?" : "Send it?"), "", [{ to: r.email, mail: fill(tk, r, { number: no || "{number}", amount: money(kind === "receipt" && r.paid ? r.paid.amt : owed(r)) }),
-    attach: (no || (kind === "receipt" ? "R-(next number)" : "FM-(next number)")) + ".pdf" }], (ms) => act(r.id, kind, { mail: ms[0] }));
+    attach: (no || (kind === "receipt" ? "R-(next number)" : "FM-(next number)")) + ".pdf" }], (ms) => act(r.id, kind, kind === "balance" ? { mail: ms[0], total: r.price } : { mail: ms[0] }));
+}
+function startPrice(r) {
+  const dep = r.deposit ? DEPOSIT : 0;
+  dialog('<label class="field">The whole tattoo price for ' + esc(r.first) + ' (£), deposit included</label><input class="inp money" id="tot" inputmode="decimal" value="' + (r.price || "") + '">' +
+    '<div id="totline" style="margin-top:6px;font-weight:600"></div><div class="dim" style="margin-top:4px">Invoices, receipts and reminders use this from now on. No email is sent.</div>',
+    [["Save", () => {
+      const t = Number(String($("tot").value).replace(/[£,]/g, ""));
+      if (!(t > 0)) return false;
+      act(r.id, "price", { total: t });
+    }, 1], ["Cancel"]], "💷", { title: "Change price" });
+  const tl = () => { const t = Number(String($("tot").value).replace(/[£,]/g, "")); $("totline").textContent = t > 0 ? (dep ? "£" + dep + " deposit paid, " : "") + money(Math.max(0, t - dep)) + " left to pay" : ""; };
+  $("tot").oninput = tl; tl();
 }
 function startGone(r) {
   confirmMails("Release the slot and email them?", "Their booking is marked Cancelled" + (r.booked ? " and the calendar event is removed" : "") + ".", [{ to: r.email, mail: fill("gone", r) }], (ms) => act(r.id, "gone", { mail: ms[0] }));
@@ -3946,6 +3981,7 @@ function winClient(id) {
     if (r.iso) L.push(li("📅", "Calendar invite", r.booked || invited(r) ? "✓ sent · again" : "send", "step", r.id, "book"));
     if (!r.paid) L.push(li("💷", "Take payment", money(owed(r)), "step", r.id, "pay"));
     if (r.email) {
+      L.push(li("💷", "Change price", r.price ? money(r.price) : "not set", "price", r.id));
       if (!r.paid && owed(r) > 0) L.push(li("🧾", "Invoice for the rest", r.inv ? "✓ " + r.inv : "send " + money(owed(r)), "doc", r.id, "balance"));
       if (!r.paid && r.iso && r.iso < t) L.push(li("🔔", "Chase the rest", r.chasedRest ? "✓ chased · again" : "email", "mail", r.id, "chase_balance"));
       if (r.paid) L.push(li("🧾", "Receipt", r.rec ? "✓ " + r.rec + " · again" : "send", "doc", r.id, "receipt"));
@@ -4622,7 +4658,7 @@ function winAuto() {
     '<div class="li" style="align-items:flex-start"><span class="ico">💌</span><span class="lab"><b>Nudge me about client emails</b><div class="dim">When a client has been waiting this long for a reply, Bean and Admin tell you.</div>' +
     '<select class="inp" id="rdays" style="margin-top:6px">' + [1, 2, 3, 4, 5, 7].map((n) => '<option value="' + n + '"' + (replyDays() === n ? " selected" : "") + ">after " + n + " day" + (n === 1 ? "" : "s") + "</option>").join("") + "</select></span></div>" +
     sw("followups", "Follow-up reminders in Admin", "Healing check (2 weeks), healed photo (6 weeks), review + rebook (8 weeks). Shown in Admin for you to tap; never sent by themselves.") +
-    sw("directions", "Directions 30 min before", "The black door / 5J email with the door photo, to bookings with a calendar invite.<div style='margin-top:4px'>" + timer + "</div>") + "</div>";
+    sw("directions", "Directions 1 hour before", "The black door / 5J email with the door photo, to bookings with a calendar invite.<div style='margin-top:4px'>" + timer + "</div>") + "</div>";
   h += '<div class="h">Quick replies</div><div class="lv sunk">' + quickReplies().map((q, i) => '<div class="li" data-a="qredit" data-arg="' + i + '"><span class="ico">💬</span><span class="lab"><b>' + esc(q.label) + '</b><div class="dim">' + esc(q.text.split("{aftercare}").join("(your aftercare email)").split("{free_dates}").join("(your free dates)").slice(0, 70)) + "</div></span></div>").join("") +
     '<div class="li" data-a="qredit" data-arg="' + quickReplies().length + '"><span class="ico">➕</span><span class="lab">Add a quick reply</span></div></div><div class="dim" style="margin-top:6px">Buttons in the Inbox reply box. Tap one to add its words to your reply.</div>';
   h += '<div class="h">What the emails say</div><div class="lv sunk">' + Object.keys(TPL_NAMES).map((k) => {
@@ -4870,6 +4906,7 @@ document.addEventListener("click", async (e) => {
     else if (k === "slot") startSlot(r);
   }
   else if (a === "doc") startDoc(r, arg);
+  else if (a === "price") startPrice(r);
   else if (a === "mail") startMail(r, arg);
   else if (a === "late") startLate(r);
   else if (a === "gone") startGone(r);
