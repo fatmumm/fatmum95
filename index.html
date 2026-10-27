@@ -1696,9 +1696,9 @@ function winFrefV(id) {                         // one design: like a song, with
   if (!d) return '<div class="card sunk">That design isn\'t here.</div>';
   const tn = frTurn(id);
   setTimeout(() => frTurned(id, tn.r, tn.f).then((u) => { const im = $("frbig"); if (im) im.src = u; }).catch(() => {}), 0);
-  const b = (a, l, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-a="' + a + '" data-arg="' + esc(id) + '">' + l + "</span>";
+  const b = (a, ic, l, on) => '<button class="btn raised' + (on ? " main" : "") + '" style="padding:6px 0;min-width:0;line-height:1.2;font-size:12px;white-space:nowrap" data-a="' + a + '" data-arg="' + esc(id) + '"><div style="font-size:20px">' + ic + "</div>" + l + "</button>";
   return '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frbig" alt="" style="max-width:100%;max-height:62vh"></div>' +
-    '<div class="rf-chips">' + b("frfs", "⛶ Full screen") + b("frfav", FRFAV[id] ? "★ Favourite" : "☆ Favourite", FRFAV[id]) + b("frsim", "≈ See similar") + b("frrot", "⟳ Turn") + b("frflip", "⇋ Flip", (FRXF[id] || {}).f) + "</div>" +
+    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px 0">' + b("frfs", "⛶", "Full screen") + b("frfav", FRFAV[id] ? "★" : "☆", "Favourite", FRFAV[id]) + b("frsim", "≈", "Similar") + b("frrot", "⟳", "Turn") + b("frflip", "⇋", "Flip", (FRXF[id] || {}).f) + "</div>" +
     '<div class="card"><b>' + esc(d[3] || "") + "</b></div>" +
     (d[2] ? '<div class="card" data-a="frartist" data-arg="' + esc(d[2]) + '">👤 ' + esc(d[2]) + ' <span class="nt-c">· all their flash ›</span></div>' : "") +
     '<div class="card" data-a="frsheet" data-arg="' + esc(d[4]) + '">📖 ' + esc(d[5]) + ' <span class="nt-c">· page ' + frPage(d[4]) + ", see the full sheet ›</span></div>" +
