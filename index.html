@@ -1606,6 +1606,7 @@ function winFref() {
   if (!FR) { frIndex().then(() => { const top = stack[stack.length - 1]; if (top && top.kind === "fref") render(); }); return '<div class="nt-empty">Loading…</div>'; }
   const load = '<label class="nt-btn rf-add">' + (FR.length ? "Reload pack" : "📦 Load flash pack") + '<input type="file" accept=".zip,application/zip" id="fradd" style="display:none"></label>';
   if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
+  if (FR.length && FR[0].length < 6) return '<div class="card sunk">This is the old flash pack. Load flash-refs-2.zip from Files to get artists, books and full sheets.</div><div class="row">' + load + "</div>";
   if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs-2.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
   const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + load + "</div>";
   if (frTab === "artists" || frTab === "books") {
@@ -1618,7 +1619,18 @@ function winFref() {
   return '<div class="nt rf">' + tabs + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px"></div>' +
     '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + frGrid(frMatch()) + "</div>";
 }
-function winFrArtist(a) { return '<div class="nt rf">' + frGrid(FR.filter((d) => d[2] === a)) + "</div>"; }
+function frSheetGrid(sids) {                   // whole pages, uncut
+  setTimeout(frThumbs, 0);
+  return '<div class="nt-hint">' + sids.length + " sheet" + (sids.length === 1 ? "" : "s") + '</div><div class="rf-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">' +
+    sids.map((sid) => '<div class="rf-cell" style="aspect-ratio:3/4" data-a="frsheet" data-arg="' + esc(sid) + '"><img data-fr="s:' + esc(sid) + '" alt="" style="width:100%;height:100%;object-fit:contain;background:#fff"></div>').join("") + "</div>";
+}
+let frAV = store.get("frav", "sheets");
+function winFrArtist(a) {
+  const mine = FR.filter((d) => d[2] === a), sids = [...new Set(mine.map((d) => d[4]))].sort();
+  return '<div class="nt rf"><div class="rf-chips">' + frChip("frav", "sheets", "🗂 Full sheets", frAV === "sheets") + frChip("frav", "designs", "✂ Single designs", frAV === "designs") + "</div>" +
+    (frAV === "sheets" ? frSheetGrid(sids) : frGrid(mine)) + "</div>";
+}
+function winFrBook(b) { return '<div class="nt rf">' + frSheetGrid(frBookSheets(b)) + "</div>"; }
 function winFrefV(id) {                         // one design: like a song, with its artist and album (the book page it came from)
   const d = (FR || []).find((x) => x[0] === id);
   if (!d) return '<div class="card sunk">That design isn\'t here.</div>';
@@ -1667,7 +1679,8 @@ async function frLoadZip(f) {                  // a plain (stored) zip: read its
 function frAct(a, arg) {
   if (a === "frtab") { frTab = arg; store.set("frtab", frTab); frN = 60; return render(); }
   if (a === "frartist") return open_("frartist", arg);
-  if (a === "frbook") { const p = frBookSheets(arg); return p.length && open_("frsheet", p[0]); }
+  if (a === "frbook") return open_("frbook", arg);
+  if (a === "frav") { frAV = arg; store.set("frav", frAV); return render(); }
   if (a === "frsheet") { if (stack.length && stack[stack.length - 1].kind === "frsheet") stack.pop(); return open_("frsheet", arg); }
   if (a === "frbookrot") { const x = FRXF["b:" + arg] = FRXF["b:" + arg] || {}; x.r = ((x.r || 0) + 90) % 360; if (!x.r) delete FRXF["b:" + arg]; store.set("frxf", FRXF); return render(); }
   if (a === "frfav") { if (FRFAV[arg]) delete FRFAV[arg]; else FRFAV[arg] = 1; store.set("frfav", FRFAV); return render(); }
@@ -3976,7 +3989,7 @@ function winTitle(w) {
   if (w.kind === "note") { const n = NOTES[w.arg]; return n ? (n.folder || "Notes") : "Note"; }
   if (w.kind === "ref") return "Refs";
   if (w.kind === "frefv") return "Flash refs";
-  if (w.kind === "frartist") return w.arg;
+  if (w.kind === "frartist" || w.kind === "frbook") return w.arg;
   if (w.kind === "frsheet") { const d = (FR || []).find((x) => x[4] === w.arg); return d ? d[5] : "Flash book"; }
   if (w.kind === "plan") { const p = w.arg === "draft" ? pDraft : pFind(w.arg); return p ? (w.arg === "draft" ? "New " : "") + pTpl(p.tpl).label : "Plan"; }
   if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
@@ -4031,7 +4044,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5138,7 +5151,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
-  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot"].includes(a)) frAct(a, arg);
+  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav"].includes(a)) frAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else render(); }
   else if (a === "refgo") refGo(Number(arg));
