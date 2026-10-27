@@ -776,8 +776,8 @@ function winSettings() {
 }
 document.addEventListener("change", (e) => { const k = e.target.dataset && e.target.dataset.pref; if (k) setPref(k, e.target.value); });
 document.body && document.body.classList.toggle("big", prefs.text === "big");
-function open_(kind, arg) { menuOpen = false; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); if (typeof useLog === "function") useLog("open", kind); render(); window.scrollTo(0, 0); }
-function back() { stack.pop(); render(); }
+function open_(kind, arg) { menuOpen = false; if (stack.length) stack[stack.length - 1].y = window.scrollY; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); if (typeof useLog === "function") useLog("open", kind); render(); window.scrollTo(0, 0); }
+function back() { stack.pop(); render(); const w = stack[stack.length - 1]; if (w && w.y) window.scrollTo(0, w.y); }   // back to where you were in the list
 function home() { stack = []; menuOpen = false; render(); }
 function winOutbox() {
   const row = (it, i, bad) => '<div class="li"><span class="ico">' + (bad ? "⚠️" : "📤") + '</span><span class="lab"><b>' + esc(it.label || it.fn) + '</b><div class="dim">' + esc(ago(it.at)) + (bad ? " · " + esc(it.error) : i === 0 && sending ? " · sending…" : " · waiting") + "</div></span>" +
