@@ -1636,6 +1636,18 @@ function winFrArtist(a) {
   return '<div class="nt rf"><div class="rf-chips">' + frChip("frav", "sheets", "🗂 Full sheets", frAV === "sheets") + frChip("frav", "designs", "✂ Single designs", frAV === "designs") + "</div>" +
     (frAV === "sheets" ? frSheetGrid(sids) : frGrid(mine)) + "</div>";
 }
+async function frTurned(id, r, f) {           // the picture redrawn already turned, so its box fits it (no cropping)
+  const u = await frImg(id); r = ((r || 0) % 360 + 360) % 360;
+  if (!r && !f) return u;
+  const key = id + "|" + r + "|" + (f ? 1 : 0); frTurned.mem = frTurned.mem || {};
+  if (frTurned.mem[key]) return frTurned.mem[key];
+  const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; });
+  const side = r % 180 !== 0, c = document.createElement("canvas"); c.width = side ? im.height : im.width; c.height = side ? im.width : im.height;
+  const x = c.getContext("2d"); x.translate(c.width / 2, c.height / 2); x.rotate(r * Math.PI / 180); if (f) x.scale(-1, 1); x.drawImage(im, -im.width / 2, -im.height / 2);
+  const b = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.9));
+  return (frTurned.mem[key] = URL.createObjectURL(b));
+}
+const frBookTurn = (sid) => (FRXF["b:" + ((FR.find((d) => d[4] === sid) || [])[5])] || {}).r || 0;
 function frSimilar(id) {                       // designs sharing the most tags with this one
   const d = frById(id); if (!d) return [];
   const mine = new Set(d[1].split("|").filter(Boolean));
@@ -1659,9 +1671,9 @@ async function frFullscreen(id) {
   const old = $("frfs"); if (old) old.remove();
   const el = document.createElement("div"); el.id = "frfs";
   el.style.cssText = "position:fixed;inset:0;z-index:999;background:#111;display:flex;flex-direction:column";
-  const isSheet = id.startsWith("s:"), xf = isSheet ? "rotate(" + ((FRXF["b:" + ((FR.find((d) => d[4] === id.slice(2)) || [])[5])] || {}).r || 0) + "deg)" : frXf(id).replace("transform:", "");
+  const isSheet = id.startsWith("s:"), tn = isSheet ? { r: frBookTurn(id.slice(2)), f: false } : frTurn(id);
   el.innerHTML = '<svg width="0" height="0" style="position:absolute"><filter id="frlv"><feComponentTransfer><feFuncR id="frlvR" type="linear"/><feFuncG id="frlvG" type="linear"/><feFuncB id="frlvB" type="linear"/></feComponentTransfer></filter></svg>' +
-    '<div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff"><img id="frfsimg" alt="" style="max-width:100%;max-height:100%;transform:' + xf + '"></div>' +
+    '<div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff"><img id="frfsimg" alt="" style="max-width:100%;max-height:100%"></div>' +
     '<div id="frfsbar" style="background:#c0c0c0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));max-height:45vh;overflow-y:auto;font-size:13px">' +
     FS_SL.map(([k, l, mn, mx, u]) => '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:88px">' + l + ' <b id="frfsv-' + k + '"></b>' + u + '</span><input type="range" min="' + mn + '" max="' + mx + '" value="' + FS[k] + '" data-fs="' + k + '" style="flex:1"><button class="btn raised" data-fsr="' + k + '">↺</button></div>').join("") +
     '<div class="row"><button class="btn raised" data-fst="invert">◑ Invert</button><button class="btn raised" data-fsr="*">↺ Reset all</button><button class="btn raised" data-fsh="1">Hide sliders</button><button class="btn raised main" data-fsx="1">✕ Close</button></div></div>';
@@ -1676,15 +1688,16 @@ async function frFullscreen(id) {
     frFsApply();
   });
   frFsApply();
-  try { $("frfsimg").src = await frImg(id); } catch (e) { toast("⚠ That picture isn't on this phone."); }
+  try { $("frfsimg").src = await frTurned(id, tn.r, tn.f); } catch (e) { toast("⚠ That picture isn't on this phone."); }
 }
 function winFrBook(b) { return '<div class="nt rf">' + frSheetGrid(frBookSheets(b)) + "</div>"; }
 function winFrefV(id) {                         // one design: like a song, with its artist and album (the book page it came from)
   const d = (FR || []).find((x) => x[0] === id);
   if (!d) return '<div class="card sunk">That design isn\'t here.</div>';
-  setTimeout(() => frImg(id).then((u) => { const im = $("frbig"); if (im) im.src = u; }).catch(() => {}), 0);
+  const tn = frTurn(id);
+  setTimeout(() => frTurned(id, tn.r, tn.f).then((u) => { const im = $("frbig"); if (im) im.src = u; }).catch(() => {}), 0);
   const b = (a, l, on) => '<span class="nt-btn' + (on ? " on" : "") + '" data-a="' + a + '" data-arg="' + esc(id) + '">' + l + "</span>";
-  return '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frbig" alt="" style="max-width:100%;max-height:62vh;' + frXf(id) + '"></div>' +
+  return '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frbig" alt="" style="max-width:100%;max-height:62vh"></div>' +
     '<div class="rf-chips">' + b("frfs", "⛶ Full screen") + b("frfav", FRFAV[id] ? "★ Favourite" : "☆ Favourite", FRFAV[id]) + b("frsim", "≈ See similar") + b("frrot", "⟳ Turn") + b("frflip", "⇋ Flip", (FRXF[id] || {}).f) + "</div>" +
     '<div class="card"><b>' + esc(d[3] || "") + "</b></div>" +
     (d[2] ? '<div class="card" data-a="frartist" data-arg="' + esc(d[2]) + '">👤 ' + esc(d[2]) + ' <span class="nt-c">· all their flash ›</span></div>' : "") +
@@ -1699,10 +1712,10 @@ function winFrSheet(sid) {                      // the whole page from the book,
   const d0 = (FR || []).find((x) => x[4] === sid);
   if (!d0) return '<div class="card sunk">That page isn\'t here.</div>';
   const pages = frBookSheets(d0[5]), i = pages.indexOf(sid);
-  setTimeout(() => frImg("s:" + sid).then((u) => { const im = $("frsh"); if (im) im.src = u; }).catch(() => { const im = $("frsh"); if (im) im.alt = "Reload the flash pack to see full pages."; }), 0);
+  setTimeout(() => frTurned("s:" + sid, frBookTurn(sid)).then((u) => { const im = $("frsh"); if (im) im.src = u; }).catch(() => { const im = $("frsh"); if (im) im.alt = "Reload the flash pack to see full pages."; }), 0);
   const br = (FRXF["b:" + d0[5]] || {}).r || 0;
   return '<div class="rf-chips">' + frChip("frfs", "s:" + sid, "⛶ Full screen") + frChip("frbookrot", d0[5], "⟳ Turn whole book" + (br ? " · " + br + "°" : ""), br) + "</div>" + '<div class="rf-chips">' + (i > 0 ? frChip("frsheet", pages[i - 1], "‹ Page before") : "") + '<span class="nt-c">' + (i + 1) + " of " + pages.length + "</span>" + (i < pages.length - 1 ? frChip("frsheet", pages[i + 1], "Next page ›") : "") + "</div>" +
-    '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frsh" alt="" style="max-width:100%;transform:rotate(' + br + 'deg)"></div>' + frGrid(FR.filter((d) => d[4] === sid));
+    '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frsh" alt="" style="max-width:100%"></div>' + frGrid(FR.filter((d) => d[4] === sid));
 }
 async function frLoadZip(f) {                  // a plain (stored) zip: read its directory, keep each picture as a slice of the file
   const u32 = (dv, o) => dv.getUint32(o, true), u16 = (dv, o) => dv.getUint16(o, true);
