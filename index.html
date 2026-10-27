@@ -1560,11 +1560,15 @@ document.addEventListener("change", async (e) => {
 // ── 🔎 Flash refs: his labelled flash designs. The pictures live only on this phone (loaded once from a zip in Files), never online ──
 // index rows: [design id, labels "a|b", artist, description, sheet id, book]
 let FR = null, frQ = store.get("frq", ""), frTab = store.get("frtab", "search"), frBusy = "", frN = 60;
-let FRFAV = store.get("frfav", {}), FRXF = store.get("frxf", {});           // ★ favourites, and each picture's turn/flip
+let FRFAV = store.get("frfav", {}), FRXF = store.get("frxf", {}), FREDIT = store.get("fredit", {}), FR0 = null, frEditing = "";
+function frApply() {                           // his own tag edits and removed cuts, laid over the pack
+  FR = FR0.filter((d) => !(FREDIT[d[0]] || {}).hidden).map((d) => { const e = FREDIT[d[0]]; return e && e.labels !== undefined ? [d[0], e.labels].concat(d.slice(2)) : d; });
+}
+const frEditSave = () => { store.set("fredit", FREDIT); frApply(); };           // ★ favourites, and each picture's turn/flip
 async function frIndex() {
   if (FR) return FR;
   const rec = await idbDo("readonly", (st) => st.get("index"), "flashi");
-  FR = rec ? rec.list : []; return FR;
+  FR0 = rec ? rec.list : []; frApply(); return FR;
 }
 async function frImg(id) {
   frImg.mem = frImg.mem || {};
@@ -1608,16 +1612,18 @@ function winFref() {
   if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
   if (FR.length && FR[0].length < 6) return '<div class="card sunk">This is the old flash pack. Load flash-refs-2.zip from Files to get artists, books and full sheets.</div><div class="row">' + load + "</div>";
   if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs-2.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
-  const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + load + "</div>";
+  const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + "</div>";
+  const nHid = Object.keys(FREDIT).filter((k) => FREDIT[k].hidden).length;
+  const foot = '<div class="row" style="margin-top:12px">' + load.replace("nt-btn rf-add", "btn raised") + (nHid ? '<button class="btn raised" data-a="frunhide">Bring back ' + nHid + " removed</button>" : "") + "</div>";
   if (frTab === "artists" || frTab === "books") {
     const c = frCount(frTab === "artists" ? 2 : 5);
-    return '<div class="nt rf">' + tabs + Object.keys(c).sort((a, b) => a.localeCompare(b)).map((k) => '<div class="card" data-a="' + (frTab === "artists" ? "frartist" : "frbook") + '" data-arg="' + esc(k) + '">' + esc(k) + ' <span class="nt-c">· ' + c[k] + "</span></div>").join("") + "</div>";
+    return '<div class="nt rf">' + tabs + foot + Object.keys(c).sort((a, b) => a.localeCompare(b)).map((k) => '<div class="card" data-a="' + (frTab === "artists" ? "frartist" : "frbook") + '" data-arg="' + esc(k) + '">' + esc(k) + ' <span class="nt-c">· ' + c[k] + "</span></div>").join("") + "</div>";
   }
-  if (frTab === "fav") return '<div class="nt rf">' + tabs + (FR.some((d) => FRFAV[d[0]]) ? frGrid(FR.filter((d) => FRFAV[d[0]])) : '<div class="nt-empty">Tap ☆ on a design to keep it here.</div>') + "</div>";
+  if (frTab === "fav") return '<div class="nt rf">' + tabs + (FR.some((d) => FRFAV[d[0]]) ? frGrid(FR.filter((d) => FRFAV[d[0]])) : '<div class="nt-empty">Tap ☆ on a design to keep it here.</div>') + foot + "</div>";
   const cnt = {}; FR.forEach((d) => d[1].split("|").forEach((l) => { if (l) cnt[l] = (cnt[l] || 0) + 1; }));
   const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 30), qw = frQ.toLowerCase().split(/[\s,]+/);
   return '<div class="nt rf">' + tabs + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px"></div>' +
-    '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + frGrid(frMatch()) + "</div>";
+    '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + frGrid(frMatch()) + foot + "</div>";
 }
 function frSheetGrid(sids) {                   // whole pages, uncut
   setTimeout(frThumbs, 0);
@@ -1641,7 +1647,11 @@ function winFrefV(id) {                         // one design: like a song, with
     '<div class="card"><b>' + esc(d[3] || "") + "</b></div>" +
     (d[2] ? '<div class="card" data-a="frartist" data-arg="' + esc(d[2]) + '">👤 ' + esc(d[2]) + ' <span class="nt-c">· all their flash ›</span></div>' : "") +
     '<div class="card" data-a="frsheet" data-arg="' + esc(d[4]) + '">📖 ' + esc(d[5]) + ' <span class="nt-c">· page ' + frPage(d[4]) + ", see the full sheet ›</span></div>" +
-    '<div class="rf-chips">' + d[1].split("|").filter(Boolean).map((l) => frChip("frchip", l, l)).join("") + "</div>";
+    (frEditing === id
+      ? '<div class="card"><b>Edit tags</b><div class="rf-chips" style="background:none;position:static">' + d[1].split("|").filter(Boolean).map((l) => frChip("frdeltag", l, "✕ " + l)).join("") + "</div>" +
+        '<div class="row"><input id="frnewtag" placeholder="add a tag" style="flex:1"><button class="btn raised" data-a="fraddtag">Add</button></div>' +
+        '<div class="row"><button class="btn raised main" data-a="fredit">Done</button><button class="btn raised" data-a="frhide">🗑 Remove this cut</button></div></div>'
+      : '<div class="rf-chips">' + d[1].split("|").filter(Boolean).map((l) => frChip("frchip", l, l)).join("") + frChip("fredit", "", "✏️ Edit") + "</div>");
 }
 function winFrSheet(sid) {                      // the whole page from the book, then the designs on it
   const d0 = (FR || []).find((x) => x[4] === sid);
@@ -1674,7 +1684,7 @@ async function frLoadZip(f) {                  // a plain (stored) zip: read its
     await idbDo("readwrite", (st) => recs.forEach((r) => st.put(r)), "flashi");
   }
   await idbDo("readwrite", (st) => st.put({ id: "index", list: list }), "flashi");
-  FR = list; frImg.mem = {};
+  FR0 = list; frApply(); frImg.mem = {};
 }
 function frAct(a, arg) {
   if (a === "frtab") { frTab = arg; store.set("frtab", frTab); frN = 60; return render(); }
@@ -1683,6 +1693,16 @@ function frAct(a, arg) {
   if (a === "frav") { frAV = arg; store.set("frav", frAV); return render(); }
   if (a === "frsheet") { if (stack.length && stack[stack.length - 1].kind === "frsheet") stack.pop(); return open_("frsheet", arg); }
   if (a === "frbookrot") { const x = FRXF["b:" + arg] = FRXF["b:" + arg] || {}; x.r = ((x.r || 0) + 90) % 360; if (!x.r) delete FRXF["b:" + arg]; store.set("frxf", FRXF); return render(); }
+  if (a === "fredit") { const top = stack[stack.length - 1]; frEditing = frEditing ? "" : top.arg; return render(); }
+  if (a === "frdeltag" || a === "fraddtag") {
+    const id = frEditing, d = frById(id); if (!d) return;
+    let ls = d[1].split("|").filter(Boolean);
+    if (a === "frdeltag") ls = ls.filter((l) => l !== arg);
+    else { const v = ($("frnewtag").value || "").trim().toLowerCase(); if (!v) return; if (!ls.includes(v)) ls.push(v); }
+    FREDIT[id] = Object.assign(FREDIT[id] || {}, { labels: ls.join("|") }); frEditSave(); render.noKeep = true; return render();
+  }
+  if (a === "frhide") return ask("Remove this cut? You can bring it back from the bottom of Flash refs.", () => { FREDIT[frEditing] = Object.assign(FREDIT[frEditing] || {}, { hidden: 1 }); frEditing = ""; frEditSave(); back(); });
+  if (a === "frunhide") { Object.keys(FREDIT).forEach((k) => { delete FREDIT[k].hidden; if (!Object.keys(FREDIT[k]).length) delete FREDIT[k]; }); frEditSave(); toast("✓ Brought back"); return render(); }
   if (a === "frfav") { if (FRFAV[arg]) delete FRFAV[arg]; else FRFAV[arg] = 1; store.set("frfav", FRFAV); return render(); }
   if (a === "frrot" || a === "frflip") { const x = FRXF[arg] = FRXF[arg] || {}; if (a === "frrot") x.r = ((x.r === undefined ? (frTurn(arg).r - ((FRXF["b:" + (frById(arg) || [])[5]] || {}).r || 0) + 360) % 360 : x.r) + 90) % 360; else x.f = !x.f; store.set("frxf", FRXF); return render(); }
 }
@@ -5151,7 +5171,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
-  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav"].includes(a)) frAct(a, arg);
+  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide"].includes(a)) frAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else render(); }
   else if (a === "refgo") refGo(Number(arg));
