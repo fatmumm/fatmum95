@@ -1624,8 +1624,8 @@ function winFref() {
   if (frTab === "fav") return '<div class="nt rf">' + tabs + (FR.some((d) => FRFAV[d[0]]) ? frGrid(FR.filter((d) => FRFAV[d[0]])) : '<div class="nt-empty">Tap ☆ on a design to keep it here.</div>') + foot + "</div>";
   const cnt = {}; FR.forEach((d) => d[1].split("|").forEach((l) => { if (l) cnt[l] = (cnt[l] || 0) + 1; }));
   const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 30), qw = frQ.toLowerCase().split(/[\s,]+/);
-  return '<div class="nt rf">' + tabs + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px"></div>' +
-    '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + frGrid(frMatch()) + foot + "</div>";
+  return '<div class="nt rf">' + tabs + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px">' + (frQ ? '<button class="btn raised" data-a="frclear">✕ Clear</button>' : "") + "</div>" +
+    '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + '<div id="frres">' + frGrid(frMatch()) + "</div>" + foot + "</div>";
 }
 function frSheetGrid(sids) {                   // whole pages, uncut
   setTimeout(frThumbs, 0);
@@ -1786,6 +1786,7 @@ function frAct(a, arg) {
   if (a === "frav") { frAV = arg; store.set("frav", frAV); return render(); }
   if (a === "frsheet") { if (stack.length && stack[stack.length - 1].kind === "frsheet") stack.pop(); return open_("frsheet", arg); }
   if (a === "frbookrot") { const x = FRXF["b:" + arg] = FRXF["b:" + arg] || {}; x.r = ((x.r || 0) + 90) % 360; if (!x.r) delete FRXF["b:" + arg]; store.set("frxf", FRXF); return render(); }
+  if (a === "frclear") { frQ = ""; store.set("frq", frQ); frN = 60; render.noKeep = true; return render(); }
   if (a === "frfs") return frFullscreen(arg);
   if (a === "frcrop") { FRC = null; return open_("frcrop", frEditing); }
   if (a === "frcorig") { const d = frById(FRC.id); FRC.box = d[6].slice(); return frCropDraw(); }
@@ -1813,7 +1814,7 @@ document.addEventListener("change", async (e) => {
 document.addEventListener("input", (e) => {
   if (e.target.id !== "frq") return;
   frQ = e.target.value; store.set("frq", frQ); frN = 60;
-  clearTimeout(winFref.t); winFref.t = setTimeout(() => { const pos = e.target.selectionStart; render.noKeep = true; render(); const q = $("frq"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (x) {} } }, 300);
+  clearTimeout(winFref.t); winFref.t = setTimeout(() => { const r = $("frres"); if (r) r.innerHTML = frGrid(frMatch()); }, 250);   // only the results change, so the keyboard stays up
 });
 
 // one picture, bigger, inside the normal window. Drawing aids never change the picture itself.
@@ -5271,9 +5272,9 @@ document.addEventListener("click", async (e) => {
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
-  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave"].includes(a)) frAct(a, arg);
+  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear"].includes(a)) frAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
-  else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else render(); }
+  else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
   else if (a === "reffav") refFav();
   else if (a === "reftool") refTool(arg);
