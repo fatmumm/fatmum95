@@ -1614,17 +1614,22 @@ function winFref() {
   if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
   if (FR.length && FR[0].length < 6) return '<div class="card sunk">This is the old flash pack. Load flash-refs-2.zip from Files to get artists, books and full sheets.</div><div class="row">' + load + "</div>";
   if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs-2.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
-  const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + frChip("fraddopen", "", "＋ Add") + "</div>";
+  const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["boards", "📌 Boards"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + frChip("fraddopen", "", "＋ Add") + "</div>";
   const nHid = Object.keys(FREDIT).filter((k) => FREDIT[k].hidden).length;
-  const foot = '<div class="row" style="margin-top:12px">' + load.replace("nt-btn rf-add", "btn raised") + (nHid ? '<button class="btn raised" data-a="frunhide">Bring back ' + nHid + " removed</button>" : "") + "</div>";
+  const nFix = frToFix().length;
+  const foot = '<div class="row" style="margin-top:12px;flex-wrap:wrap">' + '<button class="btn raised" data-a="frbackup">💾 Back up</button><label class="btn raised">♻️ Restore<input type="file" accept=".json,application/json" id="frrestore" style="display:none"></label>' +
+    (nFix ? '<button class="btn raised" data-a="frfixopen">🔁 Fix turned (' + nFix + ")</button>" : "") + load.replace("nt-btn rf-add", "btn raised") + (nHid ? '<button class="btn raised" data-a="frunhide">Bring back ' + nHid + " removed</button>" : "") + "</div>";
   if (frTab === "artists" || frTab === "books") {
     const c = frCount(frTab === "artists" ? 2 : 5);
     return '<div class="nt rf">' + tabs + foot + Object.keys(c).sort((a, b) => a.localeCompare(b)).map((k) => '<div class="card" data-a="' + (frTab === "artists" ? "frartist" : "frbook") + '" data-arg="' + esc(k) + '">' + esc(k) + ' <span class="nt-c">· ' + c[k] + "</span></div>").join("") + "</div>";
   }
+  if (frTab === "boards") return '<div class="nt rf">' + tabs + frBoardsList() + foot + "</div>";
   if (frTab === "fav") return '<div class="nt rf">' + tabs + (FR.some((d) => FRFAV[d[0]]) ? frGrid(FR.filter((d) => FRFAV[d[0]])) : '<div class="nt-empty">Tap ☆ on a design to keep it here.</div>') + foot + "</div>";
   const cnt = {}; FR.forEach((d) => d[1].split("|").forEach((l) => { if (l) cnt[l] = (cnt[l] || 0) + 1; }));
   const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 30), qw = frQ.toLowerCase().split(/[\s,]+/);
-  return '<div class="nt rf">' + tabs + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px">' + (frQ ? '<button class="btn raised" data-a="frclear">✕ Clear</button>' : "") + "</div>" +
+  const td = !frQ && frToday();
+  if (td) setTimeout(() => frImg(td[0]).then((u) => { const im = $("frtd"); if (im) im.src = u; }).catch(() => {}), 0);
+  return '<div class="nt rf">' + tabs + (td ? '<div class="card" data-a="fropen" data-arg="' + esc(td[0]) + '" style="display:flex;gap:10px;align-items:center"><img id="frtd" alt="" style="width:64px;height:64px;object-fit:contain;background:#fff;' + frXf(td[0]) + '"><span><b>🎲 Today\'s flash</b><br><span class="nt-c">' + esc(td[3] || td[1].split("|")[0] || "") + '</span></span><button class="btn raised" style="margin-left:auto" data-a="frrandom">Surprise me</button></div>' : "") + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px">' + (frQ ? '<button class="btn raised" data-a="frclear">✕ Clear</button>' : "") + "</div>" +
     '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + '<div id="frres">' + frGrid(frMatch()) + "</div>" + foot + "</div>";
 }
 function frSheetGrid(sids) {                   // whole pages, uncut
@@ -1767,6 +1772,63 @@ document.addEventListener("change", async (e) => {
   if (e.target.id !== "fraddpics" || !e.target.files || !e.target.files.length) return;
   try { await frAddPics([...e.target.files]); } catch (err) { toast("⚠ " + err.message); }
 });
+// 📌 boards: his own collections, like "Sam's sleeve"
+let FRB = store.get("frboards", {});
+const frBoardSave = () => store.set("frboards", FRB);
+function winFrBoardPick(id) {
+  const names = Object.keys(FRB).sort((a, b) => a.localeCompare(b));
+  return (names.length ? names.map((n) => '<div class="card" data-a="frbtoggle" data-arg="' + esc(n) + '">' + (FRB[n].includes(id) ? "✅ " : "⬜ ") + esc(n) + ' <span class="nt-c">· ' + FRB[n].length + "</span></div>").join("") : '<div class="card sunk">No boards yet. Make one below.</div>') +
+    '<div class="row"><input id="frbnew" placeholder="New board, e.g. Sam\'s sleeve" style="flex:1"><button class="btn raised main" data-a="frbmake">＋ Make</button></div>';
+}
+function frBoardsList() {
+  const names = Object.keys(FRB).sort((a, b) => a.localeCompare(b));
+  return names.length ? names.map((n) => '<div class="card" data-a="frbopen" data-arg="' + esc(n) + '">📌 ' + esc(n) + ' <span class="nt-c">· ' + FRB[n].length + "</span></div>").join("") : '<div class="nt-empty">Open a design and tap 📌 Board to start one.</div>';
+}
+function winFrBoard(n) {
+  const ids = new Set(FRB[n] || []);
+  return '<div class="nt rf">' + frGrid(FR.filter((d) => ids.has(d[0]))) + '<div class="row" style="margin-top:12px"><button class="btn raised" data-a="frbdel" data-arg="' + esc(n) + '">🗑 Delete board</button></div></div>';
+}
+// 🔁 fix the designs the AI said were turned, one at a time
+const frToFix = () => FR.filter((d) => /(^|\|)rotated(\||$)/.test(d[1]) && !(FRXF[d[0]] || {}).ok);
+function winFrFix() {
+  const list = frToFix(), d = list[0];
+  if (!d) return '<div class="card sunk">All done. Every turned design has been checked. 🎉</div>';
+  setTimeout(() => frImg(d[0]).then((u) => { const im = $("frfix"); if (im) im.src = u; frFixShow(); }), 0);
+  const b = (r, l) => '<button class="btn raised" style="padding:10px 0" data-a="frfixset" data-arg="' + r + '">' + l + "</button>";
+  return '<img id="frfix" alt="" style="display:none"><div class="nt-hint">' + list.length + ' left · tap the way that looks right</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#fff">' +
+    [0, 90, 180, 270].map((r) => '<div data-a="frfixset" data-arg="' + r + '" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #ddd"><img class="frfixi" alt="" style="max-width:70%;max-height:70%;transform:rotate(' + r + 'deg)"></div>').join("") +
+    '</div><div class="row">' + b("skip", "Not sure, skip it") + "</div>";
+}
+function frFixShow() { const im = $("frfix"); document.querySelectorAll(".frfixi").forEach((i) => { i.src = im.src; }); }
+// 💾 backup: his finds, crops, tags, turns, favourites and boards, in one file he keeps in iCloud Drive
+async function frBackup() {
+  setStatus("making backup…");
+  const mine = await frMine(), pics = {};
+  const toB64 = (b) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); });
+  for (const d of mine) for (const k of [d[0], "s:" + d[4]]) if (!pics[k]) { const rec = await idbDo("readonly", (st) => st.get(k), "flashi"); if (rec) pics[k] = await toB64(rec.blob); }
+  const data = { v: 1, at: new Date().toISOString(), edit: FREDIT, fav: FRFAV, xf: FRXF, boards: FRB, mine: mine, pics: pics };
+  const file = new File([JSON.stringify(data)], "flash-backup-" + new Date().toISOString().slice(0, 10) + ".json", { type: "application/json" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); setStatus("✓ backup ready"); return; } catch (e) { if (e.name === "AbortError") return setStatus(""); } }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setStatus("✓ backup saved");
+}
+async function frRestore(f) {
+  const data = JSON.parse(await f.text());
+  if (!data || data.v !== 1) throw new Error("That isn't a flash backup.");
+  for (const k of Object.keys(data.pics || {})) { const blob = await (await fetch(data.pics[k])).blob(); await idbDo("readwrite", (st) => st.put({ id: k, blob: blob }), "flashi"); }
+  FREDIT = data.edit || {}; FRFAV = data.fav || {}; FRXF = data.xf || {}; FRB = data.boards || {};
+  store.set("fredit", FREDIT); store.set("frfav", FRFAV); store.set("frxf", FRXF); frBoardSave();
+  frImg.mem = {}; frTurned.mem = {}; await frMineSave(data.mine || []);
+  toast("✓ Restored from " + (data.at || "").slice(0, 10)); render();
+}
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "frrestore" || !e.target.files || !e.target.files[0]) return;
+  try { await frRestore(e.target.files[0]); } catch (err) { toast("⚠ " + err.message); }
+});
+// 🎲 one design a day, the same all day
+function frToday() {
+  const t = new Date(), seed = t.getFullYear() * 400 + t.getMonth() * 32 + t.getDate();
+  return FR.length ? FR[(seed * 2654435761 >>> 0) % FR.length] : null;
+}
 function winFrBook(b) { return '<div class="nt rf">' + frSheetGrid(frBookSheets(b)) + "</div>"; }
 function winFrefV(id) {                         // one design: like a song, with its artist and album (the book page it came from)
   const d = (FR || []).find((x) => x[0] === id);
@@ -1775,7 +1837,7 @@ function winFrefV(id) {                         // one design: like a song, with
   setTimeout(() => frTurned(id, tn.r, tn.f).then((u) => { const im = $("frbig"); if (im) im.src = u; }).catch(() => {}), 0);
   const b = (a, ic, l, on) => '<button class="btn raised' + (on ? " main" : "") + '" style="padding:6px 0;min-width:0;line-height:1.2;font-size:12px;white-space:nowrap" data-a="' + a + '" data-arg="' + esc(id) + '"><div style="font-size:20px">' + ic + "</div>" + l + "</button>";
   return '<div style="background:#fff;text-align:center;overflow:hidden"><img id="frbig" alt="" style="max-width:100%;max-height:62vh"></div>' +
-    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px 0">' + b("frfs", "⛶", "Full screen") + b("frfav", FRFAV[id] ? "★" : "☆", "Favourite", FRFAV[id]) + b("frsim", "≈", "Similar") + b("frrot", "⟳", "Turn") + b("frflip", "⇋", "Flip", (FRXF[id] || {}).f) + "</div>" +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:6px 0">' + b("frfs", "⛶", "Full screen") + b("frfav", FRFAV[id] ? "★" : "☆", "Favourite", FRFAV[id]) + b("frsim", "≈", "Similar") + b("frboard", "📌", "Board", Object.values(FRB).some((l) => l.includes(id))) + b("frrot", "⟳", "Turn") + b("frflip", "⇋", "Flip", (FRXF[id] || {}).f) + "</div>" +
     '<div class="card"><b>' + esc(d[3] || "") + "</b></div>" +
     (d[2] ? '<div class="card" data-a="frartist" data-arg="' + esc(d[2]) + '">👤 ' + esc(d[2]) + ' <span class="nt-c">· all their flash ›</span></div>' : "") +
     '<div class="card" data-a="frsheet" data-arg="' + esc(d[4]) + '">📖 ' + esc(d[5]) + ' <span class="nt-c">· page ' + frPage(d[4]) + ", see the full sheet ›</span></div>" +
@@ -1828,6 +1890,15 @@ function frAct(a, arg) {
   if (a === "fraddopen") return open_("fradd");
   if (a === "fraddkind") { FRADD.tags = $("fratags").value; FRADD.artist = $("fraartist").value; FRADD.book = $("frabook").value; FRADD.kind = arg; render.noKeep = true; return render(); }
   if (a === "frcutnew") return frCutNew(arg);
+  if (a === "frboard") return open_("frbpick", arg);
+  if (a === "frbtoggle") { const id = stack[stack.length - 1].arg, l = FRB[arg]; const i = l.indexOf(id); if (i >= 0) l.splice(i, 1); else l.push(id); frBoardSave(); return render(); }
+  if (a === "frbmake") { const n = ($("frbnew").value || "").trim(); if (!n) return; const id = stack[stack.length - 1].arg; FRB[n] = FRB[n] || []; if (!FRB[n].includes(id)) FRB[n].push(id); frBoardSave(); toast("📌 Added to " + n); render.noKeep = true; return render(); }
+  if (a === "frbopen") return open_("frboard", arg);
+  if (a === "frbdel") return ask("Delete the board " + arg + "? The designs stay in Flash refs.", () => { delete FRB[arg]; frBoardSave(); back(); });
+  if (a === "frfixopen") return open_("frfix");
+  if (a === "frfixset") { const d = frToFix()[0]; if (!d) return; const x = FRXF[d[0]] = FRXF[d[0]] || {}; if (arg !== "skip") { x.r = Number(arg); x.ok = 1; } else { x.ok = 1; x.skip = 1; } store.set("frxf", FRXF); frTurned.mem = {}; return render(); }
+  if (a === "frbackup") return frBackup().catch((e) => toast("⚠ " + e.message));
+  if (a === "frrandom") return open_("frefv", FR[Math.floor(Math.random() * FR.length)][0]);
   if (a === "frclear") { frQ = ""; store.set("frq", frQ); frN = 60; render.noKeep = true; return render(); }
   if (a === "frfs") return frFullscreen(arg);
   if (a === "frcrop") { FRC = null; return open_("frcrop", frEditing); }
@@ -4154,6 +4225,9 @@ function winTitle(w) {
   if (w.kind === "frsim") return "Similar";
   if (w.kind === "frcrop") return "Re-crop";
   if (w.kind === "fradd") return "Add flash";
+  if (w.kind === "frbpick") return "Add to board";
+  if (w.kind === "frboard") return w.arg;
+  if (w.kind === "frfix") return "Fix turned";
   if (w.kind === "frsheet") { const d = (FR || []).find((x) => x[4] === w.arg); return d ? d[5] : "Flash book"; }
   if (w.kind === "plan") { const p = w.arg === "draft" ? pDraft : pFind(w.arg); return p ? (w.arg === "draft" ? "New " : "") + pTpl(p.tpl).label : "Plan"; }
   if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
@@ -4208,7 +4282,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5315,7 +5389,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
-  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew"].includes(a)) frAct(a, arg);
+  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom"].includes(a)) frAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
