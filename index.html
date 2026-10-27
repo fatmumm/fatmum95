@@ -1588,7 +1588,14 @@ function frTurn(id) {                          // its own turn, plus the whole b
 const frXf = (id) => { const t = frTurn(id); return "transform:rotate(" + t.r + "deg)" + (t.f ? " scaleX(-1)" : ""); };
 const frPage = (sid) => Number(sid.split("_").pop());
 const frBookSheets = (b) => [...new Set(FR.filter((d) => d[5] === b).map((d) => d[4]))].sort();
-function frMatch() {
+let frShuf = store.get("frshuf", 0);           // 0 = in order, otherwise the shuffle's seed
+function frMix(list) {
+  if (!frShuf) return list;
+  const h = (t) => { let x = frShuf; for (let i = 0; i < t.length; i++) x = Math.imul(x ^ t.charCodeAt(i), 2654435761); return x >>> 0; };
+  return list.map((d) => [h(d[0]), d]).sort((a, b) => a[0] - b[0]).map((p) => p[1]);
+}
+function frMatch() { return frMix(frMatch0()); }
+function frMatch0() {
   const words = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean);
   if (!words.length) return FR;
   return FR.filter((d) => { const h = (d[1] + " " + d[2] + " " + d[3] + " " + d[5]).toLowerCase(); return words.every((w) => h.includes(w)); });
@@ -1629,7 +1636,7 @@ function winFref() {
   const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 30), qw = frQ.toLowerCase().split(/[\s,]+/);
   const td = !frQ && frToday();
   if (td) setTimeout(() => frImg(td[0]).then((u) => { const im = $("frtd"); if (im) im.src = u; }).catch(() => {}), 0);
-  return '<div class="nt rf">' + tabs + (td ? '<div class="card" data-a="fropen" data-arg="' + esc(td[0]) + '" style="display:flex;gap:10px;align-items:center"><img id="frtd" alt="" style="width:64px;height:64px;object-fit:contain;background:#fff;' + frXf(td[0]) + '"><span><b>🎲 Today\'s flash</b><br><span class="nt-c">' + esc(td[3] || td[1].split("|")[0] || "") + '</span></span><button class="btn raised" style="margin-left:auto" data-a="frrandom">Surprise me</button></div>' : "") + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px">' + (frQ ? '<button class="btn raised" data-a="frclear">✕ Clear</button>' : "") + "</div>" +
+  return '<div class="nt rf">' + tabs + (td ? '<div class="card" data-a="fropen" data-arg="' + esc(td[0]) + '" style="display:flex;gap:10px;align-items:center"><img id="frtd" alt="" style="width:64px;height:64px;object-fit:contain;background:#fff;' + frXf(td[0]) + '"><span><b>🎲 Today\'s flash</b><br><span class="nt-c">' + esc(td[3] || td[1].split("|")[0] || "") + '</span></span><button class="btn raised" style="margin-left:auto" data-a="frrandom">Surprise me</button></div>' : "") + '<div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px"><button class="btn raised' + (frShuf ? " main" : "") + '" data-a="frshuf">🔀 Shuffle</button>' + (frShuf ? '<button class="btn raised" data-a="frshufoff">In order</button>' : "") + (frQ ? '<button class="btn raised" data-a="frclear">✕ Clear</button>' : "") + "</div>" +
     '<div class="rf-chips">' + top.map((l) => frChip("frchip", l, l, qw.includes(l))).join("") + "</div>" + '<div id="frres">' + frGrid(frMatch()) + "</div>" + foot + "</div>";
 }
 function frSheetGrid(sids) {                   // whole pages, uncut
@@ -1899,6 +1906,7 @@ function frAct(a, arg) {
   if (a === "frfixset") { const d = frToFix()[0]; if (!d) return; const x = FRXF[d[0]] = FRXF[d[0]] || {}; if (arg !== "skip") { x.r = Number(arg); x.ok = 1; } else { x.ok = 1; x.skip = 1; } store.set("frxf", FRXF); frTurned.mem = {}; return render(); }
   if (a === "frbackup") return frBackup().catch((e) => toast("⚠ " + e.message));
   if (a === "frrandom") return open_("frefv", FR[Math.floor(Math.random() * FR.length)][0]);
+  if (a === "frshuf" || a === "frshufoff") { frShuf = a === "frshuf" ? 1 + Math.floor(Math.random() * 1e9) : 0; store.set("frshuf", frShuf); frN = 60; render.noKeep = true; render(); return window.scrollTo(0, 0); }
   if (a === "frclear") { frQ = ""; store.set("frq", frQ); frN = 60; render.noKeep = true; return render(); }
   if (a === "frfs") return frFullscreen(arg);
   if (a === "frcrop") { FRC = null; return open_("frcrop", frEditing); }
@@ -5389,7 +5397,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
-  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom"].includes(a)) frAct(a, arg);
+  else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
