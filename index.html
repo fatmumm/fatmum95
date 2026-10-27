@@ -740,7 +740,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -1110,7 +1110,7 @@ async function nsrv(path, body, ms) {
     return j;
   } catch (e) { srvFail(e); throw e; } finally { clearTimeout(t); }
 }
-const idb = () => idb.p || (idb.p = new Promise((ok, no) => { const r = indexedDB.open("fm95", 2); r.onupgradeneeded = () => { ["photos", "refs"].forEach((n) => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: "id" }); }); }; r.onsuccess = () => ok(r.result); r.onerror = () => { idb.p = null; no(r.error); }; }));
+const idb = () => idb.p || (idb.p = new Promise((ok, no) => { const r = indexedDB.open("fm95", 3); r.onupgradeneeded = () => { ["photos", "refs", "flashi"].forEach((n) => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: "id" }); }); }; r.onsuccess = () => ok(r.result); r.onerror = () => { idb.p = null; no(r.error); }; }));
 async function idbDo(mode, fn, store) { const db = await idb(); return new Promise((ok) => { const tx = db.transaction(store || "photos", mode), q = fn(tx.objectStore(store || "photos")); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ok(null); }); }
 const idbGet = (id) => idbDo("readonly", (st) => st.get(id));
 const idbPut = (v) => idbDo("readwrite", (st) => st.put(v));
@@ -1555,6 +1555,91 @@ document.addEventListener("change", async (e) => {
     try { await nsrv("/refs/upload", { album: cam.id, data: await photoToJpeg(f, 2400) }, 120000); done++; } catch (err) { toast(srvDown() ? "📵 You're offline. Add it again when you're back online." : "⚠ " + err.message); break; }
   }
   if (done) { setStatus("✓ added " + done + " to Camera roll"); refAlbum = cam.id; store.set("refPicked", true); refLoaded = 0; refsLoad(); }
+});
+
+// ── 🔎 Flash refs: his labelled flash designs. The pictures live only on this phone (loaded once from a zip in Files), never online ──
+let FR = null, frQ = store.get("frq", ""), frBusy = "", frN = 60;
+async function frIndex() {
+  if (FR) return FR;
+  const rec = await idbDo("readonly", (st) => st.get("index"), "flashi");
+  FR = rec ? rec.list : []; return FR;
+}
+async function frImg(id) {
+  frImg.mem = frImg.mem || {};
+  if (frImg.mem[id]) return frImg.mem[id];
+  const rec = await idbDo("readonly", (st) => st.get(id), "flashi");
+  if (!rec) throw new Error("missing");
+  return (frImg.mem[id] = URL.createObjectURL(rec.blob));
+}
+function frMatch() {
+  const words = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean);
+  if (!words.length) return FR;
+  return FR.filter((d) => { const h = (d[1] + " " + d[2] + " " + d[3]).toLowerCase(); return words.every((w) => h.includes(w)); });
+}
+function frThumbs() {
+  const imgs = [...document.querySelectorAll("img[data-fr]:not([src])")];
+  const get = (img) => frImg(img.dataset.fr).then((u) => { if (img.isConnected) img.src = u; }).catch(() => {});
+  if (!("IntersectionObserver" in window)) { imgs.forEach(get); return; }
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); get(e.target); } }), { rootMargin: "400px" });
+  imgs.forEach((i) => io.observe(i));
+}
+function winFref() {
+  if (!FR) { frIndex().then(() => { const top = stack[stack.length - 1]; if (top && top.kind === "fref") render(); }); return '<div class="nt-empty">Loading…</div>'; }
+  const load = '<label class="nt-btn rf-add">' + (FR.length ? "Reload pack" : "📦 Load flash pack") + '<input type="file" accept=".zip,application/zip" id="fradd" style="display:none"></label>';
+  if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
+  if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
+  const cnt = {}; FR.forEach((d) => d[1].split("|").forEach((l) => { if (l) cnt[l] = (cnt[l] || 0) + 1; }));
+  const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 30);
+  const hits = frMatch();
+  setTimeout(frThumbs, 0);
+  return '<div class="nt rf"><div class="rf-chips"><input id="frq" type="search" placeholder="dagger, horse, sailor jerry…" value="' + esc(frQ) + '" style="flex:1;min-width:140px">' + load + "</div>" +
+    '<div class="rf-chips">' + top.map((l) => '<span class="nt-btn rf-chip' + (frQ.toLowerCase().split(/[\s,]+/).includes(l) ? " on" : "") + '" data-a="frchip" data-arg="' + esc(l) + '">' + esc(l) + "</span>").join("") + "</div>" +
+    '<div class="nt-hint">' + hits.length + " design" + (hits.length === 1 ? "" : "s") + "</div>" +
+    '<div class="rf-grid">' + hits.slice(0, frN).map((d) => '<div class="rf-cell" data-a="fropen" data-arg="' + esc(d[0]) + '"><img data-fr="' + esc(d[0]) + '" alt="" style="width:100%;height:100%;object-fit:contain;background:#fff"></div>').join("") + "</div>" +
+    (hits.length > frN ? '<div class="row"><button class="btn raised" data-a="frmore">Show more</button></div>' : "") + "</div>";
+}
+function winFrefV(id) {
+  const d = (FR || []).find((x) => x[0] === id);
+  if (!d) return '<div class="card sunk">That design isn\'t here.</div>';
+  setTimeout(() => frImg(id).then((u) => { const im = $("frbig"); if (im) im.src = u; }).catch(() => {}), 0);
+  return '<div style="background:#fff;text-align:center"><img id="frbig" alt="" style="max-width:100%;max-height:70vh"></div>' +
+    '<div class="card"><b>' + esc(d[3] || "") + "</b><br>" + esc(d[2] || "Unknown artist") + '</div><div class="rf-chips">' +
+    d[1].split("|").filter(Boolean).map((l) => '<span class="nt-btn rf-chip" data-a="frchip" data-arg="' + esc(l) + '">' + esc(l) + "</span>").join("") + "</div>";
+}
+async function frLoadZip(f) {                  // a plain (stored) zip: read its directory, keep each picture as a slice of the file
+  const u32 = (dv, o) => dv.getUint32(o, true), u16 = (dv, o) => dv.getUint16(o, true);
+  const tail = new DataView(await f.slice(Math.max(0, f.size - 22)).arrayBuffer());
+  if (u32(tail, 0) !== 0x06054b50) throw new Error("That isn't the flash pack zip.");
+  const n = u16(tail, 10), cdSize = u32(tail, 12), cdOff = u32(tail, 16);
+  const cd = new DataView(await f.slice(cdOff, cdOff + cdSize).arrayBuffer()), dec = new TextDecoder();
+  const ents = []; let p = 0;
+  for (let i = 0; i < n; i++) {
+    const size = u32(cd, p + 20), nl = u16(cd, p + 28), xl = u16(cd, p + 30), cl = u16(cd, p + 32), lo = u32(cd, p + 42);
+    ents.push({ name: dec.decode(new Uint8Array(cd.buffer, p + 46, nl)), size: size, lo: lo }); p += 46 + nl + xl + cl;
+  }
+  const dataOf = async (e) => { const h = new DataView(await f.slice(e.lo, e.lo + 30).arrayBuffer()); const s = e.lo + 30 + u16(h, 26) + u16(h, 28); return f.slice(s, s + e.size, "image/jpeg"); };
+  const ix = ents.find((e) => e.name === "index.json");
+  if (!ix) throw new Error("That isn't the flash pack zip.");
+  const list = JSON.parse(await (await dataOf(ix)).text());
+  const pics = ents.filter((e) => e.name.startsWith("d/"));
+  for (let i = 0; i < pics.length; i += 100) {
+    frBusy = "Loading your flash pack… " + i + " of " + pics.length; render.noKeep = true; render();
+    const recs = await Promise.all(pics.slice(i, i + 100).map(async (e) => ({ id: e.name.slice(2, -4), blob: new Blob([await (await dataOf(e)).arrayBuffer()], { type: "image/jpeg" }) })));
+    await idbDo("readwrite", (st) => recs.forEach((r) => st.put(r)), "flashi");
+  }
+  await idbDo("readwrite", (st) => st.put({ id: "index", list: list }), "flashi");
+  FR = list; frImg.mem = {};
+}
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "fradd" || !e.target.files || !e.target.files[0]) return;
+  try { await frLoadZip(e.target.files[0]); frBusy = ""; toast("✓ " + FR.length + " designs saved on this phone"); }
+  catch (err) { frBusy = ""; toast("⚠ " + err.message); }
+  render();
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "frq") return;
+  frQ = e.target.value; store.set("frq", frQ); frN = 60;
+  clearTimeout(winFref.t); winFref.t = setTimeout(() => { const pos = e.target.selectionStart; render.noKeep = true; render(); const q = $("frq"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (x) {} } }, 300);
 });
 
 // one picture, bigger, inside the normal window. Drawing aids never change the picture itself.
@@ -3847,6 +3932,7 @@ function winTitle(w) {
   if (w.kind === "thread") { const t = threadMeta(w.arg); return t ? (t.name || t.client) : "Email"; }
   if (w.kind === "note") { const n = NOTES[w.arg]; return n ? (n.folder || "Notes") : "Note"; }
   if (w.kind === "ref") return "Refs";
+  if (w.kind === "frefv") return "Flash refs";
   if (w.kind === "plan") { const p = w.arg === "draft" ? pDraft : pFind(w.arg); return p ? (w.arg === "draft" ? "New " : "") + pTpl(p.tpl).label : "Plan"; }
   if (w.kind === "nlist") return w.arg === "*" ? "All notes" : w.arg === "#bin" ? "Bin" : w.arg || "Notes";
   const a = APPS.find((x) => x[0] === w.kind); return a ? a[2] : w.kind;
@@ -3900,7 +3986,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5006,6 +5092,9 @@ document.addEventListener("click", async (e) => {
   else if (["nfolder", "opennote", "nnewfolder", "newnote", "nview", "ndone", "ncheck", "nbul", "nnum", "naa", "nstyle", "nmenu", "nrestore", "nkill", "nempty"].includes(a)) noteAct(a, arg, t);
   else if (a === "refalbum") { refAlbum = arg; store.set("refPicked", true); refSave(); render(); refsLoad(); }
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
+  else if (a === "fropen") open_("frefv", arg);
+  else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
+  else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind === "frefv") open_("fref"); else render(); }
   else if (a === "refgo") refGo(Number(arg));
   else if (a === "reffav") refFav();
   else if (a === "reftool") refTool(arg);
