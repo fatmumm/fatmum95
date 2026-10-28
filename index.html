@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -741,7 +741,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
-  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -1937,6 +1937,39 @@ document.addEventListener("input", (e) => {
   frQ = e.target.value; store.set("frq", frQ); frN = 60;
   clearTimeout(winFref.t); winFref.t = setTimeout(() => { const r = $("frres"); if (r) r.innerHTML = frGrid(frMatch()); }, 250);   // only the results change, so the keyboard stays up
 });
+// ── 📥 Booking leads: flash zip sign-ups from fatmum.co.uk/pages/fatmum, and the two emails they get ──
+let BL = store.get("blead", null), blBusy = false, blErr = "", blEdit = null;
+async function blLoad() {
+  if (blBusy) return; blBusy = true;
+  try { BL = await call("funnelGet", KEY); store.set("blead", BL); blErr = ""; } catch (e) { blErr = e.message; }
+  finally { blBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "blead" && !blEdit) render(); }
+}
+function winBlead() {
+  if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 60000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }
+  if (!BL) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
+  const st = (n, l) => '<div class="card" style="text-align:center"><b style="font-size:24px;color:#000080">' + n + "</b><br>" + l + "</div>";
+  if (blEdit) {
+    const f = (k, l, rows) => '<div class="card">' + l + (rows ? '<textarea id="bl_' + k + '" rows="' + rows + '" style="width:100%">' : '<input id="bl_' + k + '" style="width:100%" value="') + esc(blEdit[k]) + (rows ? "</textarea>" : '">') + "</div>";
+    return '<div class="card sunk">Use {first} for their name, {zip} for the zip link, {book} for the booking page, {custom} for the custom design link.</div>' +
+      "<b>Email 1, straight away</b>" + f("zipSubject", "Subject") + f("zipBody", "Message", 9) +
+      "<b>Email 2, day 3 if they haven't booked</b>" + f("followSubject", "Subject") + f("followBody", "Message", 11) +
+      '<div class="row"><button class="btn raised main" data-a="blsave">Save</button><button class="btn raised" data-a="blcancel">Cancel</button><button class="btn raised" data-a="blreset">↺ Original wording</button></div>';
+  }
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + st(BL.last7, "sign-ups, 7 days") + st(BL.total, "sign-ups, all time") + st(BL.booked, "booked after") + st(BL.ticked, "ticked for updates") + st(BL.zip, "zip emails sent") + st(BL.follow, "follow-ups sent") + "</div>" +
+    '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><button class="btn raised" data-a="blrefresh">↻</button></div>' +
+    "<b>Latest sign-ups</b>" + (BL.recent.length ? BL.recent.map((r) => '<div class="card">' + esc(r.first) + ' <span class="nt-c">' + esc(r.email) + "</span><br><span class=\"nt-c\">" + esc(new Date(r.when).toLocaleDateString("en-GB")) + " · " + esc(r.status) + (r.ticked ? " · ✉ updates" : "") + (r.src ? " · " + esc(r.src) : "") + "</span></div>").join("") : '<div class="card sunk">No sign-ups yet.</div>');
+}
+async function blAct(a) {
+  if (a === "blrefresh") return blLoad();
+  if (a === "bledit") { blEdit = Object.assign({}, BL.copy); return render(); }
+  if (a === "blcancel") { blEdit = null; return render(); }
+  if (a === "blreset") { blEdit = Object.assign({}, BL.defaults); render.noKeep = true; return render(); }
+  if (a === "blsave") {
+    const c = {}; ["zipSubject", "zipBody", "followSubject", "followBody"].forEach((k) => { c[k] = $("bl_" + k).value; });
+    try { await call("funnelCopySave", KEY, c); BL.copy = c; blEdit = null; toast("✓ Emails saved. New sign-ups get this wording."); render(); }
+    catch (e) { toast("⚠ Didn't save: " + e.message); }
+  }
+}
 
 // one picture, bigger, inside the normal window. Drawing aids never change the picture itself.
 function winRef(i) {
@@ -4290,7 +4323,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5398,6 +5431,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave"].includes(a)) blAct(a);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
