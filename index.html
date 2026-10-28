@@ -1875,9 +1875,13 @@ async function frLoadZip(f) {                  // a plain (stored) zip: read its
     ents.push({ name: dec.decode(new Uint8Array(cd.buffer, p + 46, nl)), size: size, lo: lo }); p += 46 + nl + xl + cl;
   }
   const dataOf = async (e) => { const h = new DataView(await f.slice(e.lo, e.lo + 30).arrayBuffer()); const s = e.lo + 30 + u16(h, 26) + u16(h, 28); return f.slice(s, s + e.size, "image/jpeg"); };
-  const ix = ents.find((e) => e.name === "index.json");
-  if (!ix) throw new Error("That isn't the flash pack zip.");
-  const list = JSON.parse(await (await dataOf(ix)).text());
+  const ix = ents.find((e) => e.name === "index.json"), add = ents.find((e) => e.name === "index-add.json");
+  if (!ix && !add) throw new Error("That isn't the flash pack zip.");
+  let list = JSON.parse(await (await dataOf(ix || add)).text());
+  if (add) {                                   // an add-on pack: new books on top of the pack already on this phone
+    const old = await idbDo("readonly", (st) => st.get("index"), "flashi"), have = new Set(list.map((d) => d[0]));
+    list = ((old && old.list) || []).filter((d) => !have.has(d[0])).concat(list);
+  }
   const pics = ents.filter((e) => /^[ds]\//.test(e.name));          // d/ designs, s/ full sheets (kept as "s:<sheet>")
   for (let i = 0; i < pics.length; i += 100) {
     frBusy = "Loading your flash pack… " + i + " of " + pics.length; render.noKeep = true; render();
