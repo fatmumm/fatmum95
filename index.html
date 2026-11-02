@@ -740,7 +740,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["time", "⏱", "Time"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
@@ -2571,7 +2571,7 @@ setTimeout(() => rFetch(false), 4000);
 function rCard(full) {
   const r = REVIEW; if (!r || !r.text) return "";
   const wk = new Date(r.week + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  if (!full) return '<div class="rv-c" data-a="open" data-arg="time"><b>📋 Your Friday review is in</b> <small>(week of ' + wk + ")</small><div class=\"rv-p\">" + esc(String(r.text).split("\n")[0]).slice(0, 140) + "… ›</div></div>";
+  if (!full) return '<div class="rv-c" data-a="open" data-arg="review"><b>📋 Your Friday review is in</b> <small>(week of ' + wk + ")</small><div class=\"rv-p\">" + esc(String(r.text).split("\n")[0]).slice(0, 140) + "… ›</div></div>";
   return '<div class="h">📋 Friday review · week of ' + wk + '</div><div class="card sunk wr">' + String(r.text).split("\n").filter(Boolean).map((p) => "<p>" + esc(p) + "</p>").join("") +
     ((r.tips || []).length ? '<div class="wr-t"><b>For next week</b>' + r.tips.map((x) => "<div>• " + esc(x) + "</div>").join("") + "</div>" : "") + "</div>";
 }
@@ -2715,7 +2715,8 @@ function planFeed() {                         // steps due within a week go into
       if (s.cid || s.task != null || s.done || sDate(p, s) > lim) return;
       s.cid = "pl" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       n++;
-      const c = { kind: "add", text: t.emoji + " " + p.name + ": " + s.text + (t.tag || ""), due: sDate(p, s), cid: s.cid };
+      let due = sDate(p, s); if (isTattooDay(due) && addDays(due, -1) >= todayISO()) due = addDays(due, -1);   // tattoo days stay light
+      const c = { kind: "add", text: t.emoji + " " + p.name + ": " + s.text + (t.tag || ""), due: due, cid: s.cid };
       c.id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); c.at = new Date().toISOString().slice(0, 19);
       pendingTodo.push(c);
       enqueue({ fn: "deskTodo", args: [KEY, c, DRY], todo: c.id, label: "To-do" });
@@ -2771,7 +2772,7 @@ function winPlan(arg) {
     '<div class="row btns">' + (draft ? '<button class="btn raised" data-a="pstart"><b>Start plan</b></button>' :
       '<button class="btn raised" data-a="padd" data-arg="' + p.id + '">+ Add step</button><button class="btn raised" data-a="pdate" data-arg="' + p.id + '">Change date</button>') + "</div>" +
     (!draft ? '<div class="row btns"><button class="btn raised" data-a="psavetpl" data-arg="' + p.id + '">Save as my ' + esc(t.label) + " steps</button>" + (p.tpl !== "snail" ? '<button class="btn raised" data-a="pdel" data-arg="' + p.id + '">Delete plan</button>' : "") + "</div>" : "") +
-    '<div class="nt-hint">Tap a step to rename it or move it. Steps land in ✅ To-do ' + PLAN_AHEAD + " days before they're due.</div></div>";
+    '<div class="nt-hint">Steps follow this schedule and land in ✅ To-do ' + PLAN_AHEAD + " days before they're due, never on a tattoo day. Tap a step to rename or move it, then Save as my steps to change future ones.</div></div>";
 }
 const SM_DAY = 1;                              // snail mail goes out on the 1st of every month
 const SM_LINK = [[/sticker/i, "sticker"], [/spread/i, "spread"], [/essay|letter/i, "essay"], [/intro/i, "intro"], [/\bprints?\b/i, "prints"], [/postcard/i, "postcards"]];
@@ -4313,6 +4314,7 @@ function winTitle(w) {
   if (w.kind === "frefv") return "Flash refs";
   if (w.kind === "frartist" || w.kind === "frbook") return w.arg;
   if (w.kind === "frsim") return "Similar";
+  if (w.kind === "review") return "Friday review";
   if (w.kind === "frcrop") return "Re-crop";
   if (w.kind === "fradd") return "Add flash";
   if (w.kind === "frbpick") return "Add to board";
@@ -4332,7 +4334,7 @@ function badge(kind) {
   if (kind === "notes") return NQ.length;
   if (kind === "leads") return leadTodo().length;
   if (kind === "posting") return socBadge();
-  if (kind === "todo") { const v = todoView(); return (v ? v.tasks.filter((x) => !x.done && x.due && x.due <= todayISO()).length : 0) + leadTodo().length + socTodo().length; }
+  if (kind === "todo") return todayThree(todoView()).picks.length;
   return 0;
 }
 function render() {
@@ -4342,7 +4344,7 @@ function render() {
   if (!stack.length) {
     render.lastKey = null;
     if (document.activeElement && document.activeElement.id === "tswhat") { const el = $("tsel"), r = tRunning(); if (el && r) el.textContent = " · " + tHM(Date.now() - r.s) + " since " + tClock(r.s); return; }
-    $("main").innerHTML = tStrip() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
+    $("main").innerHTML = t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
@@ -4372,7 +4374,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -4658,6 +4660,31 @@ function taskRow(x, v) {
     '<div class="more">' + [1, 2, 3, 4, 5].map((n) => '<button class="btn raised small' + (imp(x) === n ? " on" : "") + '" data-a="timp" data-arg="' + esc(key) + "|" + n + '">!' + n + "</button>").join("") +
     '<button class="btn raised small" data-a="tdue" data-arg="' + esc(key) + "|" + iso + '">Today</button><button class="btn raised small" data-a="tdue" data-arg="' + esc(key) + "|" + addDays(iso, 1) + '">→ Tomorrow</button><button class="btn raised small" data-a="tdue" data-arg="' + esc(key) + '|">No date</button><button class="btn raised small" data-a="tdel" data-arg="' + esc(key) + '">🗑 Delete</button></div></div></div>';
 }
+// ── ✅ Today's 3: the to-do list picks at most 3 for today (1 on a tattoo day). Nothing is deleted, the rest waits below ──
+function isTattooDay(iso) { const a = O() && O().avail, d = a && a.ok && a.days.find((x) => x.iso === iso); return !!(d && ((d.am && !d.am.free) || (d.pm && !d.pm.free))); }
+let T3SEEN = store.get("t3seen", {});          // when each to-do first showed up in Today's 3, so a long-skipped one steps aside
+function todayThree(v) {
+  if (!v) return { picks: [], rest: [], tattoo: false };
+  const iso = todayISO(), tattoo = isTattooDay(iso), key = (x) => String(x.id != null ? x.id : x.cid);
+  const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)));
+  const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
+  const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
+  const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000;   // overdue, today, then soonest, and !5 jumps ahead
+  const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
+  const picks = sorted.slice(0, tattoo ? 1 : 3);
+  let ch = false; picks.forEach((x) => { if (!T3SEEN[key(x)]) { T3SEEN[key(x)] = iso; ch = true; } });
+  if (ch) store.set("t3seen", T3SEEN);
+  return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo };
+}
+function t3Card() {                            // the home screen card
+  const v = todoView(), t = todayThree(v);
+  if (!v) return "";
+  const left = t.picks.length;
+  return '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
+    (left ? t.picks.map((x) => '<div style="padding:3px 8px">○ ' + esc(x.title) + "</div>").join("") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
+    (rShowHome() ? rCard(false) : "") + "</div>";
+}
+function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
 function winTodo() {
   const v = todoView();
   if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced (open home or let buddy run).</div>';
@@ -4680,10 +4707,14 @@ function winTodo() {
     '<input class="inp" id="addp" type="date" style="display:none;margin-top:8px" value="' + iso + '">' +
     '<button class="btn raised wide" style="font-weight:600">Add</button></form>';
   const sec = (title, list, cls) => list.length ? '<div class="h' + (cls ? " " + cls : "") + '">' + title + " (" + list.length + ')</div><div class="lv sunk">' + list.map((x) => taskRow(x, v)).join("") + "</div>" : "";
-  h += sec("Overdue", over, "bad") + (now.length ? sec("Today", now) : '<div class="h">Today</div><div class="dim">Nothing due today.</div>');
+  const t3 = todayThree(v);
+  h += '<div class="h">' + (t3.tattoo ? "Today (tattoo day)" : "Today's 3") + '</div>' + (t3.tattoo ? '<div class="dim">Tattoo day. Just this one, if you have energy.</div>' : "") +
+    (t3.picks.length ? '<div class="lv sunk">' + t3.picks.map((x) => taskRow(x, v)).join("") + "</div>" : '<div class="dim">All clear. Nice one.</div>');
+  h += '<details style="margin-top:10px"><summary class="h" style="cursor:pointer">Everything else (' + t3.rest.length + ")</summary>";
+  h += sec("Overdue", over.filter((x) => !t3.picks.includes(x))) + sec("Today", now.filter((x) => !t3.picks.includes(x)));
   if (v.habits.length) { const dn = habits.filter((hb) => (hb.log || []).includes(iso)).length;
     h += '<div class="lv sunk" style="margin-top:10px"><div class="li" data-a="open" data-arg="habits"><span class="ico">🔥</span><span class="lab"><b>Habits</b> · ' + dn + "/" + habits.length + ' done today</span><span class="st">›</span></div></div>'; }
-  h += sec("Coming up", soon) + sec("No date", inbox) + sec("Done today", doneT);
+  h += sec("Coming up", soon.filter((x) => !t3.picks.includes(x))) + sec("No date", inbox.filter((x) => !t3.picks.includes(x))) + "</details>" + sec("Done today", doneT);
   h += '<div class="dim" style="margin-top:10px">From your Mac ' + esc(ago(v.made)) + ". Ticks here reach todo next time the Mac is on.</div>";
   return h;
 }
