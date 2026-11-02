@@ -1962,8 +1962,8 @@ function winBlead() {
     tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(real.filter((r) => r.follow).length, "follow-ups sent") + "</div>";
   // by source
   const src = {}; real.forEach((r) => { const k = blSrc(r.src); src[k] = src[k] || { n: 0, b: 0 }; src[k].n++; if (r.booked) src[k].b++; });
-  h += '<b>Where they came from</b><table style="width:100%;border-collapse:collapse;background:#fff;font-size:14px"><tr style="text-align:left"><th>Source</th><th>Sign-ups</th><th>% of all</th><th>Booked</th><th>% booked</th></tr>' +
-    Object.keys(src).sort((a, b) => src[b].n - src[a].n).map((k) => "<tr><td>" + esc(k) + "</td><td>" + src[k].n + "</td><td>" + blPct(src[k].n, n) + "</td><td>" + src[k].b + "</td><td>" + blPct(src[k].b, src[k].n) + "</td></tr>").join("") + "</table>";
+  const srcBar = (k) => { const x = src[k], w = Math.round(x.n * 100 / Math.max(1, n)); return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><b>' + esc(k) + "</b><span>" + x.n + " sign-up" + (x.n === 1 ? "" : "s") + " · " + blPct(x.n, n) + '</span></div><div style="height:10px;background:#fff;border:1px solid #888"><div style="height:100%;width:' + w + '%;background:' + (k === "Meta ad" ? "#000080" : "#8fa8ff") + '"></div></div><span class="nt-c">' + (x.b ? x.b + " booked (" + blPct(x.b, x.n) + " of them)" : "no bookings yet") + "</span></div>"; };
+  h += '<div class="card"><b>Where they came from</b>' + Object.keys(src).sort((a, b) => src[b].n - src[a].n).map(srcBar).join("") + "</div>";
   // Meta ad money
   const m = src["Meta ad"] || { n: 0, b: 0 }, spend = Number((BL.spend || {}).meta) || 0;
   h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
@@ -1972,9 +1972,9 @@ function winBlead() {
   const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(now - i * day); days.push([d.toDateString(), d.toLocaleDateString("en-GB", { weekday: "narrow" }), 0, 0]); }
   real.forEach((r) => { const d = days.find((x) => x[0] === new Date(r.when).toDateString()); if (d) { d[2]++; if (blSrc(r.src) === "Meta ad") d[3]++; } });
   const top = Math.max(1, ...days.map((d) => d[2]));
-  h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:3px;align-items:flex-end;height:80px;background:#fff;padding:4px;border:2px inset #e0e0e0">' +
-    days.map((d) => '<div style="flex:1;text-align:center;font-size:10px"><div style="height:' + Math.round(d[2] / top * 56) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 56) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
-  h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><button class="btn raised" data-a="blrefresh">↻</button></div>';
+  h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
+    days.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / top * 52) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 52) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
+  h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
   // everyone
   h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
     const t = new Date(r.when), when = t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
