@@ -2259,9 +2259,9 @@ function nHl(s) { const q = nSearch.trim(); const e = esc(s); if (!q) return e; 
 
 // ── 🔥 Habits: own page + home-screen widget. Any past day can be ticked (forgot to tick? fill it in). ──
 function bestStreak(h) {
-  const done = new Set(h.log || []), t = todayISO(); let best = 0, cur = 0, d = h.added || (h.log || [])[0] || t, n = 0;
+  const done = new Set(h.log || []), t = todayISO(); let best = 0, cur = 0, miss = 0, d = h.added || (h.log || [])[0] || t, n = 0;
   if (d > t) return 0;
-  while (d <= t && n++ < 3000) { if (scheduled(h, d)) { if (done.has(d)) { cur++; if (cur > best) best = cur; } else if (d < t) cur = 0; } d = addDays(d, 1); }
+  while (d <= t && n++ < 3000) { if (scheduled(h, d)) { if (done.has(d)) { cur++; miss = 0; if (cur > best) best = cur; } else if (d < t && ++miss > 1) cur = 0; } d = addDays(d, 1); }
   return best;
 }
 function habitCard(hb, t) {
@@ -4567,7 +4567,8 @@ const scheduled = (h, iso) => !(h.days || []).length || h.days.includes(DAYS[dow
 function streak(h, upto) {
   const done = new Set(h.log || []); let n = 0, d = upto;
   if (!done.has(d)) d = addDays(d, -1);
-  for (let i = 0; i < 800; i++) { if (!scheduled(h, d)) { d = addDays(d, -1); continue; } if (done.has(d)) { n++; d = addDays(d, -1); } else break; }
+  let miss = 0;                                // one day off is a rest day: it doesn't count, it doesn't break. Two in a row does
+  for (let i = 0; i < 800; i++) { if (!scheduled(h, d)) { d = addDays(d, -1); continue; } if (done.has(d)) { n++; miss = 0; } else if (++miss > 1 || !n && !done.has(addDays(d, -1))) break; d = addDays(d, -1); }
   return n;
 }
 function parseQuick(text, projects) {
