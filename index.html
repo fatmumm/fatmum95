@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -1941,36 +1941,81 @@ document.addEventListener("input", (e) => {
   frQ = e.target.value; store.set("frq", frQ); frN = 60;
   clearTimeout(winFref.t); winFref.t = setTimeout(() => { const r = $("frres"); if (r) r.innerHTML = frGrid(frMatch()); }, 250);   // only the results change, so the keyboard stays up
 });
-// ── 📥 Booking leads: flash zip sign-ups from fatmum.co.uk/pages/fatmum, and the two emails they get ──
-let BL = store.get("blead", null), blBusy = false, blErr = "", blEdit = null;
+// ── 📥 Booking leads: flash zip sign-ups from fatmum.co.uk/pages/fatmum, where they came from, and the emails they get ──
+let BL = store.get("blead2", null), blBusy = false, blErr = "", blEdit = null, blOpen = "";
 async function blLoad() {
   if (blBusy) return; blBusy = true;
-  try { BL = await call("funnelGet", KEY); store.set("blead", BL); blErr = ""; } catch (e) { blErr = e.message; }
+  try { BL = await call("funnelGet", KEY); store.set("blead2", BL); blErr = ""; } catch (e) { blErr = e.message; }
   finally { blBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "blead" && !blEdit) render(); }
 }
+const blSrc = (s) => { s = String(s || "").toLowerCase(); return /^(meta|fb|ig-ad|fb-ad)/.test(s) ? "Meta ad" : /^(ig|instagram|story|bio)/.test(s) ? "Instagram" : !s || s === "landing" ? "Straight to the page" : s; };
+const blPct = (a, b) => b ? Math.round(a * 100 / b) + "%" : "–";
+const blMoney = (n) => "£" + (Math.round(n * 100) / 100).toFixed(2);
 function winBlead() {
   if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 60000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }
-  if (!BL) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
-  const st = (n, l) => '<div class="card" style="text-align:center"><b style="font-size:24px;color:#000080">' + n + "</b><br>" + l + "</div>";
-  if (blEdit) {
-    const f = (k, l, rows) => '<div class="card">' + l + (rows ? '<textarea id="bl_' + k + '" rows="' + rows + '" style="width:100%">' : '<input id="bl_' + k + '" style="width:100%" value="') + esc(blEdit[k]) + (rows ? "</textarea>" : '">') + "</div>";
-    return '<div class="card sunk">Use {first} for their name, {zip} for the zip link, {book} for the booking page, {custom} for the custom design link.</div>' +
-      "<b>Email 1, straight away</b>" + f("zipSubject", "Subject") + f("zipBody", "Message", 9) +
-      "<b>Email 2, day 3 if they haven't booked</b>" + f("followSubject", "Subject") + f("followBody", "Message", 11) +
-      '<div class="row"><button class="btn raised main" data-a="blsave">Save</button><button class="btn raised" data-a="blcancel">Cancel</button><button class="btn raised" data-a="blreset">↺ Original wording</button></div>';
-  }
-  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + st(BL.last7, "sign-ups, 7 days") + st(BL.total, "sign-ups, all time") + st(BL.booked, "booked after") + st(BL.ticked, "ticked for updates") + st(BL.zip, "zip emails sent") + st(BL.follow, "follow-ups sent") + "</div>" +
-    '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><button class="btn raised" data-a="blrefresh">↻</button></div>' +
-    "<b>Latest sign-ups</b>" + (BL.recent.length ? BL.recent.map((r) => '<div class="card">' + esc(r.first) + ' <span class="nt-c">' + esc(r.email) + "</span><br><span class=\"nt-c\">" + esc(new Date(r.when).toLocaleDateString("en-GB")) + " · " + esc(r.status) + (r.ticked ? " · ✉ updates" : "") + (r.src ? " · " + esc(r.src) : "") + "</span></div>").join("") : '<div class="card sunk">No sign-ups yet.</div>');
+  if (!BL || !BL.rows) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
+  if (blEdit) return blEditor();
+  const all = BL.rows, real = all.filter((r) => !r.test), now = Date.now(), day = 864e5;
+  const n = real.length, wk = real.filter((r) => now - new Date(r.when) < 7 * day).length, tick = real.filter((r) => r.ticked).length, bk = real.filter((r) => r.booked).length;
+  const tile = (big, small) => '<div class="card" style="text-align:center;margin:0"><b style="font-size:22px;color:#000080">' + big + '</b><br><span style="font-size:13px">' + small + "</span></div>";
+  let h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
+    tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(real.filter((r) => r.follow).length, "follow-ups sent") + "</div>";
+  // by source
+  const src = {}; real.forEach((r) => { const k = blSrc(r.src); src[k] = src[k] || { n: 0, b: 0 }; src[k].n++; if (r.booked) src[k].b++; });
+  h += '<b>Where they came from</b><table style="width:100%;border-collapse:collapse;background:#fff;font-size:14px"><tr style="text-align:left"><th>Source</th><th>Sign-ups</th><th>% of all</th><th>Booked</th><th>% booked</th></tr>' +
+    Object.keys(src).sort((a, b) => src[b].n - src[a].n).map((k) => "<tr><td>" + esc(k) + "</td><td>" + src[k].n + "</td><td>" + blPct(src[k].n, n) + "</td><td>" + src[k].b + "</td><td>" + blPct(src[k].b, src[k].n) + "</td></tr>").join("") + "</table>";
+  // Meta ad money
+  const m = src["Meta ad"] || { n: 0, b: 0 }, spend = Number((BL.spend || {}).meta) || 0;
+  h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
+    (spend ? "Cost per sign-up: <b>" + (m.n ? blMoney(spend / m.n) : "–") + "</b> · Cost per booking: <b>" + (m.b ? blMoney(spend / m.b) : "none yet") + "</b>" : '<span class="nt-c">Type what you\'ve spent so far to see cost per lead.</span>') + "</div>";
+  // last 14 days
+  const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(now - i * day); days.push([d.toDateString(), d.toLocaleDateString("en-GB", { weekday: "narrow" }), 0, 0]); }
+  real.forEach((r) => { const d = days.find((x) => x[0] === new Date(r.when).toDateString()); if (d) { d[2]++; if (blSrc(r.src) === "Meta ad") d[3]++; } });
+  const top = Math.max(1, ...days.map((d) => d[2]));
+  h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:3px;align-items:flex-end;height:80px;background:#fff;padding:4px;border:2px inset #e0e0e0">' +
+    days.map((d) => '<div style="flex:1;text-align:center;font-size:10px"><div style="height:' + Math.round(d[2] / top * 56) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 56) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
+  h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><button class="btn raised" data-a="blrefresh">↻</button></div>';
+  // everyone
+  h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
+    const t = new Date(r.when), when = t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const k = String(r.email).toLowerCase(), open = blOpen === k;
+    return '<div class="card"' + (r.test ? ' style="opacity:.5"' : "") + ' data-a="blopen" data-arg="' + esc(k) + '">' + (r.test ? "🧪 " : "") + "<b>" + esc(r.first) + '</b> <span class="nt-c">' + esc(r.email) + "</span><br>" +
+      '<span class="nt-c">' + esc(when) + " · " + esc(blSrc(r.src)) + " · " + (r.booked ? "✅ booked" : esc(r.status)) + (r.ticked ? " · ✉ updates" : "") + "</span>" +
+      (open ? '<div class="row" style="flex-wrap:wrap">' + (r.test ? '<button class="btn raised" data-a="blmark" data-arg="real">Not a test</button>' : '<button class="btn raised" data-a="blmark" data-arg="test">🧪 Test account</button>') +
+        (r.booked ? '<button class="btn raised" data-a="blmark" data-arg="notbooked">Not really booked</button>' : '<button class="btn raised" data-a="blmark" data-arg="booked">✅ They booked</button>') + "</div>" : "") + "</div>";
+  }).join("");
+  return h;
 }
-async function blAct(a) {
+function blEditor() {
+  const f = (k, l, rows) => '<div class="card">' + l + (rows ? '<textarea id="bl_' + k + '" rows="' + rows + '" style="width:100%">' : '<input id="bl_' + k + '" style="width:100%" value="') + esc(blEdit[k] || "") + (rows ? "</textarea>" : '">') + "</div>";
+  return '<div class="card sunk">Use {first} for their name, {zip} for the zip link, {book} for the booking page, {custom} for the custom design link.</div>' +
+    "<b>Email 1, straight away</b>" + f("zipSubject", "Subject") + f("zipBody", "Message", 9) +
+    "<b>Email 2, day 3 if they haven't booked</b>" + f("followSubject", "Subject") + f("followBody", "Message", 11) +
+    '<b>Email 3 (optional)</b><div class="card"><label><input type="checkbox" id="bl_thirdOn"' + (blEdit.thirdOn ? " checked" : "") + '> Send it</label> on day <input id="bl_thirdDay" type="number" min="4" max="60" style="width:60px" value="' + (blEdit.thirdDay || 10) + '"> if they still haven\'t booked</div>' +
+    f("thirdSubject", "Subject") + f("thirdBody", "Message", 9) +
+    '<div class="row"><button class="btn raised main" data-a="blsave">Save</button><button class="btn raised" data-a="blcancel">Cancel</button><button class="btn raised" data-a="blreset">↺ Original wording</button></div>';
+}
+async function blAct(a, arg) {
   if (a === "blrefresh") return blLoad();
+  if (a === "blopen") { blOpen = blOpen === arg ? "" : arg; return render(); }
+  if (a === "blmark") {
+    const k = blOpen; if (!k) return;
+    try { await call("funnelMark", KEY, k, arg); toast("✓ Saved"); await blLoad(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
+    return;
+  }
+  if (a === "blspend") {
+    const v = Number(($("blspend") || {}).value) || 0;
+    try { await call("funnelSpendSave", KEY, { meta: v }); BL.spend = { meta: v }; store.set("blead2", BL); render(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
+    return;
+  }
   if (a === "bledit") { blEdit = Object.assign({}, BL.copy); return render(); }
   if (a === "blcancel") { blEdit = null; return render(); }
   if (a === "blreset") { blEdit = Object.assign({}, BL.defaults); render.noKeep = true; return render(); }
   if (a === "blsave") {
-    const c = {}; ["zipSubject", "zipBody", "followSubject", "followBody"].forEach((k) => { c[k] = $("bl_" + k).value; });
-    try { await call("funnelCopySave", KEY, c); BL.copy = c; blEdit = null; toast("✓ Emails saved. New sign-ups get this wording."); render(); }
+    const c = {}; ["zipSubject", "zipBody", "followSubject", "followBody", "thirdSubject", "thirdBody", "thirdDay"].forEach((k) => { c[k] = $("bl_" + k).value; });
+    c.thirdOn = $("bl_thirdOn").checked;
+    if (c.thirdOn && (!c.thirdSubject.trim() || !c.thirdBody.trim())) return toast("Email 3 needs a subject and a message, or untick Send it.");
+    try { await call("funnelCopySave", KEY, c); BL.copy = c; blEdit = null; toast("✓ Emails saved."); render(); }
     catch (e) { toast("⚠ Didn't save: " + e.message); }
   }
 }
@@ -5435,7 +5480,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave"].includes(a)) blAct(a);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend"].includes(a)) blAct(a, arg);
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
