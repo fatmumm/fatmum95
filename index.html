@@ -741,7 +741,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
-  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "Tracker"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -4321,6 +4321,7 @@ function winTitle(w) {
   if (w.kind === "frartist" || w.kind === "frbook") return w.arg;
   if (w.kind === "frsim") return "Similar";
   if (w.kind === "review") return "Friday review";
+  if (w.kind === "statsold") return "Tracker by month";
   if (w.kind === "frcrop") return "Re-crop";
   if (w.kind === "fradd") return "Add flash";
   if (w.kind === "frbpick") return "Add to board";
@@ -4379,7 +4380,7 @@ function fieldRestore(s) {
   if (s.focus) { const el = $(s.focus); if (el && document.activeElement !== el) { el.focus({ preventScroll: true }); try { if (s.ss != null) el.setSelectionRange(s.ss, s.se); } catch (e) {} } }
 }
 function winBody(w) {
-  return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats,
+  return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
     takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
@@ -5209,7 +5210,59 @@ function monthStats(k) {
 }
 let charts = [];
 function chartSlot(id, h) { return '<svg class="chart" id="' + id + '" height="' + h + '"></svg><div class="cap" id="' + id + 'c">Tap a bar or point to see it.</div>'; }
+// ── 📊 How I'm doing: this week or month against the last one. Takings come from finished tattoos, no bank import needed ──
+let statP = store.get("statp", "week");
+function periodRange(kind, back) {             // [from, to] ISO dates, back = how many periods ago
+  const t = todayISO();
+  if (kind === "week") { const mon = addDays(t, -dow(t) - 7 * back); return [mon, back ? addDays(mon, 6) : t]; }
+  const d = new Date(t + "T12:00"); d.setDate(1); d.setMonth(d.getMonth() - back);
+  const from = isoOf(d), e = new Date(d); e.setMonth(e.getMonth() + 1); e.setDate(0);
+  return [from, back ? isoOf(e) : t];
+}
+function periodStats(from, to) {
+  const t = todayISO(), inP = (iso) => iso && iso >= from && iso <= to;
+  const done = live().filter((r) => r.deposit && !r.cancelled && inP(r.iso) && r.iso <= t);
+  const reqs = rows().filter((r) => r.submitted && inP(r.submitted.slice(0, 10)));
+  const fl = ((BL && BL.rows) || []).filter((r) => !r.test && inP(isoOf(new Date(r.when))));
+  const v = todoView(), habits = (v && v.habits) || [];
+  let sched = 0, kept = 0;
+  for (let d = from; d <= to; d = addDays(d, 1)) habits.forEach((h) => { if (h.added && h.added > d) return; if (scheduled(h, d)) { sched++; if ((h.log || []).includes(d)) kept++; } });
+  return {
+    takings: done.reduce((a, r) => a + (Number(r.price) || 0), 0), sessions: done.length,
+    requests: reqs.length, booked: reqs.filter((r) => r.deposit).length, cancelled: reqs.filter((r) => r.cancelled).length,
+    zips: fl.length, meta: fl.filter((r) => /^meta|^fb/i.test(r.src || "")).length,
+    posts: Object.values(SOC).filter((x) => x.kind === "slot" && x.posted && inP(isoOf(new Date(x.posted)))).length,
+    todos: v ? v.tasks.filter((x) => x.done && inP(String(x.done).slice(0, 10))).length : 0,
+    habits: sched ? Math.round(kept * 100 / sched) : null
+  };
+}
 function winStats() {
+  if (!BL && !blBusy) setTimeout(() => blLoad().then(() => { const top = stack[stack.length - 1]; if (top && top.kind === "stats") render(); }), 0);   // lead numbers
+  const [f0, t0] = periodRange(statP, 0), [f1, t1] = periodRange(statP, 1), a = periodStats(f0, t0), b = periodStats(f1, t1), t = todayISO();
+  const ahead = live().filter((r) => r.deposit && !r.cancelled && r.iso > t).reduce((s, r) => s + (Number(r.price) || 0), 0);
+  const last = statP === "week" ? "last week" : "last month";
+  const cmp = (x, y, f) => x == null || y == null ? "" : x === y ? '<span class="dim">same as ' + last + "</span>" : '<span style="color:' + (x > y ? "#0a7a2f" : "#777") + '">' + (x > y ? "▲ " : "▼ ") + f(Math.abs(x - y)) + " vs " + last + "</span>";
+  const gbp = (n) => "£" + Math.round(n), num = (n) => String(n), pc = (n) => n + "%";
+  const row = (label, x, y, f) => '<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>' + label + "</span><b>" + (x == null ? "–" : f(x)) + "</b></div><div style=\"text-align:right;font-size:12px\">" + cmp(x, y, f) + "</div></div>";
+  const sec = (title, inner) => '<div class="h">' + title + '</div><div class="lv sunk">' + inner + "</div>";
+  const spend = Number(((BL || {}).spend || {}).meta) || 0;
+  // last 8 weeks of takings
+  const wk = []; for (let i = 7; i >= 0; i--) { const [f, to] = periodRange("week", i); wk.push([f, periodStats(f, to).takings]); }
+  const top = Math.max(1, ...wk.map((x) => x[1])), best = wk.slice(0, 7).every((x) => x[1] < wk[7][1]) && wk[7][1] > 0;
+  return '<div class="rf-chips" style="background:none;position:static"><span class="nt-btn' + (statP === "week" ? " on" : "") + '" data-a="statp" data-arg="week">This week</span><span class="nt-btn' + (statP === "month" ? " on" : "") + '" data-a="statp" data-arg="month">This month</span></div>' +
+    sec("💷 Money", row("Tattoo takings", a.takings, b.takings, gbp) + row("Tattoos done", a.sessions, b.sessions, num) +
+      row("Average per tattoo", a.sessions ? a.takings / a.sessions : null, b.sessions ? b.takings / b.sessions : null, gbp) +
+      '<div class="li"><span class="lab">Booked ahead (already in the diary)</span><b>' + gbp(ahead) + "</b></div>") +
+    sec("📅 Bookings", row("Booking requests", a.requests, b.requests, num) + row("Paid a deposit", a.booked, b.booked, num) + row("Cancelled", a.cancelled, b.cancelled, num)) +
+    sec("📥 Leads", row("Flash zip sign-ups", a.zips, b.zips, num) + row("…from the Meta ad", a.meta, b.meta, num) +
+      (spend ? '<div class="li"><span class="lab">Meta spend so far / per Meta lead</span><b>£' + spend.toFixed(2) + " / " + (BL && BL.rows ? "£" + (spend / Math.max(1, BL.rows.filter((r) => !r.test && /^meta/i.test(r.src || "")).length)).toFixed(2) : "–") + "</b></div>" : "")) +
+    sec("✏️ Doing the work", row("Posts made", a.posts, b.posts, num) + row("To-dos ticked", a.todos, b.todos, num) + row("Habits kept", a.habits, b.habits, pc)) +
+    '<div class="h">Takings, last 8 weeks</div><div style="display:flex;gap:3px;align-items:flex-end;height:90px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
+    wk.map((x, i) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(x[1] / top * 58) + 'px;background:' + (i === 7 ? "#000080" : "#8fa8ff") + '"></div>' + (x[1] ? "£" + Math.round(x[1]) : "") + "<br>" + new Date(x[0] + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + "</div>").join("") + "</div>" +
+    (best ? '<div class="nt-hint">🏆 Best week for takings in the last 8 weeks.</div>' : "") +
+    '<div class="row"><span class="nt-btn" data-a="open" data-arg="statsold">More detail (by month) ›</span></div>';
+}
+function winStatsOld() {
   const cur = ym(todayISO());
   if (!statM) statM = cur;
   const a = monthStats(statM), p = monthStats(ymAdd(statM, -1)), ly = monthStats(ymAdd(statM, -12));
@@ -5518,6 +5571,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
   else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend"].includes(a)) blAct(a, arg);
+  else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
