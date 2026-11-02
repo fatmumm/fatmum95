@@ -745,8 +745,9 @@ const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", 
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: true, bean_morning: true, text: "normal" };
+const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: false, bean_morning: false, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
+if (!store.get("beanoff1", false)) { prefs.bean = false; prefs.bean_morning = false; store.set("prefs", prefs); store.set("beanoff1", true); }   // 3 Nov audit: Bean dismissed 18 of 25 times, off unless he turns it back on
 if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones, the rest stay in the Start menu and Settings
   const keep = ["today", "inbox", "bookings", "todo", "time", "plans", "posting", "notes", "settings"];
   prefs.hide = APPS.map((a) => a[0]).filter((k) => !keep.includes(k)); store.set("prefs", prefs); store.set("iconsv2", 1);
@@ -1943,22 +1944,27 @@ document.addEventListener("input", (e) => {
 });
 // ── 📥 Booking leads: flash zip sign-ups from fatmum.co.uk/pages/fatmum, where they came from, and the emails they get ──
 let BL = store.get("blead2", null), blBusy = false, blErr = "", blEdit = null, blOpen = "";
+setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden && top && top.kind === "blead" && !blEdit) blLoad(); }, 30000);
 async function blLoad() {
   if (blBusy) return; blBusy = true;
-  try { BL = await call("funnelGet", KEY); store.set("blead2", BL); blErr = ""; } catch (e) { blErr = e.message; }
+  try { BL = await call("funnelGet", KEY); BL.at = Date.now(); store.set("blead2", BL); blErr = ""; } catch (e) { blErr = e.message; }
   finally { blBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "blead" && !blEdit) render(); }
 }
 const blSrc = (s) => { s = String(s || "").toLowerCase(); return /^(meta|fb|ig-ad|fb-ad)/.test(s) ? "Meta ad" : /^(ig|instagram|story|bio)/.test(s) ? "Instagram" : !s || s === "landing" ? "Straight to the page" : s; };
 const blPct = (a, b) => b ? Math.round(a * 100 / b) + "%" : "–";
 const blMoney = (n) => "£" + (Math.round(n * 100) / 100).toFixed(2);
 function winBlead() {
-  if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 60000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }
+  if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 30000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }   // fresh on open and every 30s while open
   if (!BL || !BL.rows) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
   if (blEdit) return blEditor();
+  const seen = store.get("blseen", 0), fresh = BL.rows.filter((r) => !r.test && new Date(r.when).getTime() > seen).length;
+  if (!winBlead.mark) { winBlead.mark = setTimeout(() => { store.set("blseen", Date.now()); winBlead.mark = null; }, 4000); }
+  const head = '<div class="nt-hint" style="display:flex;justify-content:space-between"><span>' + (blBusy ? "Updating…" : "Updated " + esc(ago(new Date(BL.at || Date.now()).toISOString()))) + "</span>" +
+    (seen ? "<b>" + (fresh ? fresh + " new since you last looked" : "Nothing new since you last looked") + "</b>" : "") + "</div>";
   const all = BL.rows, real = all.filter((r) => !r.test), now = Date.now(), day = 864e5;
   const n = real.length, wk = real.filter((r) => now - new Date(r.when) < 7 * day).length, tick = real.filter((r) => r.ticked).length, bk = real.filter((r) => r.booked).length;
   const tile = (big, small) => '<div class="card" style="text-align:center;margin:0"><b style="font-size:22px;color:#000080">' + big + '</b><br><span style="font-size:13px">' + small + "</span></div>";
-  let h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
+  let h = head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
     tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(real.filter((r) => r.follow).length, "follow-ups sent") + "</div>";
   // by source
   const src = {}; real.forEach((r) => { const k = blSrc(r.src); src[k] = src[k] || { n: 0, b: 0 }; src[k].n++; if (r.booked) src[k].b++; });
@@ -4511,10 +4517,7 @@ function adminItems() {
     else if (d >= 42 && d <= 70 && !r.healedAsk) add(35, "📸", "Ask " + r.first + " for a healed photo", r, "fu_healed_photo", "Ask");
     else if (d >= 56 && d <= 84 && !r.reviewAsk) add(30, "⭐", "Ask " + r.first + " for a review / next booking", r, "fu_review", "Ask");
   });
-  const lastUse = (hooksView() || []).reduce((m, h) => (h.used || []).reduce((mm, x) => x > mm ? x : mm, m), "");
-  if ((hooksView() || []).some((h) => !(h.used || []).length) && (!lastUse || daysBetween(lastUse, t) >= 5))
-    out.push({ score: 25, icon: "🪝", text: "No hook used " + (lastUse ? "for " + daysBetween(lastUse, t) + " days" : "yet") + ": time for a post?", open: "hooks" });
-  leadTodo().forEach((x) => out.push({ score: x.score, icon: x.icon, text: "Guide · " + x.text, open: "leads", lgo: x.go }));
+  // (hook and guide nags removed 3 Nov: shown 150+ times, acted on twice)
   const snap = O() && O().snapshot;
   if (snap && snap.tax && snap.tax.days != null && snap.tax.days <= 14) out.push({ score: 65, icon: "🧮", text: snap.tax.name + " in " + snap.tax.days + " days (on the Mac: Money)" });
   if (snap && snap.bank_days != null && snap.bank_days > 30) out.push({ score: 30, icon: "🏦", text: "Bank statement not imported for " + snap.bank_days + " days (on the Mac)" });
@@ -4685,8 +4688,9 @@ function todayThree(v) {
 function t3Card() {                            // the home screen card
   const v = todoView(), t = todayThree(v);
   if (!v) return "";
-  const left = t.picks.length;
-  return '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
+  const left = t.picks.length, wait = D ? waitingThreads(1) : [];
+  return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
+    '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
     (left ? t.picks.map((x) => '<div style="padding:3px 8px">○ ' + esc(x.title) + "</div>").join("") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
