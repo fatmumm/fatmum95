@@ -1989,7 +1989,7 @@ function winBlead() {
     (!BL.shopReady || winBlead.keys ? '<div class="card sunk">Connect Shopify: paste these from your app\'s Settings page in the Dev Dashboard.' +
       '<input id="blk_shop" placeholder="yourshop.myshopify.com" style="width:100%;margin:4px 0" autocomplete="off">' +
       '<input id="blk_id" placeholder="Client ID" style="width:100%;margin:4px 0" autocomplete="off">' +
-      '<input id="blk_secret" type="password" placeholder="Secret" style="width:100%;margin:4px 0" autocomplete="off">' +
+      '<input id="blk_secret" placeholder="Secret" style="width:100%;margin:4px 0" autocomplete="off">' +
       '<button class="btn raised main" data-a="blconnect">Connect</button></div>' : "") + "</div>";
   h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
   // everyone
@@ -4389,7 +4389,7 @@ function render() {
     $("main").innerHTML = t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
-    if ((w.kind === "note" && nEditing()) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
+    if ((w.kind === "note" && nEditing()) || (w.kind === "blead" && document.activeElement && /^(blk_|bltag)/.test(document.activeElement.id || "")) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
     let body = "";
     try { body = D ? winBody(w) : '<div class="card sunk">Loading…</div>'; } catch (e) { body = '<div class="card sunk bad">⚠ ' + esc(e.message) + "</div>"; }
     const wkey = w.kind + "|" + w.arg, keep = render.lastKey === wkey && !render.noKeep ? fieldSnapshot() : null;
