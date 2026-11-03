@@ -1981,7 +1981,7 @@ function winBlead() {
   h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
     days.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / top * 52) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 52) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
   // zip downloads by source
-  const Z = BL.zips || {}, zk = Object.keys(Z).sort((a, b) => Z[b].n - Z[a].n), wkAgo = new Date(now - 7 * day).toISOString().slice(0, 10);
+  const Z = BL.zips || {}, zk = Object.keys(Z).filter((k) => !/^test/.test(k)).sort((a, b) => Z[b].n - Z[a].n), wkAgo = new Date(now - 7 * day).toISOString().slice(0, 10);
   const zwk = (k) => Object.keys(Z[k].d || {}).filter((d) => d >= wkAgo).reduce((t, d) => t + Z[k].d[d], 0);
   h += '<div class="card"><b>⬇️ Zip downloads</b>' + (zk.length ? zk.map((k) => '<div style="display:flex;justify-content:space-between"><span>' + esc(k) + "</span><span>" + Z[k].n + ' <span class="nt-c">(' + zwk(k) + " this week)</span></span></div>").join("") : '<br><span class="nt-c">None counted yet. Counting starts once the new landing page is in your theme.</span>') + "</div>";
   // Shopify tags
