@@ -2770,13 +2770,14 @@ function lBuild(raw, spot, name) {
 // functions, so there is nothing to queue them into. The list is cached for reading.
 let VOUCHERS = store.get("vouchers", []), vBusy = false, vErr = "", vMade = null;
 const vUrl = () => store.get("vurl", "");
+const vKey = () => store.get("vkey", "");
 const vMoney = (n) => "£" + (Math.round(Number(n || 0) * 100) / 100).toFixed(2).replace(/\.00$/, "");
 
 function vcall(fn, ...args) {
   const url = vUrl();
-  if (!url) return Promise.reject(new Error("No voucher link set yet."));
+  if (!url || !vKey()) return Promise.reject(new Error("No voucher link or key set yet."));
   const op = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);   // so a retry cannot double up
-  return fetch(url, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }) })
+  return fetch(url, { method: "POST", body: JSON.stringify({ k: vKey(), fn: fn, args: args, op: op }) })
     .then((r) => r.json()).then((j) => { if (j.error) throw new Error(j.error); return j.result; });
 }
 
@@ -2796,10 +2797,11 @@ function vExpired(v) {
 }
 
 function winVouchers() {
-  if (!vUrl()) {
+  if (!vUrl() || !vKey()) {
     return '<div class="nt"><div class="h" style="margin-top:0">Connect the vouchers</div>' +
       '<div class="dim" style="margin-bottom:8px">Paste the /exec link from the vouchers script. It is a different link from the office one.</div>' +
-      '<div class="tform"><label>Voucher script link<input id="vurl" class="sunk" placeholder="https://script.google.com/macros/s/…/exec"></label></div>' +
+      '<div class="tform"><label>Voucher script link<input id="vurl" class="sunk" value="' + esc(store.get("vurl", "")) + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
+      '<label>Key<input id="vkey" class="sunk" placeholder="the long code on the ADMIN_KEY line of the script"></label></div>' +
       '<div class="row btns"><button class="btn raised" data-a="vsaveurl"><b>Save</b></button></div></div>';
   }
   const live = VOUCHERS.filter((v) => Number(v.balance) > 0 && !vExpired(v));
@@ -5749,7 +5751,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "vmake") vMake();
   else if (a === "vspend") vSpend(arg);
   else if (a === "vreload") vLoad(true);
-  else if (a === "vsaveurl") { const u = ($("vurl") || {}).value.trim(); if (!/^https:\/\/script\.google\.com\/.*\/exec$/.test(u)) return toast("⚠ That should be the /exec link from the vouchers script."); store.set("vurl", u); VOUCHERS = []; vLoad(true); }
+  else if (a === "vsaveurl") { const u = ($("vurl") || {}).value.trim(), k = ($("vkey") || {}).value.trim(); if (!/^https:\/\/script\.google\.com\/.*\/exec$/.test(u)) return toast("⚠ That should be the /exec link from the vouchers script."); if (k.length < 20) return toast("⚠ Paste the key too, off the ADMIN_KEY line of the script."); store.set("vurl", u); store.set("vkey", k); VOUCHERS = []; vLoad(true); }
   else if (a === "vqr") copyText("https://fatmum.co.uk/pages/voucher?c=" + arg, "Voucher link");
   else if (a === "tcap") tCapture();
   else if (a === "trestore") tRestore(true);
