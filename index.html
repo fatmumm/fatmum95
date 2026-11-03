@@ -468,6 +468,25 @@ async function syncOnce(force) {
 // ── rows and stages (same rules as home on the Mac) ──
 const rows = () => (D && D.rows) || [];
 const live = () => rows().filter((r) => !r.cancelled);
+/* Clients who have turned up since you last opened the screen. Kept as a list of
+   ids you have already seen rather than a timestamp, so one that arrives while
+   the screen is open still counts as new, and so clearing it is not undone by a
+   refresh. Only live, not-yet-done bookings can be new. */
+const seenClients = () => store.get("seenClients", []);
+function newClients() {
+  if (!seenSeeded) {
+    if (!D) return [];                       // nothing loaded yet, so nothing is new
+    markClientsSeen(); store.set("seenclients1", 1); seenSeeded = 1;
+    return [];
+  }
+  const seen = seenClients();
+  return live().filter((r) => stage(r) !== "done" && seen.indexOf(r.id) < 0);
+}
+function markClientsSeen() {
+  const ids = live().map((r) => r.id);
+  // keep only ids that still exist, so the list cannot grow forever
+  store.set("seenClients", ids);
+}
 const byId = (id) => rows().find((r) => r.id === id);
 function invited(r) { const inv = O() && O().dir && O().dir.invites; return !!(inv && inv[(r.email || "").toLowerCase() + "|" + r.iso]); }
 function calMoved(r) {                         // their calendar invite is on another day (moved by hand in Calendar): the app's date is wrong
@@ -659,12 +678,21 @@ function startBook(r) {
   const def = { "11am": ["11:00", 1.5], "1pm": ["13:00", 1.5], "full day": ["11:00", 7] }[k];
   dialog((r.deposit ? "" : '<div class="bad">⚠ Their deposit isn\'t ticked yet.</div>') +
     '<label class="field">Title</label><input class="inp" id="bt" value="' + esc(eventTitle(r)) + '">' +
-    '<div class="row"><div style="flex:1"><label class="field">Starts</label><input class="inp" id="bs" type="time" value="' + def[0] + '"></div>' +
+    '<label class="field">Day</label><input class="inp" id="bdate" type="date" value="' + esc(r.iso || "") + '">' +
+    '<div class="dim" style="margin-top:4px">Their slot is ' + esc(r.slot || "not set") + '. Change the day here to put them on an off day, and the list and the calendar both follow.</div>' +
+    '<div class="row" style="margin-top:8px"><div style="flex:1"><label class="field">Starts</label><input class="inp" id="bs" type="time" value="' + def[0] + '"></div>' +
     '<div style="flex:1"><label class="field">Hours</label><input class="inp" id="bl" inputmode="decimal" value="' + def[1] + '"></div></div>' +
     '<label class="field">Invite to</label><div>' + esc(r.email || "(no email: it just goes in your calendar)") + "</div>" +
     '<label class="field">Description</label><textarea class="inp" id="bd" style="height:120px">' + esc(eventDesc(r)) + "</textarea>" +
-    '<div class="dim">' + esc(shortDay(r.iso)) + " · ❒ STAMFORD WORKS. Google emails them the invite.</div>",
-    [["Send invite", () => act(r.id, "book", { title: $("bt").value, start: $("bs").value, mins: Math.round(Number($("bl").value || 1.5) * 60), description: $("bd").value }), 1], ["Cancel"]],
+    '<div class="dim">❒ STAMFORD WORKS. Google emails them the invite.</div>',
+    [["Send invite", () => {
+      const picked = ($("bdate") || {}).value || "";
+      // Only send a date when it is not the day they booked, so an ordinary
+      // booking goes through exactly the path it always did.
+      const o = { title: $("bt").value, start: $("bs").value, mins: Math.round(Number($("bl").value || 1.5) * 60), description: $("bd").value };
+      if (picked && picked !== r.iso) o.date = picked;
+      act(r.id, "book", o);
+    }, 1], ["Cancel"]],
     "📅", { title: "Are you sure? (calendar invite)" });
 }
 function startPay(r) {
@@ -745,13 +773,14 @@ const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", 
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: false, bean_morning: false, text: "normal" };
+const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", badge_bookings: "green", hide: [], bean: false, bean_morning: false, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 if (!store.get("beanoff1", false)) { prefs.bean = false; prefs.bean_morning = false; store.set("prefs", prefs); store.set("beanoff1", true); }   // 3 Nov audit: Bean dismissed 18 of 25 times, off unless he turns it back on
 if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones, the rest stay in the Start menu and Settings
   const keep = ["today", "inbox", "bookings", "todo", "time", "plans", "posting", "notes", "settings"];
   prefs.hide = APPS.map((a) => a[0]).filter((k) => !keep.includes(k)); store.set("prefs", prefs); store.set("iconsv2", 1);
 }
+let seenSeeded = store.get("seenclients1", 0);
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
 const BADGE_COLOURS = { yellow: ["🟡 Yellow", "#ff0", "#000"], red: ["🔴 Red", "#d00000", "#fff"], green: ["🟢 Green", "#008000", "#fff"], blue: ["🔵 Blue", "#000080", "#fff"], off: ["Off (no number)", "", ""] };
@@ -761,7 +790,7 @@ function winSettings() {
   const row = (ico, label, ctl) => '<div class="li"><span class="ico">' + ico + '</span><span class="lab">' + label + "</span>" + ctl + "</div>";
   const colourOpts = Object.keys(BADGE_COLOURS).map((k) => [k, BADGE_COLOURS[k][0]]);
   let h = '<div class="h" style="margin-top:0">Badge colours</div><div class="lv sunk">' +
-    [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["todo", "✅", "To-do"]].map(([k, i, l]) => row(i, l, sel("badge_" + k, pref("badge_" + k), colourOpts))).join("") + "</div>";
+    [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["todo", "✅", "To-do"], ["bookings", "👥", "Clients"]].map(([k, i, l]) => row(i, l, sel("badge_" + k, pref("badge_" + k), colourOpts))).join("") + "</div>";
   h += '<div class="h">Icons on the desktop</div><div class="dim" style="margin-bottom:6px">Untick the ones you don\'t use. They stay in the Start menu.</div><div class="lv sunk">' +
     APPS.filter((x) => x[0] !== "settings").map((x) => '<div class="li" data-a="prefhide" data-arg="' + x[0] + '">' + box(!pref("hide").includes(x[0])) + '<span class="lab">' + x[1] + " " + esc(x[2]) + "</span></div>").join("") + "</div>";
   h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
@@ -4542,6 +4571,7 @@ function badge(kind) {
   if (kind === "habits") { const v = todoView(); return v ? v.habits.filter((h) => scheduled(h, todayISO()) && !(h.log || []).includes(todayISO())).length : 0; }
   if (kind === "notes") return NQ.length;
   if (kind === "leads") return leadTodo().length;
+  if (kind === "bookings") return newClients().length;
   if (kind === "posting") return socBadge();
   if (kind === "todo") return todayThree(todoView()).picks.length;
   return 0;
@@ -5655,7 +5685,7 @@ document.addEventListener("click", async (e) => {
   }
   if (a === "menu") { menuOpen = !menuOpen; render(); }
   else if (a === "reload") { load(true); }
-  else if (a === "open") { open_(arg); if (arg === "time") { tSyncSoon(1500); rFetch(true); } }
+  else if (a === "open") { open_(arg); if (arg === "time") { tSyncSoon(1500); rFetch(true); } if (arg === "bookings") markClientsSeen(); }
   else if (a === "back") back();
   else if (a === "home") home();
   else if (!D) return;
