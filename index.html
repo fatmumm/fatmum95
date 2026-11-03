@@ -1957,9 +1957,12 @@ function winBlead() {
   if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 30000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }   // fresh on open and every 30s while open
   if (!BL || !BL.rows) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
   if (blEdit) return blEditor();
-  const seen = store.get("blseen", 0), fresh = BL.rows.filter((r) => !r.test && new Date(r.when).getTime() > seen).length;
+  // what was "new" is fixed when you open the window, so a refresh a few seconds later can't wipe it before you've read it
+  if (!winBlead.snap || Date.now() - (winBlead.last || 0) > 60000) winBlead.snap = { seen: store.get("blseen", 0), z: store.get("blseenz", null) };
+  winBlead.last = Date.now();
+  const seen = winBlead.snap.seen, fresh = BL.rows.filter((r) => !r.test && new Date(r.when).getTime() > seen).length;
   const ZN = {}; Object.keys(BL.zips || {}).filter((k) => !/^test/.test(k)).forEach((k) => { ZN[k] = BL.zips[k].n; });
-  const zseen = store.get("blseenz", null), znew = zseen ? Object.keys(ZN).filter((k) => ZN[k] > (zseen[k] || 0)).map((k) => (ZN[k] - (zseen[k] || 0)) + " zip from " + k) : [];
+  const zseen = winBlead.snap.z, znew = zseen ? Object.keys(ZN).filter((k) => ZN[k] > (zseen[k] || 0)).map((k) => (ZN[k] - (zseen[k] || 0)) + " zip from " + k) : [];
   if (!winBlead.mark) { winBlead.mark = setTimeout(() => { store.set("blseen", Date.now()); store.set("blseenz", ZN); winBlead.mark = null; }, 4000); }
   const head = '<div class="nt-hint" style="display:flex;justify-content:space-between"><span>' + (blBusy ? "Updating…" : "Updated " + esc(ago(new Date(BL.at || Date.now()).toISOString()))) + "</span>" +
     (seen ? "<b>" + (fresh || znew.length ? [fresh ? fresh + " new sign-up" + (fresh === 1 ? "" : "s") : ""].concat(znew).filter(Boolean).join(", ") + " since you last looked" : "Nothing new since you last looked") + "</b>" : "") + "</div>";
