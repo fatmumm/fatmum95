@@ -1964,48 +1964,73 @@ function winBlead() {
   const all = BL.rows, real = all.filter((r) => !r.test), now = Date.now(), day = 864e5;
   const n = real.length, wk = real.filter((r) => now - new Date(r.when) < 7 * day).length, tick = real.filter((r) => r.ticked).length, bk = real.filter((r) => r.booked).length;
   const tile = (big, small) => '<div class="card" style="text-align:center;margin:0"><b style="font-size:22px;color:#000080">' + big + '</b><br><span style="font-size:13px">' + small + "</span></div>";
-  let h = head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
-    tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(real.filter((r) => r.follow).length, "follow-ups sent") + "</div>";
+  const T = store.get("bltab", "over");
+  let h = head + '<div class="rf-chips" style="flex-wrap:wrap;overflow:visible">' + [["over", "📊 Overview"], ["sign", "🧑 Sign-ups"], ["zip", "⬇️ Zips"], ["meta", "📣 Meta"], ["shop", "🏷️ Shopify"], ["mail", "✉️ Emails"]].map(([k, l]) => frChip("bltab", k, l, T === k)).join("") + "</div>";
   // by source
   const src = {}; real.forEach((r) => { const k = blSrc(r.src); src[k] = src[k] || { n: 0, b: 0 }; src[k].n++; if (r.booked) src[k].b++; });
   const srcBar = (k) => { const x = src[k], w = Math.round(x.n * 100 / Math.max(1, n)); return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><b>' + esc(k) + "</b><span>" + x.n + " sign-up" + (x.n === 1 ? "" : "s") + " · " + blPct(x.n, n) + '</span></div><div style="height:10px;background:#fff;border:1px solid #888"><div style="height:100%;width:' + w + '%;background:' + (k === "Meta ad" ? "#000080" : "#8fa8ff") + '"></div></div><span class="nt-c">' + (x.b ? x.b + " booked (" + blPct(x.b, x.n) + " of them)" : "no bookings yet") + "</span></div>"; };
-  h += '<div class="card"><b>Where they came from</b>' + Object.keys(src).sort((a, b) => src[b].n - src[a].n).map(srcBar).join("") + "</div>";
-  // Meta ad money
   const m = src["Meta ad"] || { n: 0, b: 0 }, spend = Number((BL.spend || {}).meta) || 0;
-  h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
-    (spend ? "Cost per sign-up: <b>" + (m.n ? blMoney(spend / m.n) : "–") + "</b> · Cost per booking: <b>" + (m.b ? blMoney(spend / m.b) : "none yet") + "</b>" : '<span class="nt-c">Type what you\'ve spent so far to see cost per lead.</span>') + "</div>";
   // last 14 days
   const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(now - i * day); days.push([d.toDateString(), d.toLocaleDateString("en-GB", { weekday: "narrow" }), 0, 0]); }
   real.forEach((r) => { const d = days.find((x) => x[0] === new Date(r.when).toDateString()); if (d) { d[2]++; if (blSrc(r.src) === "Meta ad") d[3]++; } });
   const top = Math.max(1, ...days.map((d) => d[2]));
-  h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
-    days.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / top * 52) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 52) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
-  // zip downloads by source
   const Z = BL.zips || {}, zk = Object.keys(Z).filter((k) => !/^test/.test(k)).sort((a, b) => Z[b].n - Z[a].n), wkAgo = new Date(now - 7 * day).toISOString().slice(0, 10);
   const zwk = (k) => Object.keys(Z[k].d || {}).filter((d) => d >= wkAgo).reduce((t, d) => t + Z[k].d[d], 0);
-  h += '<div class="card"><b>⬇️ Zip downloads</b>' + (zk.length ? zk.map((k) => '<div style="display:flex;justify-content:space-between"><span>' + esc(k) + "</span><span>" + Z[k].n + ' <span class="nt-c">(' + zwk(k) + " this week)</span></span></div>").join("") : '<br><span class="nt-c">None counted yet. Counting starts once the new landing page is in your theme.</span>') + "</div>";
-  // Shopify tags
-  const missed = real.filter((r) => r.ticked && r.shop !== "added").length;
-  h += '<div class="card"><b>🏷️ Shopify tags</b><br><span class="nt-c">Everyone who ticks for updates is added to Shopify, subscribed, with these tags. {src} becomes where they came from, {month} the month.</span>' +
-    (BL.shopReady ? '<div class="row"><input id="bltags" style="flex:1" value="' + esc(BL.tags || "") + '"><button class="btn raised" data-a="bltags">Save</button></div>' +
-      (missed ? '<button class="btn raised" data-a="blback">Add the ' + missed + " Shopify missed</button>" : '<span class="nt-c">Everyone who ticked is in Shopify.</span>')
-      : "") + (BL.shopReady && !winBlead.keys ? '<div><span class="nt-btn" data-a="blkeys">change Shopify login</span></div>' : "") +
-    (!BL.shopReady || winBlead.keys ? '<div class="card sunk">Connect Shopify: paste these from your app\'s Settings page in the Dev Dashboard.' +
-      '<div class="row"><input id="blk_shop" value="fat-mum-apparel.myshopify.com" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_shop">📋 Paste</button></div>' +
-      '<div class="row"><input id="blk_id" placeholder="Client ID" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_id">📋 Paste</button></div>' +
-      '<div class="row"><input id="blk_secret" placeholder="Secret" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_secret">📋 Paste</button></div>' +
-      '<button class="btn raised main" data-a="blconnect">Connect</button></div>' : "") + "</div>";
-  h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
-  // everyone
-  h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
-    const t = new Date(r.when), when = t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    const k = String(r.email).toLowerCase(), open = blOpen === k;
-    return '<div class="card"' + (r.test ? ' style="opacity:.5"' : "") + ' data-a="blopen" data-arg="' + esc(k) + '">' + (r.test ? "🧪 " : "") + "<b>" + esc(r.first) + '</b> <span class="nt-c">' + esc(r.email) + "</span><br>" +
-      '<span class="nt-c">' + esc(when) + " · " + esc(blSrc(r.src)) + " · " + (r.booked ? "✅ booked" : esc(r.status)) + (r.ticked ? " · ✉ updates" + (r.shop === "added" ? " · in Shopify ✓" : " · not in Shopify") : "") + "</span>" +
-      (open ? '<div class="row" style="flex-wrap:wrap">' + (r.test ? '<button class="btn raised" data-a="blmark" data-arg="real">Not a test</button>' : '<button class="btn raised" data-a="blmark" data-arg="test">🧪 Test account</button>') +
-        (r.booked ? '<button class="btn raised" data-a="blmark" data-arg="notbooked">Not really booked</button>' : '<button class="btn raised" data-a="blmark" data-arg="booked">✅ They booked</button>') +
-        (BL.shopReady ? '<input id="bltag1" placeholder="extra tag" style="width:110px" onclick="event.stopPropagation()"><button class="btn raised" data-a="bltag1">🏷️ Add tag</button>' : "") + "</div>" : "") + "</div>";
-  }).join("");
+  const wkN = (from, to) => real.filter((r) => { const t = now - new Date(r.when); return t >= from * day && t < to * day; }).length;
+  const zDays = (from, to) => zk.reduce((t, k) => t + Object.keys(Z[k].d || {}).filter((d) => d >= new Date(now - to * day).toISOString().slice(0, 10) && d < new Date(now - from * day).toISOString().slice(0, 10)).reduce((x, d) => x + Z[k].d[d], 0), 0);
+  const vs = (a, b) => a + ' <span class="nt-c">' + (a > b ? "▲" : a < b ? "▼" : "same as") + " " + b + " last week</span>";
+  if (T === "over") {
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
+      tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(zk.reduce((t, k) => t + Z[k].n, 0), "zip downloads") + "</div>";
+    h += '<div class="card"><b>This week</b><br>Sign-ups: ' + vs(wkN(0, 7), wkN(7, 14)) + '<br>Zip downloads: ' + vs(zDays(-1, 7), zDays(7, 14)) + "</div>";
+  }
+  if (T === "sign") {
+    h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
+    days.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / top * 52) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 52) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
+    h += '<div class="card"><b>Where they came from</b>' + Object.keys(src).sort((a, b) => src[b].n - src[a].n).map(srcBar).join("") + "</div>";
+    // everyone
+    h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
+      const t = new Date(r.when), when = t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      const k = String(r.email).toLowerCase(), open = blOpen === k;
+      return '<div class="card"' + (r.test ? ' style="opacity:.5"' : "") + ' data-a="blopen" data-arg="' + esc(k) + '">' + (r.test ? "🧪 " : "") + "<b>" + esc(r.first) + '</b> <span class="nt-c">' + esc(r.email) + "</span><br>" +
+        '<span class="nt-c">' + esc(when) + " · " + esc(blSrc(r.src)) + " · " + (r.booked ? "✅ booked" : esc(r.status)) + (r.ticked ? " · ✉ updates" + (r.shop === "added" ? " · in Shopify ✓" : " · not in Shopify") : "") + "</span>" +
+        (open ? '<div class="row" style="flex-wrap:wrap">' + (r.test ? '<button class="btn raised" data-a="blmark" data-arg="real">Not a test</button>' : '<button class="btn raised" data-a="blmark" data-arg="test">🧪 Test account</button>') +
+          (r.booked ? '<button class="btn raised" data-a="blmark" data-arg="notbooked">Not really booked</button>' : '<button class="btn raised" data-a="blmark" data-arg="booked">✅ They booked</button>') +
+          (BL.shopReady ? '<input id="bltag1" placeholder="extra tag" style="width:110px" onclick="event.stopPropagation()"><button class="btn raised" data-a="bltag1">🏷️ Add tag</button>' : "") + "</div>" : "") + "</div>";
+    }).join("");
+  }
+  if (T === "zip") {
+    h += '<div class="card"><b>⬇️ Zip downloads</b>' + (zk.length ? zk.map((k) => '<div style="display:flex;justify-content:space-between"><span>' + esc(k) + "</span><span>" + Z[k].n + ' <span class="nt-c">(' + zwk(k) + " this week)</span></span></div>").join("") : '<br><span class="nt-c">None counted yet. Counting starts once the new landing page is in your theme.</span>') + "</div>";
+    const zd = []; for (let i = 13; i >= 0; i--) { const d = new Date(now - i * day); zd.push([d.toISOString().slice(0, 10), d.toLocaleDateString("en-GB", { weekday: "narrow" }), zk.reduce((t, k) => t + ((Z[k].d || {})[d.toISOString().slice(0, 10)] || 0), 0)]); }
+    const zt = Math.max(1, ...zd.map((d) => d[2]));
+    h += '<b>Downloads, last 14 days</b><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
+      zd.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / zt * 52) + 'px;background:#000080"></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
+  }
+  if (T === "meta") {
+    h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
+    (spend ? "Cost per sign-up: <b>" + (m.n ? blMoney(spend / m.n) : "–") + "</b> · Cost per booking: <b>" + (m.b ? blMoney(spend / m.b) : "none yet") + "</b>" : '<span class="nt-c">Type what you\'ve spent so far to see cost per lead.</span>') + "</div>";
+    h += '<div class="card">Meta sign-ups: <b>' + m.n + "</b> · booked: <b>" + m.b + "</b> · last 14 days: <b>" + days.reduce((t, d) => t + d[3], 0) + "</b></div>";
+  }
+  if (T === "shop") {
+    // Shopify tags
+    const missed = real.filter((r) => r.ticked && r.shop !== "added").length;
+    h += '<div class="card"><b>🏷️ Shopify tags</b><br><span class="nt-c">Everyone who ticks for updates is added to Shopify, subscribed, with these tags. {src} becomes where they came from, {month} the month.</span>' +
+      (BL.shopReady ? '<div class="row"><input id="bltags" style="flex:1" value="' + esc(BL.tags || "") + '"><button class="btn raised" data-a="bltags">Save</button></div>' +
+        (missed ? '<button class="btn raised" data-a="blback">Add the ' + missed + " Shopify missed</button>" : '<span class="nt-c">Everyone who ticked is in Shopify.</span>')
+        : "") + (BL.shopReady && !winBlead.keys ? '<div><span class="nt-btn" data-a="blkeys">change Shopify login</span></div>' : "") +
+      (!BL.shopReady || winBlead.keys ? '<div class="card sunk">Connect Shopify: paste these from your app\'s Settings page in the Dev Dashboard.' +
+        '<div class="row"><input id="blk_shop" value="fat-mum-apparel.myshopify.com" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_shop">📋 Paste</button></div>' +
+        '<div class="row"><input id="blk_id" placeholder="Client ID" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_id">📋 Paste</button></div>' +
+        '<div class="row"><input id="blk_secret" placeholder="Secret" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_secret">📋 Paste</button></div>' +
+        '<button class="btn raised main" data-a="blconnect">Connect</button></div>' : "") + "</div>";
+    h += '<div class="card">In Shopify: <b>' + real.filter((r) => r.shop === "added").length + "</b> of " + tick + " who ticked for updates</div>";
+  }
+  if (T === "mail") {
+    const c = BL.copy || {}, em = (when, sub) => '<div class="card"><span class="nt-c">' + when + "</span><br><b>" + esc(sub || "(no subject)") + "</b></div>";
+    h += em("Email 1, straight away", c.zipSubject) + em("Email 2, day 3 if they haven't booked", c.followSubject) + (c.thirdOn ? em("Email 3, day " + (c.thirdDay || 10) + " if they still haven't booked", c.thirdSubject) : '<div class="card sunk">Email 3 is off.</div>');
+    h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button></div>';
+  }
+  h += '<div class="row"><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
   return h;
 }
 function blEditor() {
@@ -2030,6 +2055,7 @@ async function blAct(a, arg) {
     try { await call("funnelSpendSave", KEY, { meta: v }); BL.spend = { meta: v }; store.set("blead2", BL); render(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
     return;
   }
+  if (a === "bltab") { store.set("bltab", arg); render.noKeep = true; return render(); }
   if (a === "blpaste") {
     try { const t = (await navigator.clipboard.readText() || "").trim(); if (!t) return toast("Nothing copied yet."); $(arg).value = t; toast("✓ Pasted"); }
     catch (e) { toast("Your phone said no. Allow paste when it asks, then try again."); }
@@ -5614,7 +5640,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste"].includes(a)) blAct(a, arg);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
