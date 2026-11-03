@@ -742,7 +742,7 @@ function startGone(r) {
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
-  ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["settings", "⚙️", "Settings"]];
+  ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
 const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", hide: [], bean: false, bean_morning: false, text: "normal" };
@@ -2763,6 +2763,112 @@ function lBuild(raw, spot, name) {
   url.searchParams.set("utm_source", sp[2]); url.searchParams.set("utm_medium", sp[3]); url.searchParams.set("utm_campaign", lSlug(name));
   return url.toString();
 }
+// ── 🎟 Vouchers: the gift cards, their codes and what is left on each ──
+// Its own Apps Script, not the office one, so its link is kept separately. The office
+// runs the bookings and the invoices and this has no business being near it.
+// Writes need signal: the outbox posts to the office, which does not know these
+// functions, so there is nothing to queue them into. The list is cached for reading.
+let VOUCHERS = store.get("vouchers", []), vBusy = false, vErr = "", vMade = null;
+const vUrl = () => store.get("vurl", "");
+const vMoney = (n) => "£" + (Math.round(Number(n || 0) * 100) / 100).toFixed(2).replace(/\.00$/, "");
+
+function vcall(fn, ...args) {
+  const url = vUrl();
+  if (!url) return Promise.reject(new Error("No voucher link set yet."));
+  const op = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);   // so a retry cannot double up
+  return fetch(url, { method: "POST", body: JSON.stringify({ k: KEY, fn: fn, args: args, op: op }) })
+    .then((r) => r.json()).then((j) => { if (j.error) throw new Error(j.error); return j.result; });
+}
+
+function vLoad(force) {
+  if (vBusy || !vUrl()) return;
+  if (!force && VOUCHERS.length) return;
+  vBusy = true; vErr = ""; render();
+  vcall("voucherList").then((rows) => {
+    VOUCHERS = rows || []; store.set("vouchers", VOUCHERS); vBusy = false; render();
+  }).catch((e) => { vBusy = false; vErr = String(e.message || e); render(); });
+}
+
+function vExpired(v) {
+  if (!v.expires) return false;
+  const d = new Date(v.expires + "T23:59:59");
+  return !isNaN(d.getTime()) && d.getTime() < Date.now();
+}
+
+function winVouchers() {
+  if (!vUrl()) {
+    return '<div class="nt"><div class="h" style="margin-top:0">Connect the vouchers</div>' +
+      '<div class="dim" style="margin-bottom:8px">Paste the /exec link from the vouchers script. It is a different link from the office one.</div>' +
+      '<div class="tform"><label>Voucher script link<input id="vurl" class="sunk" placeholder="https://script.google.com/macros/s/…/exec"></label></div>' +
+      '<div class="row btns"><button class="btn raised" data-a="vsaveurl"><b>Save</b></button></div></div>';
+  }
+  const live = VOUCHERS.filter((v) => Number(v.balance) > 0 && !vExpired(v));
+  const dead = VOUCHERS.filter((v) => !(Number(v.balance) > 0 && !vExpired(v)));
+  const row = (v) => {
+    const gone = Number(v.balance) <= 0, old = vExpired(v);
+    return '<div class="li"><span class="lab"><b style="font-family:monospace;letter-spacing:.12em">' + esc(v.code) + "</b>" +
+      " · " + vMoney(v.balance) + (Number(v.balance) !== Number(v.amount) ? " <small>of " + vMoney(v.amount) + "</small>" : "") +
+      (old ? " · <small>ran out " + esc(v.expires) + "</small>" : v.expires ? " · <small>until " + esc(v.expires) + "</small>" : "") +
+      (v.to ? "<br><small>For " + esc(v.to) + (v.from ? " from " + esc(v.from) : "") + "</small>" : "") +
+      (v.lastEnquiry ? "<br><small>📨 asked " + esc(v.lastEnquiry) + "</small>" : "") +
+      (v.note ? '<br><small class="dim">' + esc(v.note) + "</small>" : "") +
+      "</span>" +
+      (gone ? "" : '<button class="btn raised" data-a="vspend" data-arg="' + esc(v.code) + '">Used</button>') +
+      '<button class="btn raised" data-a="vqr" data-arg="' + esc(v.code) + '">Link</button></div>';
+  };
+  let h = '<div class="nt">';
+  if (vErr) h += '<div class="card sunk" style="border-color:#a3261b"><b>⚠ ' + esc(vErr) + "</b></div>";
+  h += '<div class="h" style="margin-top:0">Make a voucher</div>' +
+    '<div class="tform"><label>Amount £<input id="vamt" class="sunk" inputmode="decimal" placeholder="50"></label>' +
+    '<label>Runs out<input id="vexp" class="sunk" type="date"></label>' +
+    '<label>For<input id="vto" class="sunk" placeholder="their name"></label>' +
+    '<label>From<input id="vfrom" class="sunk" placeholder="who bought it"></label>' +
+    '<label>Note<input id="vnote" class="sunk" placeholder="optional, e.g. order 1234"></label></div>' +
+    '<div class="row btns"><button class="btn raised" data-a="vmake"' + (vBusy ? " disabled" : "") + "><b>" + (vBusy ? "Working…" : "Make it") + "</b></button>" +
+    '<button class="btn raised" data-a="vreload">Refresh</button></div>';
+  if (vMade) {
+    h += '<div class="card sunk"><b>✅ Write this on the card</b><br>' +
+      '<span style="font-family:monospace;font-size:22px;letter-spacing:.22em">' + esc(vMade.code) + "</span><br>" +
+      "<small>" + vMoney(vMade.balance) + (vMade.expires ? " · until " + esc(vMade.expires) : "") + "</small>" +
+      '<div class="row btns"><button class="btn raised" data-a="vqr" data-arg="' + esc(vMade.code) + '"><b>Copy the QR link</b></button></div></div>';
+  }
+  h += '<div class="h">On the go (' + live.length + ')</div><div class="lv sunk">' +
+    (live.map(row).join("") || '<div class="nt-empty">None yet. Make one above.</div>') + "</div>";
+  if (dead.length) h += '<div class="h">Done with (' + dead.length + ')</div><div class="lv sunk">' + dead.map(row).join("") + "</div>";
+  h += '<div class="nt-hint">A booking does not spend a voucher, it only tells you someone asked. Tap Used after you have tattooed them and knock the amount off.</div></div>';
+  return h;
+}
+
+function vMake() {
+  const amt = Number(($("vamt") || {}).value || 0);
+  if (!(amt > 0)) return toast("⚠ Put an amount on it first.");
+  vBusy = true; vErr = ""; render();
+  vcall("voucherSave", {
+    amount: amt, expires: ($("vexp") || {}).value || "", to: ($("vto") || {}).value || "",
+    from: ($("vfrom") || {}).value || "", note: ($("vnote") || {}).value || ""
+  }).then((made) => {
+    vBusy = false; vMade = made; VOUCHERS = []; store.set("vouchers", []);
+    render.noKeep = true; vLoad(true);
+  }).catch((e) => { vBusy = false; vErr = String(e.message || e); render(); });
+}
+
+function vSpend(code) {
+  const v = VOUCHERS.find((x) => x.code === code);
+  if (!v) return;
+  // dialog() takes html plus buttons, so the amount box is built here and read on OK.
+  // Returning false from a button keeps the box open, which is what a bad number wants.
+  dialog("How much of <b>" + esc(code) + "</b> did they use?<br><small>" + vMoney(v.balance) +
+    ' is on it.</small><br><br><input id="vspendamt" class="sunk" inputmode="decimal" style="width:120px" placeholder="110">',
+    [["Knock it off", () => {
+      const n = Number(($("vspendamt") || {}).value || 0);
+      if (!(n > 0)) { toast("⚠ That isn't an amount."); return false; }
+      vBusy = true; render();
+      vcall("voucherAdjust", code, n, "used " + vMoney(n)).then(() => {
+        vBusy = false; VOUCHERS = []; store.set("vouchers", []); vLoad(true);
+      }).catch((e) => { vBusy = false; vErr = String(e.message || e); render(); });
+    }, 1], ["Cancel"]], "🎟", { title: "Voucher used" });
+}
+
 function winLinks() {
   const rows = LINKS.slice().reverse().map((l) => { const sp = LSPOTS.find((x) => x[0] === l.spot) || LSPOTS[0];
     return '<div class="li"><span class="lab"><b>' + esc(l.name) + "</b> · " + sp[1] + ' · <small>' + pNice(l.made) + '</small><br><small class="lk-u">' + esc(l.url) + '</small></span><button class="btn raised" data-a="lcopy" data-arg="' + l.id + '">Copy</button><button class="btn raised" data-a="ldel" data-arg="' + l.id + '">✕</button></div>'; }).join("");
@@ -4475,7 +4581,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks }[w.kind])(w.arg);
+    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5640,6 +5746,11 @@ document.addEventListener("click", async (e) => {
   else if (a === "tfri") tFriSave();
   else if (a === "popen") open_("plan", arg);
   else if (a === "lmake") lMake(arg);
+  else if (a === "vmake") vMake();
+  else if (a === "vspend") vSpend(arg);
+  else if (a === "vreload") vLoad(true);
+  else if (a === "vsaveurl") { const u = ($("vurl") || {}).value.trim(); if (!/^https:\/\/script\.google\.com\/.*\/exec$/.test(u)) return toast("⚠ That should be the /exec link from the vouchers script."); store.set("vurl", u); VOUCHERS = []; vLoad(true); }
+  else if (a === "vqr") copyText("https://fatmum.co.uk/pages/voucher?c=" + arg, "Voucher link");
   else if (a === "tcap") tCapture();
   else if (a === "trestore") tRestore(true);
   else if (a === "lcopy") { const l = LINKS.find((x) => x.id === arg); if (l) copyText(l.url, "Link"); }
