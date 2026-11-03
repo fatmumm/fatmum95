@@ -1958,9 +1958,11 @@ function winBlead() {
   if (!BL || !BL.rows) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
   if (blEdit) return blEditor();
   const seen = store.get("blseen", 0), fresh = BL.rows.filter((r) => !r.test && new Date(r.when).getTime() > seen).length;
-  if (!winBlead.mark) { winBlead.mark = setTimeout(() => { store.set("blseen", Date.now()); winBlead.mark = null; }, 4000); }
+  const ZN = {}; Object.keys(BL.zips || {}).filter((k) => !/^test/.test(k)).forEach((k) => { ZN[k] = BL.zips[k].n; });
+  const zseen = store.get("blseenz", null), znew = zseen ? Object.keys(ZN).filter((k) => ZN[k] > (zseen[k] || 0)).map((k) => (ZN[k] - (zseen[k] || 0)) + " zip from " + k) : [];
+  if (!winBlead.mark) { winBlead.mark = setTimeout(() => { store.set("blseen", Date.now()); store.set("blseenz", ZN); winBlead.mark = null; }, 4000); }
   const head = '<div class="nt-hint" style="display:flex;justify-content:space-between"><span>' + (blBusy ? "Updating…" : "Updated " + esc(ago(new Date(BL.at || Date.now()).toISOString()))) + "</span>" +
-    (seen ? "<b>" + (fresh ? fresh + " new since you last looked" : "Nothing new since you last looked") + "</b>" : "") + "</div>";
+    (seen ? "<b>" + (fresh || znew.length ? [fresh ? fresh + " new sign-up" + (fresh === 1 ? "" : "s") : ""].concat(znew).filter(Boolean).join(", ") + " since you last looked" : "Nothing new since you last looked") + "</b>" : "") + "</div>";
   const all = BL.rows, real = all.filter((r) => !r.test), now = Date.now(), day = 864e5;
   const n = real.length, wk = real.filter((r) => now - new Date(r.when) < 7 * day).length, tick = real.filter((r) => r.ticked).length, bk = real.filter((r) => r.booked).length;
   const tile = (big, small) => '<div class="card" style="text-align:center;margin:0"><b style="font-size:22px;color:#000080">' + big + '</b><br><span style="font-size:13px">' + small + "</span></div>";
@@ -1983,6 +1985,8 @@ function winBlead() {
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
       tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(zk.reduce((t, k) => t + Z[k].n, 0), "zip downloads") + "</div>";
     h += '<div class="card"><b>This week</b><br>Sign-ups: ' + vs(wkN(0, 7), wkN(7, 14)) + '<br>Zip downloads: ' + vs(zDays(-1, 7), zDays(7, 14)) + "</div>";
+    const fu = real.filter((r) => r.follow).length, e3 = real.filter((r) => r.third).length, due = real.filter((r) => r.zip && !r.follow && !r.booked).length;
+    h += '<div class="card"><b>Follow-up emails</b><br>Sent: <b>' + fu + "</b>" + (e3 ? " · email 3 sent: <b>" + e3 + "</b>" : "") + '<br><span class="nt-c">' + due + " still to get one (day 3, unless they book first)</span></div>";
   }
   if (T === "sign") {
     h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
