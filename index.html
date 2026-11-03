@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave", "funnelTagsSave", "funnelShopifyBackfill", "funnelTagPerson"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -1980,15 +1980,22 @@ function winBlead() {
   const top = Math.max(1, ...days.map((d) => d[2]));
   h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
     days.map((d) => '<div style="flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.1"><div style="height:' + Math.round(d[2] / top * 52) + 'px;background:#8fa8ff;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:' + Math.round(d[3] / top * 52) + 'px;background:#000080"></div></div>' + (d[2] || "") + "<br>" + d[1] + "</div>").join("") + "</div>";
+  // Shopify tags
+  const missed = real.filter((r) => r.ticked && r.shop !== "added").length;
+  h += '<div class="card"><b>🏷️ Shopify tags</b><br><span class="nt-c">Everyone who ticks for updates is added to Shopify, subscribed, with these tags. {src} becomes where they came from, {month} the month.</span>' +
+    (BL.shopReady ? '<div class="row"><input id="bltags" style="flex:1" value="' + esc(BL.tags || "") + '"><button class="btn raised" data-a="bltags">Save</button></div>' +
+      (missed ? '<button class="btn raised" data-a="blback">Add the ' + missed + " Shopify missed</button>" : '<span class="nt-c">Everyone who ticked is in Shopify.</span>')
+      : '<br>Not connected yet. Add shopify_shop and shopify_token in the office script\'s Script properties.') + "</div>";
   h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
   // everyone
   h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
     const t = new Date(r.when), when = t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     const k = String(r.email).toLowerCase(), open = blOpen === k;
     return '<div class="card"' + (r.test ? ' style="opacity:.5"' : "") + ' data-a="blopen" data-arg="' + esc(k) + '">' + (r.test ? "🧪 " : "") + "<b>" + esc(r.first) + '</b> <span class="nt-c">' + esc(r.email) + "</span><br>" +
-      '<span class="nt-c">' + esc(when) + " · " + esc(blSrc(r.src)) + " · " + (r.booked ? "✅ booked" : esc(r.status)) + (r.ticked ? " · ✉ updates" : "") + "</span>" +
+      '<span class="nt-c">' + esc(when) + " · " + esc(blSrc(r.src)) + " · " + (r.booked ? "✅ booked" : esc(r.status)) + (r.ticked ? " · ✉ updates" + (r.shop === "added" ? " · in Shopify ✓" : " · not in Shopify") : "") + "</span>" +
       (open ? '<div class="row" style="flex-wrap:wrap">' + (r.test ? '<button class="btn raised" data-a="blmark" data-arg="real">Not a test</button>' : '<button class="btn raised" data-a="blmark" data-arg="test">🧪 Test account</button>') +
-        (r.booked ? '<button class="btn raised" data-a="blmark" data-arg="notbooked">Not really booked</button>' : '<button class="btn raised" data-a="blmark" data-arg="booked">✅ They booked</button>') + "</div>" : "") + "</div>";
+        (r.booked ? '<button class="btn raised" data-a="blmark" data-arg="notbooked">Not really booked</button>' : '<button class="btn raised" data-a="blmark" data-arg="booked">✅ They booked</button>') +
+        (BL.shopReady ? '<input id="bltag1" placeholder="extra tag" style="width:110px" onclick="event.stopPropagation()"><button class="btn raised" data-a="bltag1">🏷️ Add tag</button>' : "") + "</div>" : "") + "</div>";
   }).join("");
   return h;
 }
@@ -2012,6 +2019,21 @@ async function blAct(a, arg) {
   if (a === "blspend") {
     const v = Number(($("blspend") || {}).value) || 0;
     try { await call("funnelSpendSave", KEY, { meta: v }); BL.spend = { meta: v }; store.set("blead2", BL); render(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
+    return;
+  }
+  if (a === "bltags") {
+    const t = ($("bltags") || {}).value || "";
+    try { await call("funnelTagsSave", KEY, t); BL.tags = t.trim() || BL.tags; store.set("blead2", BL); toast("✓ Tags saved. New sign-ups get them."); } catch (e) { toast("⚠ Didn't save: " + e.message); }
+    return;
+  }
+  if (a === "blback") {
+    toast("Adding to Shopify…");
+    try { const r = await call("funnelShopifyBackfill", KEY); toast("✓ " + r.msg); await blLoad(); } catch (e) { toast("⚠ " + e.message); }
+    return;
+  }
+  if (a === "bltag1") {
+    const t = ($("bltag1") || {}).value || "", k = blOpen; if (!k || !t.trim()) return toast("Type a tag first.");
+    try { const r = await call("funnelTagPerson", KEY, k, t); toast(r.msg === "tagged" ? "✓ Tagged in Shopify" : "⚠ " + r.msg); } catch (e) { toast("⚠ " + e.message); }
     return;
   }
   if (a === "bledit") { blEdit = Object.assign({}, BL.copy); return render(); }
@@ -5570,7 +5592,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend"].includes(a)) blAct(a, arg);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
