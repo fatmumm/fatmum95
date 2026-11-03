@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave", "funnelTagsSave", "funnelShopifyBackfill", "funnelTagPerson"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave", "funnelTagsSave", "funnelShopifyBackfill", "funnelTagPerson", "funnelShopKeys"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -1985,7 +1985,12 @@ function winBlead() {
   h += '<div class="card"><b>🏷️ Shopify tags</b><br><span class="nt-c">Everyone who ticks for updates is added to Shopify, subscribed, with these tags. {src} becomes where they came from, {month} the month.</span>' +
     (BL.shopReady ? '<div class="row"><input id="bltags" style="flex:1" value="' + esc(BL.tags || "") + '"><button class="btn raised" data-a="bltags">Save</button></div>' +
       (missed ? '<button class="btn raised" data-a="blback">Add the ' + missed + " Shopify missed</button>" : '<span class="nt-c">Everyone who ticked is in Shopify.</span>')
-      : '<br>Not connected yet. Add shopify_shop and shopify_token in the office script\'s Script properties.') + "</div>";
+      : "") + (BL.shopReady && !winBlead.keys ? '<div><span class="nt-btn" data-a="blkeys">change Shopify login</span></div>' : "") +
+    (!BL.shopReady || winBlead.keys ? '<div class="card sunk">Connect Shopify: paste these from your app\'s Settings page in the Dev Dashboard.' +
+      '<input id="blk_shop" placeholder="yourshop.myshopify.com" style="width:100%;margin:4px 0" autocomplete="off">' +
+      '<input id="blk_id" placeholder="Client ID" style="width:100%;margin:4px 0" autocomplete="off">' +
+      '<input id="blk_secret" type="password" placeholder="Secret" style="width:100%;margin:4px 0" autocomplete="off">' +
+      '<button class="btn raised main" data-a="blconnect">Connect</button></div>' : "") + "</div>";
   h += '<div class="row"><button class="btn raised main" data-a="bledit">✏️ Change the emails</button><span class="nt-btn" data-a="blrefresh" style="margin-left:auto">↻ refresh</span></div>';
   // everyone
   h += "<b>Everyone (" + all.length + ")</b>" + all.slice().reverse().map((r) => {
@@ -2019,6 +2024,14 @@ async function blAct(a, arg) {
   if (a === "blspend") {
     const v = Number(($("blspend") || {}).value) || 0;
     try { await call("funnelSpendSave", KEY, { meta: v }); BL.spend = { meta: v }; store.set("blead2", BL); render(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
+    return;
+  }
+  if (a === "blkeys") { winBlead.keys = true; return render(); }
+  if (a === "blconnect") {
+    const k = { shop: $("blk_shop").value, id: $("blk_id").value, secret: $("blk_secret").value };
+    toast("Connecting…");
+    try { const r = await call("funnelShopKeys", KEY, k); if (r.ok) { winBlead.keys = false; toast("✓ Shopify connected"); await blLoad(); } else toast("⚠ " + r.msg); }
+    catch (e) { toast("⚠ " + e.message); }
     return;
   }
   if (a === "bltags") {
@@ -5592,7 +5605,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1"].includes(a)) blAct(a, arg);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
