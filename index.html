@@ -1965,7 +1965,7 @@ function winBlead() {
   const n = real.length, wk = real.filter((r) => now - new Date(r.when) < 7 * day).length, tick = real.filter((r) => r.ticked).length, bk = real.filter((r) => r.booked).length;
   const tile = (big, small) => '<div class="card" style="text-align:center;margin:0"><b style="font-size:22px;color:#000080">' + big + '</b><br><span style="font-size:13px">' + small + "</span></div>";
   const T = store.get("bltab", "over");
-  let h = head + '<div class="rf-chips" style="flex-wrap:wrap;overflow:visible">' + [["over", "📊 Overview"], ["sign", "🧑 Sign-ups"], ["zip", "⬇️ Zips"], ["meta", "📣 Meta"], ["shop", "🏷️ Shopify"], ["mail", "✉️ Emails"]].map(([k, l]) => frChip("bltab", k, l, T === k)).join("") + "</div>";
+  let h = head + '<div class="rf-chips" style="flex-wrap:wrap;overflow:visible">' + [["over", "📊 Overview"], ["sign", "🧑 Sign-ups"], ["zip", "⬇️ Zips"], ["meta", "📣 Meta"], ["join", "📝 Join page"], ["shop", "🏷️ Shopify"], ["mail", "✉️ Emails"]].map(([k, l]) => frChip("bltab", k, l, T === k)).join("") + "</div>";
   // by source
   const src = {}; real.forEach((r) => { const k = blSrc(r.src); src[k] = src[k] || { n: 0, b: 0 }; src[k].n++; if (r.booked) src[k].b++; });
   const srcBar = (k) => { const x = src[k], w = Math.round(x.n * 100 / Math.max(1, n)); return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><b>' + esc(k) + "</b><span>" + x.n + " sign-up" + (x.n === 1 ? "" : "s") + " · " + blPct(x.n, n) + '</span></div><div style="height:10px;background:#fff;border:1px solid #888"><div style="height:100%;width:' + w + '%;background:' + (k === "Meta ad" ? "#000080" : "#8fa8ff") + '"></div></div><span class="nt-c">' + (x.b ? x.b + " booked (" + blPct(x.b, x.n) + " of them)" : "no bookings yet") + "</span></div>"; };
@@ -2024,6 +2024,15 @@ function winBlead() {
         '<div class="row"><input id="blk_secret" placeholder="Secret" style="flex:1;min-width:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"><button class="btn raised" data-a="blpaste" data-arg="blk_secret">📋 Paste</button></div>' +
         '<button class="btn raised main" data-a="blconnect">Connect</button></div>' : "") + "</div>";
     h += '<div class="card">In Shopify: <b>' + real.filter((r) => r.shop === "added").length + "</b> of " + tick + " who ticked for updates</div>";
+  }
+  if (T === "join") {
+    const J = BL.join || { tat: 0, drop: 0, both: 0, src: {}, days: {} }, jt = J.tat + J.drop + J.both;
+    const jd = (from, to) => Object.keys(J.days || {}).filter((d) => d >= new Date(now - to * day).toISOString().slice(0, 10) && d < new Date(now - from * day).toISOString().slice(0, 10)).reduce((t, d) => t + J.days[d], 0);
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(J.tat, "tattoos only") + tile(J.drop, "t-shirts only") + tile(J.both, "both") + "</div>";
+    h += '<div class="card"><b>This week</b><br>Joined: ' + vs(jd(-1, 7), jd(7, 14)) + "<br>All time: <b>" + jt + "</b></div>";
+    const js = Object.keys(J.src || {}).sort((a, b) => J.src[b] - J.src[a]);
+    h += '<div class="card"><b>Where they came from</b>' + (js.length ? js.map((k) => '<div style="display:flex;justify-content:space-between"><span>' + esc(k) + "</span><b>" + J.src[k] + "</b></div>").join("") : '<br><span class="nt-c">Nobody yet.</span>') + "</div>";
+    h += '<div class="card sunk">Link for stories:<br><b style="word-break:break-all">fatmum.co.uk/pages/join?src=story</b><br><span class="nt-c">Change story to anything, like bio or reel, to see what works. Tattoo people also get the zip email and land in Sign-ups.</span></div>';
   }
   if (T === "mail") {
     const c = BL.copy || {}, em = (when, sub) => '<div class="card"><span class="nt-c">' + when + "</span><br><b>" + esc(sub || "(no subject)") + "</b></div>";
