@@ -4780,10 +4780,15 @@ function todayThree(v) {
 function t3Card() {                            // the home screen card
   const v = todoView(), t = todayThree(v);
   if (!v) return "";
-  const left = t.picks.length, wait = D ? waitingThreads(1) : [];
+  const wait = D ? waitingThreads(1) : [], iso = todayISO(), key = (x) => String(x.id != null ? x.id : x.cid);
+  // today's list stays put: ticked ones stay crossed out (tap again to undo), new picks only fill empty spots
+  let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
+  const rows = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
+  t.picks.forEach((x) => { if (rows.length < (t.tattoo ? 1 : 3) && !rows.includes(x)) rows.push(x); });
+  const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
     '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
-    (left ? t.picks.map((x) => '<div style="padding:3px 8px">○ ' + esc(x.title) + "</div>").join("") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
+    (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
 function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
