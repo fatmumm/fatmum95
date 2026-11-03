@@ -1984,7 +1984,14 @@ function winBlead() {
   if (T === "over") {
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' + tile(n, "sign-ups") + tile(wk, "last 7 days") + tile(blPct(tick, n), "ticked for updates") +
       tile(bk, "booked") + tile(blPct(bk, n), "booked rate") + tile(zk.reduce((t, k) => t + Z[k].n, 0), "zip downloads") + "</div>";
-    h += '<div class="card"><b>This week</b><br>Sign-ups: ' + vs(wkN(0, 7), wkN(7, 14)) + '<br>Zip downloads: ' + vs(zDays(-1, 7), zDays(7, 14)) + "</div>";
+    const per = store.get("blper", "week"), PN = { day: 1, week: 7, month: 30 }[per] || 7, PL = { day: ["Today", "yesterday"], week: ["Last 7 days", "the 7 days before"], month: ["Last 30 days", "the 30 days before"] }[per] || ["Last 7 days", "the 7 days before"];
+    const ds = (k) => new Date(now - k * day).toISOString().slice(0, 10), inR = (d, back) => d >= ds(PN * (back + 1) - 1) && d <= ds(PN * back);
+    const cnt = (back) => ({ s: real.filter((r) => inR(new Date(r.when).toISOString().slice(0, 10), back)).length,
+      z: zk.reduce((t, k) => t + Object.keys(Z[k].d || {}).filter((d) => inR(d, back)).reduce((x, d) => x + Z[k].d[d], 0), 0),
+      j: Object.keys((BL.join || {}).days || {}).filter((d) => inR(d, back)).reduce((x, d) => x + BL.join.days[d], 0) });
+    const c0 = cnt(0), c1 = cnt(1), vp = (a, b) => a + ' <span class="nt-c">(' + (a > b ? "▲" : a < b ? "▼" : "same as") + " " + b + " " + PL[1] + ")</span>";
+    h += '<div class="card"><div class="rf-chips" style="flex-wrap:wrap;overflow:visible">' + [["day", "Day"], ["week", "Week"], ["month", "Month"]].map(([k, l]) => frChip("blper", k, l, per === k)).join("") + "</div>" +
+      "<b>" + PL[0] + "</b><br>Sign-ups: " + vp(c0.s, c1.s) + "<br>Zip downloads: " + vp(c0.z, c1.z) + "<br>Join page: " + vp(c0.j, c1.j) + "</div>";
     const fu = real.filter((r) => r.follow).length, e3 = real.filter((r) => r.third).length, due = real.filter((r) => r.zip && !r.follow && !r.booked).length;
     h += '<div class="card"><b>Follow-up emails</b><br>Sent: <b>' + fu + "</b>" + (e3 ? " · email 3 sent: <b>" + e3 + "</b>" : "") + '<br><span class="nt-c">' + due + " still to get one (day 3, unless they book first)</span></div>";
   }
@@ -2068,6 +2075,7 @@ async function blAct(a, arg) {
     try { await call("funnelSpendSave", KEY, { meta: v }); BL.spend = { meta: v }; store.set("blead2", BL); render(); } catch (e) { toast("⚠ Didn't save: " + e.message); }
     return;
   }
+  if (a === "blper") { store.set("blper", arg); render.noKeep = true; return render(); }
   if (a === "bltab") { store.set("bltab", arg); render.noKeep = true; return render(); }
   if (a === "blpaste") {
     try { const t = (await navigator.clipboard.readText() || "").trim(); if (!t) return toast("Nothing copied yet."); $(arg).value = t; toast("✓ Pasted"); }
@@ -5653,7 +5661,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab"].includes(a)) blAct(a, arg);
+  else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab", "blper"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
