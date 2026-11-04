@@ -1589,7 +1589,7 @@ document.addEventListener("change", async (e) => {
 
 // ── 🔎 Flash refs: his labelled flash designs. The pictures live only on this phone (loaded once from a zip in Files), never online ──
 // index rows: [design id, labels "a|b", artist, description, sheet id, book]
-let FR = null, frQ = store.get("frq", ""), frTab = store.get("frtab", "search"), frBusy = "", frN = 60;
+let FR = null, frQ = store.get("frq", ""), frTab = store.get("frtab", "search"), frBusy = "", frBusyPct = null, frN = 60;
 let FRFAV = store.get("frfav", {}), FRXF = store.get("frxf", {}), FREDIT = store.get("fredit", {}), FR0 = null, frEditing = "";
 function frApply() {                           // his own tag edits and removed cuts, laid over the pack
   FR = FR0.filter((d) => !(FREDIT[d[0]] || {}).hidden).map((d) => { const e = FREDIT[d[0]]; return e && e.labels !== undefined ? [d[0], e.labels].concat(d.slice(2)) : d; });
@@ -1648,7 +1648,7 @@ function frCount(k) { const c = {}; FR.forEach((d) => { if (d[k]) c[d[k]] = (c[d
 function winFref() {
   if (!FR) { frIndex().then(() => { const top = stack[stack.length - 1]; if (top && top.kind === "fref") render(); }); return '<div class="nt-empty">Loading…</div>'; }
   const load = '<label class="nt-btn rf-add">' + (FR.length ? "📦 Add a flash pack" : "📦 Load flash pack") + '<input type="file" accept=".zip,application/zip" id="fradd" style="display:none"></label>';
-  if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
+  if (frBusy) return '<div class="card sunk">' + (frBusyPct != null ? '<b style="font-size:22px;color:#000080">' + frBusyPct + '%</b><div style="height:18px;background:#fff;border:2px inset #e0e0e0;margin:6px 0"><div style="height:100%;width:' + frBusyPct + '%;background:#000080"></div></div>' : "") + esc(frBusy) + "</div>";
   if (FR.length && FR[0].length < 6) return '<div class="card sunk">This is the old flash pack. Load flash-refs-2.zip from Files to get artists, books and full sheets.</div><div class="row">' + load + "</div>";
   if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs-2.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
   const tabs = '<div class="rf-chips">' + [["search", "🔎 Search"], ["boards", "📌 Boards"], ["artists", "👤 Artists"], ["books", "📖 Books"], ["fav", "★ Favourites"]].map(([k, l]) => frChip("frtab", k, l, frTab === k)).join("") + frChip("fraddopen", "", "＋ Add") + "</div>";
@@ -1917,9 +1917,12 @@ async function frLoadZip(f) {                  // a plain (stored) zip: read its
   const picId = (e) => (e.name[0] === "s" ? "s:" : "") + e.name.slice(2, -4);
   const pics = picsAll.filter((e) => !saved.has(picId(e))), doneBefore = picsAll.length - pics.length;
   let wake = null; try { wake = await navigator.wakeLock.request("screen"); } catch (e) {}
+  const began = Date.now();
   for (let i = 0; i < pics.length; i += 100) {
     if (wake && wake.released) { try { wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
-    frBusy = "Loading your flash pack… " + (doneBefore + i) + " of " + picsAll.length + ". Keep this screen open. If it stops, load the same file again and it carries on."; render.noKeep = true; render();
+    const mins = i >= 300 ? Math.ceil((Date.now() - began) / i * (pics.length - i) / 6e4) : 0;   // a guess from the speed so far
+    frBusyPct = Math.floor((doneBefore + i) * 100 / Math.max(1, picsAll.length));
+    frBusy = (doneBefore + i) + " of " + picsAll.length + " pictures" + (mins ? ", about " + mins + " min left" : "") + ". Keep this screen open. If it stops, load the same file again and it carries on."; render.noKeep = true; render();
     const recs = await Promise.all(pics.slice(i, i + 100).map(async (e) => ({ id: picId(e), blob: new Blob([await (await dataOf(e)).arrayBuffer()], { type: "image/jpeg" }) })));
     await idbDo("readwrite", (st) => recs.forEach((r) => st.put(r)), "flashi");
   }
@@ -1968,8 +1971,8 @@ function frAct(a, arg) {
 }
 document.addEventListener("change", async (e) => {
   if (e.target.id !== "fradd" || !e.target.files || !e.target.files[0]) return;
-  try { await frLoadZip(e.target.files[0]); frBusy = ""; toast("✓ " + FR.length + " designs saved on this phone"); }
-  catch (err) { frBusy = ""; toast("⚠ " + err.message); }
+  try { await frLoadZip(e.target.files[0]); frBusy = ""; frBusyPct = null; toast("✓ " + FR.length + " designs saved on this phone"); }
+  catch (err) { frBusy = ""; frBusyPct = null; toast("⚠ " + err.message); }
   render();
 });
 document.addEventListener("input", (e) => {
@@ -4548,6 +4551,7 @@ function useFeedback(type) {                   // 🙄 / 💡: one box, optional
 }
 
 function winTitle(w) {
+  if (w.kind === "eis") return "Choose my 3";
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
   if (w.kind === "photo") return "Photo";
   if (w.kind === "outbox") return "Outbox";
@@ -4618,7 +4622,7 @@ function fieldRestore(s) {
   if (s.focus) { const el = $(s.focus); if (el && document.activeElement !== el) { el.focus({ preventScroll: true }); try { if (s.ss != null) el.setSelectionRange(s.ss, s.se); } catch (e) {} } }
 }
 function winBody(w) {
-  return ({ admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
+  return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
     takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
@@ -4910,6 +4914,7 @@ function taskRow(x, v) {
 }
 // ── ✅ Today's 3: the to-do list picks at most 3 for today (1 on a tattoo day). Nothing is deleted, the rest waits below ──
 function isTattooDay(iso) { const a = O() && O().avail, d = a && a.ok && a.days.find((x) => x.iso === iso); return !!(d && ((d.am && !d.am.free) || (d.pm && !d.pm.free))); }
+let T3PICK = store.get("t3pick", []), EISURG = store.get("eisurg", {});   // the 3 he chose, and to-dos he moved to the other side of urgent
 let T3SEEN = store.get("t3seen", {});          // when each to-do first showed up in Today's 3, so a long-skipped one steps aside
 function todayThree(v) {
   if (!v) return { picks: [], rest: [], tattoo: false };
@@ -4919,7 +4924,8 @@ function todayThree(v) {
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
   const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000;   // overdue, today, then soonest, and !5 jumps ahead
   const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
-  const picks = sorted.slice(0, tattoo ? 1 : 3);
+  const n = tattoo ? 1 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);   // his own picks always come first
+  const picks = chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n);
   let ch = false; picks.forEach((x) => { if (!T3SEEN[key(x)]) { T3SEEN[key(x)] = iso; ch = true; } });
   if (ch) store.set("t3seen", T3SEEN);
   return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo };
@@ -4930,13 +4936,27 @@ function t3Card() {                            // the home screen card
   const wait = D ? waitingThreads(1) : [], iso = todayISO(), key = (x) => String(x.id != null ? x.id : x.cid);
   // today's list stays put: ticked ones stay crossed out (tap again to undo), new picks only fill empty spots
   let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
-  const rows = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
-  t.picks.forEach((x) => { if (rows.length < (t.tattoo ? 1 : 3) && !rows.includes(x)) rows.push(x); });
+  const N = t.tattoo ? 1 : 3, was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
+  const mine = (x) => T3PICK.includes(key(x));
+  // crossed-out ones hold their spot, then his picks, then what was already showing, then suggestions
+  let rows = []; was.filter((x) => x.done).concat(t.picks.filter(mine), was, t.picks).forEach((x) => { if (rows.length < N && !rows.includes(x)) rows.push(x); });
+  const at = (x) => { const i = day.ids.indexOf(key(x)); return i < 0 ? 99 : i; }; rows = rows.slice().sort((a, b) => at(a) - at(b));
   const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
     '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
-    (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
+    (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : mine(x) ? "⭐ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
+}
+function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
+function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
+  const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
+  const iso = todayISO(), open = v.tasks.filter((x) => !x.done), key = (x) => String(x.id != null ? x.id : x.cid);
+  const live = T3PICK.filter((k) => open.some((x) => key(x) === k)).length;
+  const row = (x) => { const on = T3PICK.includes(key(x)); return '<div class="row" style="align-items:center;padding:4px 6px;margin:0"><div data-a="eispick" data-arg="' + esc(key(x)) + '" style="flex:1;min-width:0;cursor:pointer">' + (on ? "⭐ <b>" : "☆ ") + esc(x.title) + (on ? "</b>" : "") + (x.due ? ' <span class="dim" style="font-size:12px">' + esc(niceDay(x.due)) + "</span>" : "") + '</div><button class="btn raised" data-a="eismove" data-arg="' + esc(key(x)) + '" aria-label="Move to another box" style="flex:none;width:44px;min-width:0;padding:4px 0">⇄</button></div>'; };
+  const box = (title, sub, u, i) => { const l = open.filter((x) => eisUrgent(x, iso) === u && (imp(x) >= 4) === i).sort((a, b) => (a.due || "9").localeCompare(b.due || "9") || imp(b) - imp(a)); return '<div class="h">' + title + " (" + l.length + ')</div><div class="dim">' + sub + '</div><div class="lv sunk">' + (l.length ? l.map(row).join("") : '<div class="dim" style="padding:6px">Nothing here.</div>') + "</div>"; };
+  return '<div class="card sunk"><b>' + live + " of 3 chosen.</b> " + (winEis.full ? "You've got 3. Unstar one first." : "Tap a to-do to star it. Tap ⇄ if it's in the wrong box. Any empty spots get a suggestion.") + "</div>" +
+    box("🔥 Do first", "Urgent and important", true, true) + box("📅 Plan it", "Important, not urgent", false, true) +
+    box("🤝 Quick or hand off", "Urgent, not important", true, false) + box("🗑 Maybe drop", "Not urgent, not important", false, false);
 }
 function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
 function winTodo() {
@@ -4959,7 +4979,8 @@ function winTodo() {
   const sec = (title, list, cls) => list.length ? '<div class="h' + (cls ? " " + cls : "") + '">' + title + " (" + list.length + ')</div><div class="lv sunk">' + list.map((x) => taskRow(x, v)).join("") + "</div>" : "";
   const t3 = todayThree(v);
   h += '<div class="h">' + (t3.tattoo ? "Today (tattoo day)" : "Today's 3") + '</div>' + (t3.tattoo ? '<div class="dim">Tattoo day. Just this one, if you have energy.</div>' : "") +
-    (t3.picks.length ? '<div class="lv sunk">' + t3.picks.map((x) => taskRow(x, v)).join("") + "</div>" : '<div class="dim">All clear. Nice one.</div>');
+    (t3.picks.length ? '<div class="lv sunk">' + t3.picks.map((x) => taskRow(x, v)).join("") + "</div>" : '<div class="dim">All clear. Nice one.</div>') +
+    '<button class="btn raised wide" data-a="open" data-arg="eis" style="margin-top:6px">🎯 Choose my 3</button>';
   h += '<details style="margin-top:10px"><summary class="h" style="cursor:pointer">Everything else (' + t3.rest.length + ")</summary>";
   h += sec("Overdue", over.filter((x) => !t3.picks.includes(x))) + sec("Today", now.filter((x) => !t3.picks.includes(x)));
   if (v.habits.length) { const dn = habits.filter((hb) => (hb.log || []).includes(iso)).length;
@@ -5772,6 +5793,21 @@ document.addEventListener("click", async (e) => {
   else if (a === "addtoday") addTodo(true);
   else if (a === "tdel") { const x = findTask(arg); if (x) ask("Delete \"" + x.title + "\"?", () => todoChange(Object.assign({ kind: "delete" }, taskRef(x)))); }
   else if (a === "tick") { const x = findTask(arg); if (x) todoChange(Object.assign({ kind: "tick", done: x.done ? null : todayISO() }, taskRef(x))); }
+  else if (a === "eispick") {
+    const open = (todoView() || { tasks: [] }).tasks.filter((x) => !x.done).map((x) => String(x.id != null ? x.id : x.cid));
+    T3PICK = T3PICK.filter((k) => open.includes(k));
+    if (T3PICK.includes(arg)) T3PICK = T3PICK.filter((k) => k !== arg);
+    else if (T3PICK.length >= 3) { winEis.full = true; render(); return; }
+    else T3PICK.push(arg);
+    winEis.full = false; store.set("t3pick", T3PICK); render();
+  }
+  else if (a === "eismove") {                    // Do first > Plan it > Quick or hand off > Maybe drop, and round again
+    const x = findTask(arg); if (!x) return;
+    const u = eisUrgent(x, todayISO()), i = imp(x) >= 4;
+    const next = u && i ? [false, true] : !u && i ? [true, false] : u && !i ? [false, false] : [true, true];
+    EISURG[arg] = next[0]; store.set("eisurg", EISURG);
+    if (next[1] !== i) todoChange(Object.assign({ kind: "imp", n: next[1] ? 4 : 3 }, taskRef(x))); else render();
+  }
   else if (a === "topen") { openTask = openTask === arg ? null : arg; render(); }
   else if (a === "timp") { const [k, nn] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "imp", n: Number(nn) }, taskRef(x))); }
   else if (a === "tdue") { const [k, dd] = arg.split("|"); const x = findTask(k); if (x) todoChange(Object.assign({ kind: "due", due: dd || null }, taskRef(x))); }
@@ -5852,7 +5888,7 @@ setInterval(render, 60000);
 if (STANDALONE && "serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
   let reloaded = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloaded && !$("dlg").innerHTML && !outbox.length) { reloaded = true; location.reload(); } });
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloaded && !$("dlg").innerHTML && !outbox.length && !frBusy) { reloaded = true; location.reload(); } });
 }
 render();
 load(false);
