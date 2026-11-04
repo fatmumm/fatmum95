@@ -261,7 +261,7 @@ const CHART = { a: "#1d3fbf", b: "#d97a1f", grid: "#e2e2e2", ink: "#333" };
 // ── storage (never required: a private tab just starts empty) ──
 const store = {
   get(k, d) { try { const v = localStorage.getItem("fm95." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem("fm95." + k, JSON.stringify(v)); } catch (e) {} }
+  set(k, v) { try { localStorage.setItem("fm95." + k, JSON.stringify(v)); } catch (e) { if (!store.warned) { store.warned = true; setTimeout(() => { try { toast("⚠ This phone's app storage is full, so changes may not be saved."); } catch (x) {} }, 500); } } }
 };
 
 // the installed app keeps its key on the phone only (from the setup link's #fragment, never sent to GitHub)
@@ -4944,7 +4944,7 @@ function t3Card() {                            // the home screen card
   const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
     '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
-    (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : mine(x) ? "⭐ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
+    (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
