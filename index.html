@@ -1647,7 +1647,7 @@ function frGrid(list) {
 function frCount(k) { const c = {}; FR.forEach((d) => { if (d[k]) c[d[k]] = (c[d[k]] || 0) + 1; }); return c; }
 function winFref() {
   if (!FR) { frIndex().then(() => { const top = stack[stack.length - 1]; if (top && top.kind === "fref") render(); }); return '<div class="nt-empty">Loading…</div>'; }
-  const load = '<label class="nt-btn rf-add">' + (FR.length ? "Reload pack" : "📦 Load flash pack") + '<input type="file" accept=".zip,application/zip" id="fradd" style="display:none"></label>';
+  const load = '<label class="nt-btn rf-add">' + (FR.length ? "📦 Add a flash pack" : "📦 Load flash pack") + '<input type="file" accept=".zip,application/zip" id="fradd" style="display:none"></label>';
   if (frBusy) return '<div class="card sunk">' + esc(frBusy) + "</div>";
   if (FR.length && FR[0].length < 6) return '<div class="card sunk">This is the old flash pack. Load flash-refs-2.zip from Files to get artists, books and full sheets.</div><div class="row">' + load + "</div>";
   if (!FR.length) return '<div class="card sunk">Load your flash pack once to see pictures. Pick flash-refs-2.zip from Files. It stays on this phone only.</div><div class="row">' + load + "</div>";
@@ -1744,7 +1744,7 @@ async function frCropped(id, box) {            // his own crop, cut fresh from t
 let FRC = null;
 function winFrCrop(id) {                        // drag the box to move it, drag the corner to size it
   const d = frById(id); if (!d) return '<div class="card sunk">That design isn\'t here.</div>';
-  if (!d[6]) return '<div class="card sunk">Load flash-refs-update.zip with Reload pack first, so the app knows where each design sits on its sheet.</div>';
+  if (!d[6]) return '<div class="card sunk">Load flash-refs-update.zip with Add a flash pack first, so the app knows where each design sits on its sheet.</div>';
   if (!FRC || FRC.id !== id) FRC = { id: id, box: ((FREDIT[id] || {}).box || d[6]).slice() };
   setTimeout(() => frImg("s:" + d[4]).then((u) => { const im = $("frcimg"); if (im) im.src = u; frCropDraw(); }), 0);
   return '<div class="card sunk">Drag the box to move it. Drag the ◢ corner to make it bigger or smaller.</div>' +
@@ -1908,17 +1908,23 @@ async function frLoadZip(f) {                  // a plain (stored) zip: read its
   const ix = ents.find((e) => e.name === "index.json"), add = ents.find((e) => e.name === "index-add.json");
   if (!ix && !add) throw new Error("That isn't the flash pack zip.");
   let list = JSON.parse(await (await dataOf(ix || add)).text());
-  if (add) {                                   // an add-on pack: new books on top of the pack already on this phone
-    const old = await idbDo("readonly", (st) => st.get("index"), "flashi"), have = new Set(list.map((d) => d[0]));
-    list = ((old && old.list) || []).filter((d) => !have.has(d[0])).concat(list);
-  }
-  const pics = ents.filter((e) => /^[ds]\//.test(e.name));          // d/ designs, s/ full sheets (kept as "s:<sheet>")
+  // any pack adds to what's on this phone, so loading the main pack again can't drop the add-on books
+  const old = await idbDo("readonly", (st) => st.get("index"), "flashi"), have = new Set(list.map((d) => d[0]));
+  list = ((old && old.list) || []).filter((d) => d.length >= 6 && !have.has(d[0])).concat(list);
+  // pictures saved by an earlier try are skipped, so an interrupted load carries on where it stopped
+  const saved = new Set(await idbDo("readonly", (st) => st.getAllKeys(), "flashi"));
+  const picsAll = ents.filter((e) => /^[ds]\//.test(e.name));       // d/ designs, s/ full sheets (kept as "s:<sheet>")
+  const picId = (e) => (e.name[0] === "s" ? "s:" : "") + e.name.slice(2, -4);
+  const pics = picsAll.filter((e) => !saved.has(picId(e))), doneBefore = picsAll.length - pics.length;
+  let wake = null; try { wake = await navigator.wakeLock.request("screen"); } catch (e) {}
   for (let i = 0; i < pics.length; i += 100) {
-    frBusy = "Loading your flash pack… " + i + " of " + pics.length; render.noKeep = true; render();
-    const recs = await Promise.all(pics.slice(i, i + 100).map(async (e) => ({ id: (e.name[0] === "s" ? "s:" : "") + e.name.slice(2, -4), blob: new Blob([await (await dataOf(e)).arrayBuffer()], { type: "image/jpeg" }) })));
+    if (wake && wake.released) { try { wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
+    frBusy = "Loading your flash pack… " + (doneBefore + i) + " of " + picsAll.length + ". Keep this screen open. If it stops, load the same file again and it carries on."; render.noKeep = true; render();
+    const recs = await Promise.all(pics.slice(i, i + 100).map(async (e) => ({ id: picId(e), blob: new Blob([await (await dataOf(e)).arrayBuffer()], { type: "image/jpeg" }) })));
     await idbDo("readwrite", (st) => recs.forEach((r) => st.put(r)), "flashi");
   }
   await idbDo("readwrite", (st) => st.put({ id: "index", list: list }), "flashi");
+  if (wake) { try { await wake.release(); } catch (e) {} }
   FR0 = list.concat(await frMine()); frApply(); frImg.mem = {};
 }
 function frAct(a, arg) {
