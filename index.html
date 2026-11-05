@@ -482,7 +482,9 @@ function newClients() {
   const seen = seenClients();
   return live().filter((r) => stage(r) !== "done" && seen.indexOf(r.id) < 0);
 }
+const sheetBroken = () => rows().some((r) => /^#[A-Z]/.test(String(r.id || "")));   // the Read tab's formula is showing an error, so the bookings are missing
 function markClientsSeen() {
+  if (sheetBroken()) return;                 // don't forget who's been seen while the bookings are missing
   const ids = live().map((r) => r.id);
   // keep only ids that still exist, so the list cannot grow forever
   store.set("seenClients", ids);
@@ -676,6 +678,7 @@ function startBook(r) {
   const t = (r.time || "").toLowerCase();
   const k = t.includes("full") ? "full day" : (t.includes("1") && t.includes("pm")) ? "1pm" : "11am";
   const def = { "11am": ["11:00", 1.5], "1pm": ["13:00", 1.5], "full day": ["11:00", 7] }[k];
+  if (k !== "full day" && slotClock(t)) def[0] = slotClock(t);    // a time he chose himself, like 2:30pm
   dialog((r.deposit ? "" : '<div class="bad">⚠ Their deposit isn\'t ticked yet.</div>') +
     '<label class="field">Title</label><input class="inp" id="bt" value="' + esc(eventTitle(r)) + '">' +
     '<label class="field">Day</label><input class="inp" id="bdate" type="date" value="' + esc(r.iso || "") + '">' +
@@ -3772,12 +3775,23 @@ function leadAct(a, arg) {
 document.addEventListener("input", (e) => { if (e.target.id === "lpq") { peopleQ = e.target.value; render(); } });
 
 // ── 📅 change a client's date (or not decided yet) ──
+function slotClock(t) {                         // "2:30pm" -> "14:30", anything else -> ""
+  const m = String(t || "").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (!m) return "";
+  return pad((Number(m[1]) % 12) + (/pm/i.test(m[3]) ? 12 : 0)) + ":" + (m[2] || "00");
+}
+function clockLabel(c) {                        // "14:30" -> "2:30pm", "14:00" -> "2pm"
+  const [h, m] = String(c).split(":").map(Number);
+  return ((h % 12) || 12) + (m ? ":" + pad(m) : "") + (h >= 12 ? "pm" : "am");
+}
 function startSlot(r) {
   const av = ((O() && O().avail && O().avail.days) || []).slice(0, 14);
-  let pick = r.iso || "", time = (r.time || "").toLowerCase().includes("full") ? "Full day" : (r.time || "").includes("1") && (r.time || "").toLowerCase().includes("pm") ? "1pm" : "11am";
+  const rt = (r.time || "").trim();
+  let pick = r.iso || "", other = /^(11am|1pm)$/i.test(rt) ? "" : slotClock(rt), time = /full/i.test(rt) ? "Full day" : other ? "Other" : /^1\s*pm/i.test(rt) ? "1pm" : "11am";
   let moveInv = !!(r.booked || invited(r)), tell = !!r.email;
-  const free = (a, t) => t === "Full day" ? a.state === "both" : t === "1pm" ? a.pm.free : a.am.free;
-  const draw = () => '<div class="row" style="margin-top:0">' + ["11am", "1pm", "Full day"].map((t) => '<button class="btn raised small' + (time === t ? " on" : "") + '" data-t="' + t + '" style="flex:1">' + (time === t ? "◉ " : "○ ") + t + "</button>").join("") + "</div>" +
+  const free = (a, t) => t === "Other" ? (parseInt(other || "11", 10) < 12 ? a.am.free : a.pm.free) : t === "Full day" ? a.state === "both" : t === "1pm" ? a.pm.free : a.am.free;
+  const draw = () => '<div class="row" style="margin-top:0">' + ["11am", "1pm", "Full day", "Other"].map((t) => '<button class="btn raised small' + (time === t ? " on" : "") + '" data-t="' + t + '" style="flex:1">' + (time === t ? "◉ " : "○ ") + t + "</button>").join("") + "</div>" +
+    (time === "Other" ? '<label class="field">Start time</label><input class="inp" id="so" type="time" value="' + esc(other) + '">' : "") +
     '<label class="field">Open Mondays & Sundays</label><div class="lv sunk" style="max-height:220px;overflow:auto">' + av.map((a) => {
       const ok = free(a, time) || a.iso === r.iso;
       const other = !ok && (a.am.free || a.pm.free) ? (a.pm.free ? "1pm free" : "11am free") : "";
@@ -3789,15 +3803,19 @@ function startSlot(r) {
   dialog('<div id="sw">' + draw() + "</div>", [["Save date", () => {
       const iso = $("sd").value || pick;
       if (!iso) { toast("Pick a date, or tap Not decided yet."); return false; }
-      setTimeout(() => saveSlot(r, iso, time, moveInv, tell), 0);
+      if (time === "Other" && $("so")) other = $("so").value;
+      if (time === "Other" && !other) { $("so").style.outline = "2px solid #d00000"; $("so").focus(); return false; }   // keep the box open, a toast would close it
+      const tm = time === "Other" ? clockLabel(other) : time;
+      setTimeout(() => saveSlot(r, iso, tm, moveInv, tell), 0);
     }, 1], ["Not decided yet", () => { setTimeout(() => saveSlot(r, null, null, moveInv, false), 0); }], ["Cancel"]], "📅", { title: "Change " + r.first + "'s date" });
+  $("sw").oninput = (e) => { if (e.target.id === "so") other = e.target.value; };
   $("sw").onclick = (e) => {
     const t = e.target.closest("[data-t]"), d = e.target.closest("[data-d]"), c = e.target.closest("[data-c]");
     if (t) time = t.dataset.t;
     if (d) {                                         // tapping a day picks it, and a free time on it
       pick = d.dataset.d; $("sd").value = "";
       const a = av.find((x) => x.iso === pick);
-      if (a && a.iso !== r.iso && !free(a, time)) time = a.pm.free ? "1pm" : a.am.free ? "11am" : time;
+      if (a && a.iso !== r.iso && time !== "Other" && !free(a, time)) time = a.pm.free ? "1pm" : a.am.free ? "11am" : time;
     }
     if (c) { if (c.dataset.c === "inv") moveInv = !moveInv; else tell = !tell; }
     if (t || d || c) $("sw").innerHTML = draw();
@@ -3807,7 +3825,7 @@ function saveSlot(r, iso, time, moveInv, tell) {
   const slotText = iso ? shortDay(iso) + " at " + time : "not decided yet";
   const o = { iso: iso, time: time, moveInvite: moveInv };
   if (iso && moveInv) {
-    const def = { "11am": ["11:00", 90], "1pm": ["13:00", 90], "Full day": ["11:00", 420] }[time];
+    const def = { "11am": ["11:00", 90], "1pm": ["13:00", 90], "Full day": ["11:00", 420] }[time] || [slotClock(time) || "11:00", 90];
     const [hh, mm] = def[0].split(":").map(Number), st = new Date(iso + "T00:00:00"); st.setHours(hh, mm, 0, 0);
     const nr = Object.assign({}, r, { iso: iso, time: time });
     o.book = { title: eventTitle(nr), start: st.toISOString(), end: new Date(st.getTime() + def[1] * 60000).toISOString(), description: eventDesc(nr) };
@@ -4593,7 +4611,7 @@ function render() {
   if (!stack.length) {
     render.lastKey = null;
     if (document.activeElement && document.activeElement.id === "tswhat") { const el = $("tsel"), r = tRunning(); if (el && r) el.textContent = " · " + tHM(Date.now() - r.s) + " since " + tClock(r.s); return; }
-    $("main").innerHTML = t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
+    $("main").innerHTML = (sheetBroken() ? '<div class="card sunk bad" style="margin-bottom:10px">⚠ Your bookings aren\'t loading. The Read tab in the sheet has an error, so Clients may look empty. Nothing is lost.</div>' : "") + t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "blead" && document.activeElement && /^(blk_|bltag)/.test(document.activeElement.id || "")) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
