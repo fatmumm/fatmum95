@@ -2075,6 +2075,8 @@ function winBlead() {
     h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
     (spend ? "Cost per sign-up: <b>" + (m.n ? blMoney(spend / m.n) : "–") + "</b> · Cost per booking: <b>" + (m.b ? blMoney(spend / m.b) : "none yet") + "</b>" : '<span class="nt-c">Type what you\'ve spent so far to see cost per lead.</span>') + "</div>";
     h += '<div class="card">Meta sign-ups: <b>' + m.n + "</b> · booked: <b>" + m.b + "</b> · last 14 days: <b>" + days.reduce((t, d) => t + d[3], 0) + "</b></div>";
+    const mNews = real.filter((r) => blSrc(r.src) === "Meta ad" && r.ticked).length;
+    h += '<div class="card"><b>Newsletter from Meta</b><br><b style="font-size:22px;color:#000080">' + blPct(mNews, m.n) + "</b> signed up: <b>" + mNews + "</b> of " + m.n + ' Meta people<br><span class="nt-c">Counts everyone who ticked the updates box on the form.</span></div>';
   }
   if (T === "shop") {
     // Shopify tags
