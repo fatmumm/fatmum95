@@ -1994,7 +1994,7 @@ setInterval(() => { const top = stack[stack.length - 1]; if (!document.hidden &&
 async function blLoad() {
   if (blBusy) return; blBusy = true;
   try { BL = await call("funnelGet", KEY); BL.at = Date.now(); store.set("blead2", BL); blErr = ""; } catch (e) { blErr = e.message; }
-  finally { blBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "blead" && !blEdit) render(); }
+  finally { blBusy = false; const top = stack[stack.length - 1]; if (top && (top.kind === "client" || (top.kind === "blead" && !blEdit))) render(); }
 }
 const blSrc = (s) => { s = String(s || "").toLowerCase(); return /^(meta|fb|ig-ad|fb-ad)/.test(s) ? "Meta ad" : /^(ig|instagram|story|bio)/.test(s) ? "Instagram" : !s || s === "landing" ? "Straight to the page" : s; };
 const blPct = (a, b) => b ? Math.round(a * 100 / b) + "%" : "–";
@@ -2043,6 +2043,11 @@ function winBlead() {
       "<b>" + PL[0] + "</b><br>Sign-ups: " + vp(c0.s, c1.s) + "<br>Zip downloads: " + vp(c0.z, c1.z) + "<br>Join page: " + vp(c0.j, c1.j) + "</div>";
     const fu = real.filter((r) => r.follow).length, e3 = real.filter((r) => r.third).length, due = real.filter((r) => r.zip && !r.follow && !r.booked).length;
     h += '<div class="card"><b>Follow-up emails</b><br>Sent: <b>' + fu + "</b>" + (e3 ? " · email 3 sent: <b>" + e3 + "</b>" : "") + '<br><span class="nt-c">' + due + " still to get one (day 3, unless they book first)</span></div>";
+    if (real.length) {
+      const since = real.map((z) => String(z.when).slice(0, 10)).sort()[0], reqs = live().filter((c) => String(c.submitted || "").slice(0, 10) >= since);
+      const fromZip = reqs.filter((c) => { const z = zipOf(c); return z && zipBefore(c, z); });
+      h += '<div class="card"><b>Is the zip bringing bookings?</b><br>Booking requests since it started: <b>' + reqs.length + "</b><br>Signed up for the zip first: <b>" + fromZip.length + "</b>" + (fromZip.length ? " (" + fromZip.map((c) => esc(c.first)).join(", ") + ")" : "") + '<br><span class="nt-c">Matched on email, so someone booking with a different email shows as no.</span></div>';
+    }
   }
   if (T === "sign") {
     h += '<b>Sign-ups, last 14 days</b> <span class="nt-c">(dark = Meta ad)</span><div style="display:flex;gap:2px;align-items:flex-end;height:96px;background:#fff;padding:4px;border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
@@ -4703,12 +4708,25 @@ function dirState(r) {
 function li(icon, label, status, a, id, arg, dimst) {
   return '<div class="li"' + (a ? ' data-a="' + a + '" data-id="' + esc(id) + '"' + (arg != null ? ' data-arg="' + esc(arg) + '"' : "") : "") + '><span class="ico">' + icon + '</span><span class="lab">' + label + '</span><span class="st' + (dimst ? " dimst" : "") + '">' + esc(status) + "</span></div>";
 }
+function zipOf(r) {                             // their first flash zip sign-up, matched on email
+  const e = String(r.email || "").trim().toLowerCase();
+  return e && BL && BL.rows ? BL.rows.find((z) => !z.test && String(z.email).trim().toLowerCase() === e) || null : null;
+}
+const zipBefore = (r, z) => !r.submitted || new Date(z.when) < new Date(r.submitted);
+function zipLine(r) {
+  if (!r.email) return "";
+  if (!BL || !BL.rows) return "checking…";
+  const z = zipOf(r);
+  if (!z) return "No, this email didn't sign up";
+  return "✓ Signed up " + shortDay(String(z.when).slice(0, 10)) + (zipBefore(r, z) ? ", before booking" : ", after booking") + (z.src ? " (" + z.src + ")" : "");
+}
 function winClient(id) {
   const r = byId(id); if (!r) return '<div class="card sunk">Not found. Pull down to refresh.</div>';
+  if (!blBusy && Date.now() - (winClient.zipAt || 0) > 3e5 && (!BL || Date.now() - (BL.at || 0) > 3e5)) { winClient.zipAt = Date.now(); setTimeout(blLoad, 0); }   // keeps the zip line current
   const s = stage(r), t = todayISO();
   const det = [["Stage", esc(stageName(s))], ["Deposit", r.deposit ? "✓ " + money(DEPOSIT) + (r.depIso ? " " + esc(shortDay(r.depIso)) : "") : r.invIso ? "invoice " + esc(r.depInv || "") + " sent " + esc(shortDay(r.invIso)) : "No deposit"],
     ["Hold", !r.deposit && holdEnd(r) ? esc(longWeekday(holdEnd(r))) : ""], ["Flash", esc(r.flash)], ["Design", esc(r.design)], ["Timing", esc(r.timing)],
-    ["Email", esc(r.email)], ["Found you", esc(r.found)], ["Notes", esc(r.notes)]].filter((x) => x[1]);
+    ["Email", esc(r.email)], ["Flash zip", esc(zipLine(r))], ["Found you", esc(r.found)], ["Notes", esc(r.notes)]].filter((x) => x[1]);
   let h = '<div class="card sunk"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="min-width:0"><div class="name">' + esc(r.name) + '</div><div class="sub">' +
     (r.iso ? esc(shortDay(r.iso)) + " · " + esc(r.time) : esc(r.slot || "no date")) + "</div></div>" + (r.paid ? '<span class="chip ok">✓ ' + money(r.paid.amt) + " " + esc(r.paid.how) + "</span>" : r.deposit ? '<span class="chip ' + (r.iso && r.iso <= t ? "bad" : "dim") + '">' + money(owed(r)) + " to pay</span>" : chipFor(r)) + "</div>" +
     '<div class="sub" style="color:#000;margin-top:8px">' + esc(r.pkg) + (r.price ? " · " + money(r.price) : "") + "</div>" +
