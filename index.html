@@ -2125,7 +2125,7 @@ const SN_ZIP_FIRST = ["DE", "NL", "CH", "ES", "FR", "IT", "AT", "BE", "DK", "SE"
 async function snLoad() {
   if (snBusy) return;
   snBusy = true; snErr = "";
-  try { SN = await call("snailGet", KEY); if (!SN || !SN.people) throw new Error((SN && SN.error) || "no data came back"); }
+  try { SN = await call("snailGet", KEY); if (!SN || !SN.people) throw new Error((SN && SN.error) || "no data came back"); await snArtReady(); }
   catch (e) { SN = null; snErr = e.message || String(e); }
   finally { snBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "snail") render(); }
 }
@@ -2150,7 +2150,16 @@ function winSnail() {
   let h = '<div class="card" style="text-align:center"><b style="font-size:40px;color:#000080">' + list.length + "</b><br><b>" + (st.printedAt ? "ready for your next labels" : "label" + (list.length === 1 ? "" : "s") + " to print") + "</b><br>" +
     uk + " UK · " + (list.length - uk) + " international<br><span class=\"nt-c\">Paid since " + esc(snDay(st.since)) + (st.printedAt ? " · " + st.printedN + " printed on " + esc(snDay(st.printedAt)) : "") + "</span></div>";
   h += '<div class="row btns"><button class="btn raised main" data-a="snpdf" data-arg="all"' + (list.length ? "" : " disabled") + '>📄 Labels file</button><button class="btn raised" data-a="snprinted"' + (list.length ? "" : " disabled") + ">✅ Mark as printed</button></div>";
+  if (SN.truncated) h += '<div class="card">⚠ There were too many orders to read them all, so this list may be short. Set a later start date below.</div>';
   if (noAddr) h += '<div class="card">⚠ ' + noAddr + " without a full address. Check them before printing.</div>";
+  if ((SN.waiting || []).length) h += '<div class="card"><b>Ordered, payment not through yet</b><br>' + SN.waiting.map((w) => esc(w.name || "No name") + " · " + esc(w.order)).join("<br>") + '<br><span class="nt-c">Not counted until it says paid. Add them by hand if you want to send theirs anyway.</span></div>';
+  const lastNames = st.names || {}, notYet = keys.filter((k) => !list.some((p) => p.key === k));
+  if (st.printedAt && notYet.length) h += '<div class="card"><b>On your last labels, no new payment yet: ' + notYet.length + "</b><br>" + notYet.map((k) => esc(lastNames[k] || "Someone")).join(", ") + '<br><span class="nt-c">Normal early in the month, most just haven\'t reached their payment date. Worth a look just before you print.</span></div>';
+  const art = store.get("snart", null), sample = list.find((p) => p.cc !== "GB") || list[0];
+  h += '<div class="card"><b>Art on the labels</b><br>' + (snArtC ? (snArtInk > 0.35 ? '⚠ This is ' + Math.round(snArtInk * 100) + "% black, which can make the Munbyn crawl or stall. A lighter picture is safer.<br>" : "") +
+    '<div class="row btns"><button class="btn raised' + (art.mode === "line" ? " main" : "") + '" data-a="snartmode" data-arg="line">Line art</button><button class="btn raised' + (art.mode === "photo" ? " main" : "") + '" data-a="snartmode" data-arg="photo">Photo dots</button><button class="btn raised" data-a="snartoff">Remove</button></div>' : '<span class="nt-c">Optional. It goes on the right of every label.</span>') +
+    '<div class="row btns"><label class="btn raised">🖼 ' + (snArtC ? "Change picture" : "Add from Photos") + '<input type="file" accept="image/*" style="display:none" onchange="snArtFile(this)"></label></div>' +
+    (sample ? '<b>How a label will look</b><br><img alt="Label preview" src="' + snLabelCanvas(sample).toDataURL("image/png") + '" style="width:100%;max-width:356px;border:1px solid #888;background:#fff;display:block;margin-top:4px">' : "") + "</div>";
   if (fresh.length) h += '<div class="card"><b>' + fresh.length + " new since you printed</b><br>" + fresh.map((p) => esc(p.name) + " · " + esc(snTierCode(p))).join("<br>") +
     '<div class="row btns"><button class="btn raised" data-a="snpdf" data-arg="new">📄 Just their labels</button><button class="btn raised" data-a="sntopup">✅ Sent theirs</button></div></div>';
   h += '<div class="card"><b>What to make</b>' + [1, 2, 3].map((t) => '<div class="row" style="justify-content:space-between"><span>T' + t + " " + esc(SN_TIERS[t]) + "</span><b>" + list.filter((p) => (p.tiers || []).includes(t)).length + "</b></div>").join("") + "</div>";
@@ -2162,22 +2171,44 @@ function winSnail() {
   return h;
 }
 // One 1-bit, 203 dpi image per label. Drawn text so any alphabet prints, and an outlined AIR MAIL box because filled black stalls the thermal printer.
-function snLabelBits(p) {
-  const W = 712, H = 288, PAD = 24, PT = 203 / 72, c = document.createElement("canvas");
+let snArtC = null, snArtInk = 0;
+const SN_ART_MAX = 240;
+async function snArtReady() {                  // turns the saved picture into crisp black and white, ready to draw on labels
+  const a = store.get("snart", null);
+  if (!a || !a.src) { snArtC = null; snArtInk = 0; return; }
+  const im = new Image(); im.src = a.src; await im.decode();
+  const k = Math.min(SN_ART_MAX / im.width, SN_ART_MAX / im.height, 1), w = Math.max(1, Math.round(im.width * k)), h = Math.max(1, Math.round(im.height * k));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d", { willReadFrequently: true }); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h), g = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) g[i] = d.data[i * 4] * 0.3 + d.data[i * 4 + 1] * 0.59 + d.data[i * 4 + 2] * 0.11;
+  let ink = 0;
+  for (let r = 0; r < h; r++) for (let q = 0; q < w; q++) {
+    const i = r * w + q, v = g[i] < 128 ? 0 : 255, e = g[i] - v;
+    if (a.mode === "photo") { if (q + 1 < w) g[i + 1] += e * 7 / 16; if (r + 1 < h) { if (q) g[i + w - 1] += e * 3 / 16; g[i + w] += e * 5 / 16; if (q + 1 < w) g[i + w + 1] += e / 16; } }
+    if (!v) ink++;
+    d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255;
+  }
+  x.putImageData(d, 0, 0); snArtC = c; snArtInk = ink / (w * h);
+}
+function snLabelCanvas(p) {
+  const W = 712, H = 288, PAD = 24, PT = 203 / 72, GAP = 16, c = document.createElement("canvas");
   c.width = W; c.height = H;
   const x = c.getContext("2d", { willReadFrequently: true }), FONT = 'Helvetica, "Helvetica Neue", Arial, sans-serif';
-  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.fillStyle = "#000"; x.strokeStyle = "#000"; x.textBaseline = "top";
+  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.fillStyle = "#000"; x.strokeStyle = "#000"; x.textBaseline = "top"; x.imageSmoothingEnabled = false;
+  const artW = snArtC ? snArtC.width : 0, colW = W - PAD * 2 - (artW ? artW + GAP : 0);
+  if (snArtC) x.drawImage(snArtC, W - PAD - artW, Math.round((H - snArtC.height) / 2));
   let top = PAD; const code = snTierCode(p), codeW = code ? (x.font = "bold " + 7 * PT + "px " + FONT, x.measureText(code).width + 10) : 0;
   if (p.cc !== "GB") {
-    const boxH = 7 * PT + 8, boxW = W - PAD * 2 - codeW;
+    const boxH = 7 * PT + 8, boxW = colW - codeW;
     x.lineWidth = 3; x.strokeRect(PAD, PAD, boxW, boxH);
     x.font = "bold " + 6.5 * PT + "px " + FONT; x.textAlign = "center"; x.fillText("PAR AVION · AIR MAIL", PAD + boxW / 2, PAD + 5); x.textAlign = "left";
     top = PAD + boxH + 8;
   }
-  if (code) { x.font = "bold " + 7 * PT + "px " + FONT; x.textAlign = "right"; x.fillText(code, W - PAD, PAD); x.textAlign = "left"; }
+  if (code) { x.font = "bold " + 7 * PT + "px " + FONT; x.textAlign = "right"; x.fillText(code, PAD + colW, PAD); x.textAlign = "left"; }
   const wrap = (size) => {
     x.font = size * PT + "px " + FONT;
-    const out = [], max = W - PAD * 2 - (top === PAD ? codeW : 0);
+    const out = [], max = colW - (top === PAD ? codeW : 0);
     snLines(p).forEach((line) => {
       let cur = "";
       line.split(/ +/).forEach((w) => { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t; });
@@ -2188,9 +2219,23 @@ function snLabelBits(p) {
   let size = 13, lines = wrap(size);
   while (size > 7 && lines.length * size * PT * 1.24 > H - top - PAD) { size -= 0.5; lines = wrap(size); }
   lines.forEach((l, i) => x.fillText(l, PAD, top + i * size * PT * 1.24));
-  const px = x.getImageData(0, 0, W, H).data, rowB = Math.ceil(W / 8), bits = new Uint8Array(rowB * H);
+  return c;
+}
+function snLabelBits(p) {
+  const c = snLabelCanvas(p), W = c.width, H = c.height;
+  const px = c.getContext("2d").getImageData(0, 0, W, H).data, rowB = Math.ceil(W / 8), bits = new Uint8Array(rowB * H);
   for (let r = 0; r < H; r++) for (let q = 0; q < W; q++) if (px[(r * W + q) * 4] > 150) bits[r * rowB + (q >> 3)] |= 0x80 >> (q & 7);   // 1 = white
   return { W, H, bits };
+}
+async function snArtFile(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  try {
+    const url = URL.createObjectURL(f), im = new Image(); im.src = url; await im.decode();
+    const k = Math.min(600 / im.width, 600 / im.height, 1), c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+    store.set("snart", { src: c.toDataURL("image/jpeg", 0.85), mode: (store.get("snart", {}) || {}).mode || "line" });
+    await snArtReady(); render();
+  } catch (e) { toast("⚠ Couldn't use that picture: " + (e.message || e)); }
 }
 function snPdf(people) {
   const enc = new TextEncoder(), parts = [], offs = []; let pos = 0;
@@ -2227,8 +2272,15 @@ async function snAct(a, arg) {
   if (a === "snrefresh") { SN = null; snErr = ""; render(); return snLoad(); }
   if (!SN) return;
   const list = snPeople(), keys = SN.state.keys || [], fresh = SN.state.printedAt ? list.filter((p) => !keys.includes(p.key)) : [];
-  if (a === "snpdf") return snGiveFile(arg === "new" ? fresh : list, arg === "new" ? "-new" : "");
-  if (a === "snprinted") return dialog("Mark these " + list.length + " as printed?<br><br>Payments from now on count towards your next labels. You can undo this.", [["Mark as printed", () => snSave({ do: "printed", keys: list.map((p) => p.key) }), 1], ["Not yet"]], "💌");
+  if (a === "snpdf") { await snArtReady(); if (arg !== "new") store.set("snpdfkeys", list.map((p) => p.key)); return snGiveFile(arg === "new" ? fresh : list, arg === "new" ? "-new" : ""); }
+  if (a === "snartmode") { const s = store.get("snart", null); if (s) { s.mode = arg; store.set("snart", s); await snArtReady(); render(); } return; }
+  if (a === "snartoff") { store.set("snart", null); await snArtReady(); render(); return; }
+  if (a === "snprinted") {
+    const inFile = store.get("snpdfkeys", null), left = inFile ? list.filter((p) => !inFile.includes(p.key)) : list;
+    const warn = !inFile ? "<b>⚠ You haven't made a labels file for this list yet.</b><br><br>" : left.length ? "<b>⚠ Not in your last labels file: " + left.map((p) => esc(p.name)).join(", ") + ".</b> Make a new file so they get a label.<br><br>" : "";
+    const names = {}; list.forEach((p) => { names[p.key] = p.name; });
+    return dialog(warn + "Mark these " + list.length + " as printed?<br><br>Anything paid after this list was loaded counts towards your next labels. You can undo this.", [["Mark as printed", () => { store.set("snpdfkeys", null); snSave({ do: "printed", at: SN.at, keys: list.map((p) => p.key), names: names }); }, 1], ["Not yet"]], "💌");
+  }
   if (a === "sntopup") return snSave({ do: "topup", keys: fresh.map((p) => p.key), orders: fresh.reduce((o, p) => o.concat(p.orders || []), []) });
   if (a === "snrm") return snSave({ do: "remove", key: arg });
   if (a === "snunrm") return snSave({ do: "unremove", key: arg });
@@ -6025,7 +6077,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
-  else if (["snrefresh", "snpdf", "snprinted", "sntopup", "snrm", "snunrm", "snunadd", "snundo", "snsince", "snadd"].includes(a)) snAct(a, arg);
+  else if (["snrefresh", "snpdf", "snprinted", "sntopup", "snrm", "snunrm", "snunadd", "snundo", "snsince", "snadd", "snartmode", "snartoff"].includes(a)) snAct(a, arg);
   else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab", "blper"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
