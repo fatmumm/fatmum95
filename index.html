@@ -766,6 +766,10 @@ function startPrice(r) {
   const tl = () => { const t = Number(String($("tot").value).replace(/[£,]/g, "")); $("totline").textContent = t > 0 ? (dep ? "£" + dep + " deposit paid, " : "") + money(Math.max(0, t - dep)) + " left to pay" : ""; };
   $("tot").oninput = tl; tl();
 }
+function startNoDate(r) {                       // his exact words, the date stays put until they agree a new one
+  const m = { subject: "Your tattoo date", body: "Hey " + titleCase(r.first) + ",\n\nUnfortunately I can't do this date. Do any other dates work for you? If you just send me a list of dates and times you can do, and I will try work around that with you.\n\nBest,\nAron" };
+  confirmMails("Send \"can't do this date\"?", "", [{ to: r.email, mail: m }], (ms) => { r.notes = (r.notes ? r.notes + " · " : "") + "asked for other dates"; act(r.id, "mail", { kind: "nodate", mail: ms[0] }); });
+}
 function startGone(r) {
   confirmMails("Release the slot and email them?", "Their booking is marked Cancelled" + (r.booked ? " and the calendar event is removed" : "") + ".", [{ to: r.email, mail: fill("gone", r) }], (ms) => act(r.id, "gone", { mail: ms[0] }));
 }
@@ -776,7 +780,7 @@ const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", 
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
-const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "yellow", badge_today: "yellow", badge_inbox: "yellow", badge_todo: "red", badge_bookings: "green", hide: [], bean: false, bean_morning: false, text: "normal" };
+const PREF_DEFAULTS = { hwidget: true, tstrip: true, server: "", badge_admin: "red", badge_today: "red", badge_inbox: "red", badge_todo: "red", badge_bookings: "red", hide: [], bean: false, bean_morning: false, text: "normal" };
 let prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 if (!store.get("beanoff1", false)) { prefs.bean = false; prefs.bean_morning = false; store.set("prefs", prefs); store.set("beanoff1", true); }   // 3 Nov audit: Bean dismissed 18 of 25 times, off unless he turns it back on
 if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones, the rest stay in the Start menu and Settings
@@ -784,6 +788,7 @@ if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones,
   prefs.hide = APPS.map((a) => a[0]).filter((k) => !keep.includes(k)); store.set("prefs", prefs); store.set("iconsv2", 1);
 }
 let seenSeeded = store.get("seenclients1", 0);
+if (!store.get("redbadges1", false)) { Object.keys(prefs).forEach((k) => { if (k.indexOf("badge_") === 0 && prefs[k] !== "off") prefs[k] = "red"; }); store.set("prefs", prefs); store.set("redbadges1", true); }   // 5 Nov: he wants every badge red
 const pref = (k) => prefs[k];
 function setPref(k, v) { prefs[k] = v; store.set("prefs", prefs); document.body.classList.toggle("big", prefs.text === "big"); render(); beanDraw(); }
 const BADGE_COLOURS = { yellow: ["🟡 Yellow", "#ff0", "#000"], red: ["🔴 Red", "#d00000", "#fff"], green: ["🟢 Green", "#008000", "#fff"], blue: ["🔵 Blue", "#000080", "#fff"], off: ["Off (no number)", "", ""] };
@@ -4611,7 +4616,7 @@ function render() {
   if (!stack.length) {
     render.lastKey = null;
     if (document.activeElement && document.activeElement.id === "tswhat") { const el = $("tsel"), r = tRunning(); if (el && r) el.textContent = " · " + tHM(Date.now() - r.s) + " since " + tClock(r.s); return; }
-    $("main").innerHTML = (sheetBroken() ? '<div class="card sunk bad" style="margin-bottom:10px">⚠ Your bookings aren\'t loading. The Read tab in the sheet has an error, so Clients may look empty. Nothing is lost.</div>' : "") + t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "yellow"] || BADGE_COLOURS.yellow; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
+    $("main").innerHTML = (sheetBroken() ? '<div class="card sunk bad" style="margin-bottom:10px">⚠ Your bookings aren\'t loading. The Read tab in the sheet has an error, so Clients may look empty. Nothing is lost.</div>' : "") + t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "red"] || BADGE_COLOURS.red; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "blead" && document.activeElement && /^(blk_|bltag)/.test(document.activeElement.id || "")) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
@@ -4716,6 +4721,7 @@ function winClient(id) {
   h += '<div class="h">Everything for ' + esc(r.first) + "</div>";
   const L = [];
   if (!r.cancelled) {
+    if (r.email && r.iso && !r.paid) L.push(li("🙅", "Can't do this date", /asked for other dates/.test(r.notes || "") ? "✓ sent · again" : "email them", "nodate", r.id));
     if (!r.deposit && !r.paid) L.push(li("📨", "Deposit invoice", r.depInv ? "✓ " + r.depInv + " · again" : r.invIso ? "✓ sent " + shortDay(r.invIso) + " · again" : "send", "step", r.id, "inv"));
     if (!r.deposit && !r.paid && r.invIso) L.push(li("⏳", "Chase the deposit", r.chasedDep ? "✓ chased · again" : "email", "mail", r.id, "chase_deposit"));
     if (!r.deposit && !r.paid) L.push(li("💷", "Deposit paid", "tick", "step", r.id, "dep"));
@@ -5754,6 +5760,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "mail") startMail(r, arg);
   else if (a === "late") startLate(r);
   else if (a === "gone") startGone(r);
+  else if (a === "nodate") startNoDate(r);
   else if (a === "slot") startSlot(r);
   else if (a === "thread") open_("thread", arg);
   else if (a === "inboxrefresh") refreshInbox();
