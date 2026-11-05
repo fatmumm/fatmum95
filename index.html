@@ -314,7 +314,7 @@ const on = (k) => k === "auto_confirm" ? !(O() && O().snapshot && O().snapshot.a
 
 // ── talking to the sheet script ──
 class NetErr extends Error {}               // "no signal": try again later. Anything else is a real answer.
-const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave", "funnelTagsSave", "funnelShopifyBackfill", "funnelTagPerson", "funnelShopKeys"];   // these live only in the office script
+const OFFICE_ONLY = ["deskInbox", "deskThread", "deskReply", "deskSlot", "deskDone", "timeSync", "appRestore", "reviewGet", "deskAct", "funnelGet", "funnelCopySave", "funnelMark", "funnelSpendSave", "funnelTagsSave", "funnelShopifyBackfill", "funnelTagPerson", "funnelShopKeys", "snailGet", "snailSave"];   // these live only in the office script
 function call(fn, ...args) { return callOp(null, fn, ...args); }
 function callOp(op, fn, ...args) {
   if (STANDALONE) {
@@ -776,7 +776,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
-  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["snail", "💌", "Snail mail"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -2118,6 +2118,132 @@ function blEditor() {
     f("thirdSubject", "Subject") + f("thirdBody", "Message", 9) +
     '<div class="row"><button class="btn raised main" data-a="blsave">Save</button><button class="btn raised" data-a="blcancel">Cancel</button><button class="btn raised" data-a="blreset">↺ Original wording</button></div>';
 }
+// ── 💌 Snail mail: how many to print, from who has paid since the last labels. Addresses stay in memory only, never in store. ──
+let SN = null, snBusy = false, snErr = "";
+const SN_TIERS = { 1: "Sticker of the month", 2: "Prompt, sticker & print", 3: "Lazy Caterpillar" };
+const SN_ZIP_FIRST = ["DE", "NL", "CH", "ES", "FR", "IT", "AT", "BE", "DK", "SE", "NO", "FI", "PT", "PL"];
+async function snLoad() {
+  if (snBusy) return;
+  snBusy = true; snErr = "";
+  try { SN = await call("snailGet", KEY); if (!SN || !SN.people) throw new Error((SN && SN.error) || "no data came back"); }
+  catch (e) { SN = null; snErr = e.message || String(e); }
+  finally { snBusy = false; const top = stack[stack.length - 1]; if (top && top.kind === "snail") render(); }
+}
+function snPeople() {
+  const st = SN.state, gone = st.removes || [];
+  const all = SN.people.concat(st.adds || []).filter((p) => !gone.includes(p.key));
+  const name = (a, b) => String(a.name).localeCompare(String(b.name), "en");
+  return all.filter((p) => p.cc === "GB").sort(name).concat(all.filter((p) => p.cc !== "GB").sort(name));   // international prints last
+}
+function snLines(p) {
+  const uk = p.cc === "GB", place = uk ? [p.city, p.zip] : SN_ZIP_FIRST.includes(p.cc) ? [[p.zip, p.city].filter(Boolean).join(" ")] : [[p.city, p.prov, p.zip].filter(Boolean).join(" ")];
+  return [p.name, p.a1, p.a2].concat(place, uk ? [] : [String(p.country || "").toUpperCase()]).map((s) => String(s || "").trim()).filter(Boolean);
+}
+const snTierCode = (p) => (p.tiers || []).map((t) => "T" + t).join("+");
+const snDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+function winSnail() {
+  if (!SN && !snBusy && !snErr) setTimeout(snLoad, 0);
+  if (!SN) return '<div class="card sunk">' + (snErr ? "⚠ " + esc(snErr) + '<br><br><button class="btn raised" data-a="snrefresh">Try again</button>' : "Checking who has paid…") + "</div>";
+  const st = SN.state, list = snPeople(), uk = list.filter((p) => p.cc === "GB").length, keys = st.keys || [];
+  const fresh = st.printedAt ? list.filter((p) => !keys.includes(p.key)) : [];
+  const noAddr = list.filter((p) => !p.a1 || !p.zip).length;
+  let h = '<div class="card" style="text-align:center"><b style="font-size:40px;color:#000080">' + list.length + "</b><br><b>" + (st.printedAt ? "ready for your next labels" : "label" + (list.length === 1 ? "" : "s") + " to print") + "</b><br>" +
+    uk + " UK · " + (list.length - uk) + " international<br><span class=\"nt-c\">Paid since " + esc(snDay(st.since)) + (st.printedAt ? " · " + st.printedN + " printed on " + esc(snDay(st.printedAt)) : "") + "</span></div>";
+  h += '<div class="row btns"><button class="btn raised main" data-a="snpdf" data-arg="all"' + (list.length ? "" : " disabled") + '>📄 Labels file</button><button class="btn raised" data-a="snprinted"' + (list.length ? "" : " disabled") + ">✅ Mark as printed</button></div>";
+  if (noAddr) h += '<div class="card">⚠ ' + noAddr + " without a full address. Check them before printing.</div>";
+  if (fresh.length) h += '<div class="card"><b>' + fresh.length + " new since you printed</b><br>" + fresh.map((p) => esc(p.name) + " · " + esc(snTierCode(p))).join("<br>") +
+    '<div class="row btns"><button class="btn raised" data-a="snpdf" data-arg="new">📄 Just their labels</button><button class="btn raised" data-a="sntopup">✅ Sent theirs</button></div></div>';
+  h += '<div class="card"><b>What to make</b>' + [1, 2, 3].map((t) => '<div class="row" style="justify-content:space-between"><span>T' + t + " " + esc(SN_TIERS[t]) + "</span><b>" + list.filter((p) => (p.tiers || []).includes(t)).length + "</b></div>").join("") + "</div>";
+  h += '<div class="card"><b>Who\'s on the list</b>' + list.map((p) => '<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid #888;padding:5px 0"><span>' + esc(p.name || "No name") + (p.a1 && p.zip ? "" : " ⚠") + '<br><span class="nt-c">' + esc(snTierCode(p) || "No tier") + " · " + (p.added ? "added by you" : "paid " + esc(snDay(p.paid))) + " · " + (p.cc === "GB" ? "UK" : esc(p.cc || "?")) + '</span></span><button class="btn raised" data-a="' + (p.added ? "snunadd" : "snrm") + '" data-arg="' + esc(p.key) + '">Remove</button></div>').join("") + "</div>";
+  const gone = SN.people.filter((p) => (st.removes || []).includes(p.key));
+  if (gone.length) h += '<div class="card"><b>Removed this time</b>' + gone.map((p) => '<div class="row" style="justify-content:space-between;align-items:center"><span>' + esc(p.name) + '</span><button class="btn raised" data-a="snunrm" data-arg="' + esc(p.key) + '">Put back</button></div>').join("") + "</div>";
+  h += '<div class="row btns"><button class="btn raised" data-a="snadd">＋ Add someone</button><button class="btn raised" data-a="snrefresh">↻ Refresh</button>' + (st.canUndo ? '<button class="btn raised" data-a="snundo">↩ Undo last change</button>' : "") + "</div>";
+  h += '<div class="card"><b>Count payments from</b><div class="row"><input id="snsince" type="date" value="' + esc(String(st.since).slice(0, 10)) + '"><button class="btn raised" data-a="snsince">Set</button></div></div>';
+  return h;
+}
+// One 1-bit, 203 dpi image per label. Drawn text so any alphabet prints, and an outlined AIR MAIL box because filled black stalls the thermal printer.
+function snLabelBits(p) {
+  const W = 712, H = 288, PAD = 24, PT = 203 / 72, c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d", { willReadFrequently: true }), FONT = 'Helvetica, "Helvetica Neue", Arial, sans-serif';
+  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.fillStyle = "#000"; x.strokeStyle = "#000"; x.textBaseline = "top";
+  let top = PAD; const code = snTierCode(p), codeW = code ? (x.font = "bold " + 7 * PT + "px " + FONT, x.measureText(code).width + 10) : 0;
+  if (p.cc !== "GB") {
+    const boxH = 7 * PT + 8, boxW = W - PAD * 2 - codeW;
+    x.lineWidth = 3; x.strokeRect(PAD, PAD, boxW, boxH);
+    x.font = "bold " + 6.5 * PT + "px " + FONT; x.textAlign = "center"; x.fillText("PAR AVION · AIR MAIL", PAD + boxW / 2, PAD + 5); x.textAlign = "left";
+    top = PAD + boxH + 8;
+  }
+  if (code) { x.font = "bold " + 7 * PT + "px " + FONT; x.textAlign = "right"; x.fillText(code, W - PAD, PAD); x.textAlign = "left"; }
+  const wrap = (size) => {
+    x.font = size * PT + "px " + FONT;
+    const out = [], max = W - PAD * 2 - (top === PAD ? codeW : 0);
+    snLines(p).forEach((line) => {
+      let cur = "";
+      line.split(/ +/).forEach((w) => { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t; });
+      out.push(cur);
+    });
+    return out;
+  };
+  let size = 13, lines = wrap(size);
+  while (size > 7 && lines.length * size * PT * 1.24 > H - top - PAD) { size -= 0.5; lines = wrap(size); }
+  lines.forEach((l, i) => x.fillText(l, PAD, top + i * size * PT * 1.24));
+  const px = x.getImageData(0, 0, W, H).data, rowB = Math.ceil(W / 8), bits = new Uint8Array(rowB * H);
+  for (let r = 0; r < H; r++) for (let q = 0; q < W; q++) if (px[(r * W + q) * 4] > 150) bits[r * rowB + (q >> 3)] |= 0x80 >> (q & 7);   // 1 = white
+  return { W, H, bits };
+}
+function snPdf(people) {
+  const enc = new TextEncoder(), parts = [], offs = []; let pos = 0;
+  const put = (d) => { const b = typeof d === "string" ? enc.encode(d) : d; parts.push(b); pos += b.length; };
+  const obj = (n, body, stream) => { offs[n] = pos; put(n + " 0 obj\n" + body + "\n"); if (stream) { put("stream\n"); put(stream); put("\nendstream\n"); } put("endobj\n"); };
+  const pw = (89 / 25.4 * 72).toFixed(2), ph = (36 / 25.4 * 72).toFixed(2), n = people.length;
+  put("%PDF-1.4\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Count " + n + " /Kids [" + people.map((_, i) => 3 + i * 3 + " 0 R").join(" ") + "] >>");
+  people.forEach((p, i) => {
+    const b = 3 + i * 3, im = snLabelBits(p), draw = enc.encode("q " + pw + " 0 0 " + ph + " 0 0 cm /L Do Q");
+    obj(b, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + pw + " " + ph + "] /Resources << /XObject << /L " + (b + 2) + " 0 R >> >> /Contents " + (b + 1) + " 0 R >>");
+    obj(b + 1, "<< /Length " + draw.length + " >>", draw);
+    obj(b + 2, "<< /Type /XObject /Subtype /Image /Width " + im.W + " /Height " + im.H + " /ColorSpace /DeviceGray /BitsPerComponent 1 /Length " + im.bits.length + " >>", im.bits);
+  });
+  const total = 3 + n * 3, xref = pos;
+  let t = "xref\n0 " + total + "\n0000000000 65535 f \n";
+  for (let i = 1; i < total; i++) t += String(offs[i]).padStart(10, "0") + " 00000 n \n";
+  put(t + "trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+  return new Blob(parts, { type: "application/pdf" });
+}
+async function snGiveFile(people, tag) {
+  const file = new File([snPdf(people)], "snail-mail-labels-" + todayISO().slice(0, 7) + tag + ".pdf", { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  const a = document.createElement("a"), url = URL.createObjectURL(file);
+  a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function snSave(op) {
+  try { await call("snailSave", KEY, op); SN = null; await snLoad(); }
+  catch (e) { toast("⚠ Didn't save: " + (e.message || e)); }
+}
+async function snAct(a, arg) {
+  if (a === "snrefresh") { SN = null; snErr = ""; render(); return snLoad(); }
+  if (!SN) return;
+  const list = snPeople(), keys = SN.state.keys || [], fresh = SN.state.printedAt ? list.filter((p) => !keys.includes(p.key)) : [];
+  if (a === "snpdf") return snGiveFile(arg === "new" ? fresh : list, arg === "new" ? "-new" : "");
+  if (a === "snprinted") return dialog("Mark these " + list.length + " as printed?<br><br>Payments from now on count towards your next labels. You can undo this.", [["Mark as printed", () => snSave({ do: "printed", keys: list.map((p) => p.key) }), 1], ["Not yet"]], "💌");
+  if (a === "sntopup") return snSave({ do: "topup", keys: fresh.map((p) => p.key), orders: fresh.reduce((o, p) => o.concat(p.orders || []), []) });
+  if (a === "snrm") return snSave({ do: "remove", key: arg });
+  if (a === "snunrm") return snSave({ do: "unremove", key: arg });
+  if (a === "snunadd") return snSave({ do: "unadd", key: arg });
+  if (a === "snundo") return snSave({ do: "undo" });
+  if (a === "snsince") { const v = ($("snsince") || {}).value; if (v) return snSave({ do: "since", since: v + "T00:00:00" }); return; }
+  if (a === "snadd") {
+    const f = (id, l, v) => "<label>" + l + '<input id="' + id + '" class="sunk" value="' + (v || "") + '"></label>';
+    return dialog('<div class="tform">' + f("sna_name", "Name") + f("sna_a1", "Address") + f("sna_a2", "Address line 2") + f("sna_city", "Town or city") + f("sna_zip", "Postcode") + f("sna_country", "Country", "United Kingdom") + f("sna_cc", "Country code", "GB") + f("sna_tier", "Tiers (1, 2 or 3)", "3") + "</div>", [["Add", () => {
+      const g = (id) => ($(id) || {}).value || "", tiers = (g("sna_tier").match(/[123]/g) || []);
+      snSave({ do: "add", person: { name: g("sna_name"), a1: g("sna_a1"), a2: g("sna_a2"), city: g("sna_city"), zip: g("sna_zip"), country: g("sna_country"), cc: g("sna_cc"), tiers: tiers } });
+    }, 1], ["Cancel"]], null, { title: "Add someone" });
+  }
+}
+
 async function blAct(a, arg) {
   if (a === "blrefresh") return blLoad();
   if (a === "blopen") { blOpen = blOpen === arg ? "" : arg; return render(); }
@@ -4653,7 +4779,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
+    snail: winSnail, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5899,6 +6025,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "refopen") { RV = null; open_("ref", Number(arg)); }
   else if (a === "fropen") open_("frefv", arg);
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
+  else if (["snrefresh", "snpdf", "snprinted", "sntopup", "snrm", "snunrm", "snunadd", "snundo", "snsince", "snadd"].includes(a)) snAct(a, arg);
   else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab", "blper"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
