@@ -602,9 +602,25 @@ function mailBox(i, to, m, attach) {
 }
 const NUMBER_NOTE = '<div class="dim" style="margin-top:6px">{number} turns into the real invoice/receipt number when it sends.</div>';
 function readMail(i) { return { subject: $("ms" + i).value.trim(), body: $("mb" + i).value }; }
+function dateProblems(text) {                  // "Mon 3 Nov" when 3 Nov is a Tuesday. A date that doesn't exist should never reach a client
+  const out = [], now = new Date(), MS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  String(text || "").replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/gi, (m, wd, d, mon) => {
+    const mi = MS.indexOf(mon.toLowerCase()); let y = now.getFullYear(); if (mi < now.getMonth() - 2) y++;
+    const real = new Date(y, mi, Number(d)), say = WD.find((w) => w.slice(0, 3).toLowerCase() === wd.toLowerCase());
+    if (real.getMonth() !== mi) out.push(m + " doesn't exist");
+    else if (WD[real.getDay()] !== say) out.push(m + " is really a " + WD[real.getDay()]);
+    return m;
+  });
+  return Array.from(new Set(out));
+}
 function confirmMails(title, intro, mails, send) {
   dialog((intro ? "<div>" + intro + "</div>" : "") + (mails.some((m) => (m.mail.subject + m.mail.body).includes("{number}")) ? NUMBER_NOTE : "") + mails.map((m, i) => (mails.length > 1 ? '<div class="h" style="margin-top:12px">' + esc(m.label) + "</div>" : "") + mailBox(i, m.to, m.mail, m.attach)).join(""),
-    [["Send", () => send(mails.map((m, i) => readMail(i))), 1], ["Cancel"]], null, { title: title || "Are you sure?", topButtons: true });
+    [["Send", () => {
+      const ms = mails.map((m, i) => readMail(i)), bad = dateProblems(ms.map((m) => m.subject + "\n" + m.body).join("\n"));
+      if (!bad.length) return send(ms);
+      const back = mails.map((m, i) => Object.assign({}, m, { mail: Object.assign({}, m.mail, ms[i]) }));
+      dialog("<b>Check the date before sending:</b><br>" + bad.map(esc).join("<br>"), [["Go back", () => { confirmMails(title, intro, back, send); }, 1], ["Send anyway", () => send(ms)]], "📅", { title: "That date looks wrong" });
+    }, 1], ["Cancel"]], null, { title: title || "Are you sure?", topButtons: true });
 }
 
 // ── doing things (the screen updates as soon as the answer lands) ──
@@ -5651,6 +5667,7 @@ function winAuto() {
   let h = '<div class="dim" style="margin-bottom:8px">Tap to switch on or off. Every email you send by tapping shows you the email first.</div><div class="lv sunk">' +
     sw("auto_receipt", "Receipt after payment", "Ticked for you in the Take payment box (phone), sent straight away by D (Mac).") +
     sw("auto_aftercare", "Aftercare after the final payment", "Goes with the receipt when they pay the rest.") +
+    sw("auto_reminder", "Day-before reminder", "Goes automatically after 10am the day before, with the calendar's time.") +
     sw("auto_confirm", "Booking confirmed when the deposit's in", "With their deposit receipt attached. The Mac does it too when you press P.") +
     '<div class="li" style="align-items:flex-start"><span class="ico">💌</span><span class="lab"><b>Nudge me about client emails</b><div class="dim">When a client has been waiting this long for a reply, Bean and Admin tell you.</div>' +
     '<select class="inp" id="rdays" style="margin-top:6px">' + [1, 2, 3, 4, 5, 7].map((n) => '<option value="' + n + '"' + (replyDays() === n ? " selected" : "") + ">after " + n + " day" + (n === 1 ? "" : "s") + "</option>").join("") + "</select></span></div>" +
@@ -6006,7 +6023,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "toggle") {
     const nv = !on(arg);
     if (arg === "auto_confirm") return toast("Booking confirmed is switched on or off on the Mac (Requests, then : for Settings). On the phone you choose each time when you tick a deposit.");
-    ask((nv ? "Turn ON: " : "Turn OFF: ") + ({ auto_receipt: "receipts after payment", auto_aftercare: "aftercare after the final payment", directions: "the directions email", followups: "follow-up reminders in Admin" }[arg]) + "?", async () => {
+    ask((nv ? "Turn ON: " : "Turn OFF: ") + ({ auto_receipt: "receipts after payment", auto_aftercare: "aftercare after the final payment", auto_reminder: "day-before reminders", directions: "the directions email", followups: "follow-up reminders in Admin" }[arg]) + "?", async () => {
       setBusy(1);
       try { setting(arg, nv, "Switch"); } finally { setBusy(-1); }
     });
