@@ -5230,6 +5230,7 @@ function winIdeas() {
   const row = (x) => '<div class="task' + (x.done ? " done" : "") + (ideaOpen === x.id ? " open" : "") + '"><button class="circ' + (x.done ? " done" : "") + '" style="color:#1d3fbf" data-a="ideatick" data-arg="' + esc(x.id) + '" aria-label="tick"></button>' +
     '<div style="flex:1;min-width:0" data-a="ideaopen" data-arg="' + esc(x.id) + '"><div class="tt">' + esc(x.text) + '</div><div class="more"><button class="btn raised small" data-a="ideadel" data-arg="' + esc(x.id) + '">🗑 Delete</button></div></div></div>';
   return '<form id="ideaf" class="sunk" style="padding:8px"><input class="inp" id="ideat" placeholder="An idea to draw" autocomplete="off" enterkeyhint="done"></form>' +
+    '<div class="sunk" style="padding:8px 10px;margin-top:8px"><b>Adventurers observing this universe</b><div class="dim" style="font-size:12px;margin-top:2px">what will they get themselves into this time?</div></div>' +
     (IDEAS.length ? '<div class="lv sunk" style="margin-top:8px">' + open.concat(done).map(row).join("") + "</div>" : "");
 }
 function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
