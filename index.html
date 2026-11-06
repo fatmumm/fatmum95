@@ -5155,8 +5155,22 @@ function taskRow(x, v) {
 function isTattooDay(iso) { const a = O() && O().avail, d = a && a.ok && a.days.find((x) => x.iso === iso); return !!(d && ((d.am && !d.am.free) || (d.pm && !d.pm.free))); }
 let T3PICK = store.get("t3pick", []), EISURG = store.get("eisurg", {});   // the 3 he chose, and to-dos he moved to the other side of urgent
 let T3SEEN = store.get("t3seen", {});          // when each to-do first showed up in Today's 3, so a long-skipped one steps aside
+function t3Heal(v) {                            // a to-do added on the phone swaps its temporary cid for a real id when the Mac syncs: move anything filed under the cid across, so picks aren't forgotten
+  if (!v) return;
+  const ids = {}; v.tasks.forEach((x) => { if (x.id != null && x.cid) ids[x.cid] = String(x.id); });
+  const swap = (k) => ids[k] || k;
+  const p = [...new Set(T3PICK.map(swap))]; if (p.join() !== T3PICK.join()) { T3PICK = p; store.set("t3pick", T3PICK); }
+  [[T3SEEN, "t3seen"], [EISURG, "eisurg"]].forEach(([o, name]) => {
+    let ch = false;
+    Object.keys(o).forEach((k) => { if (ids[k]) { if (!(ids[k] in o)) o[ids[k]] = o[k]; delete o[k]; ch = true; } });
+    if (ch) store.set(name, o);
+  });
+  const d = store.get("t3today", null);
+  if (d && d.ids) { const n = [...new Set(d.ids.map(swap))]; if (n.join() !== d.ids.join()) store.set("t3today", { iso: d.iso, ids: n }); }
+}
 function todayThree(v) {
   if (!v) return { picks: [], rest: [], tattoo: false };
+  t3Heal(v);
   const iso = todayISO(), tattoo = isTattooDay(iso), key = (x) => String(x.id != null ? x.id : x.cid);
   const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)));
   const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
@@ -5177,8 +5191,9 @@ function t3Card() {                            // the home screen card
   let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
   const N = t.tattoo ? 1 : 3, was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
   const mine = (x) => T3PICK.includes(key(x));
-  // crossed-out ones hold their spot, then his picks, then what was already showing, then suggestions
-  let rows = []; was.filter((x) => x.done).concat(t.picks.filter(mine), was, t.picks).forEach((x) => { if (rows.length < N && !rows.includes(x)) rows.push(x); });
+  // crossed-out ones hold their spot, his picks always show, then what was already showing and suggestions fill any room left
+  let rows = was.filter((x) => x.done); t.picks.filter(mine).forEach((x) => { if (!rows.includes(x)) rows.push(x); });
+  was.concat(t.picks).forEach((x) => { if (rows.length < N && !rows.includes(x)) rows.push(x); });
   const at = (x) => { const i = day.ids.indexOf(key(x)); return i < 0 ? 99 : i; }; rows = rows.slice().sort((a, b) => at(a) - at(b));
   const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
@@ -5189,6 +5204,7 @@ function t3Card() {                            // the home screen card
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
+  t3Heal(v);
   const iso = todayISO(), open = v.tasks.filter((x) => !x.done), key = (x) => String(x.id != null ? x.id : x.cid);
   const live = T3PICK.filter((k) => open.some((x) => key(x) === k)).length;
   const row = (x) => { const on = T3PICK.includes(key(x)); return '<div class="row" style="align-items:center;padding:4px 6px;margin:0"><div data-a="eispick" data-arg="' + esc(key(x)) + '" style="flex:1;min-width:0;cursor:pointer">' + (on ? "⭐ <b>" : "☆ ") + esc(x.title) + (on ? "</b>" : "") + (x.due ? ' <span class="dim" style="font-size:12px">' + esc(niceDay(x.due)) + "</span>" : "") + '</div><button class="btn raised" data-a="eismove" data-arg="' + esc(key(x)) + '" aria-label="Move to another box" style="flex:none;width:44px;min-width:0;padding:4px 0">⇄</button></div>'; };
@@ -6035,6 +6051,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "tdel") { const x = findTask(arg); if (x) ask("Delete \"" + x.title + "\"?", () => todoChange(Object.assign({ kind: "delete" }, taskRef(x)))); }
   else if (a === "tick") { const x = findTask(arg); if (x) todoChange(Object.assign({ kind: "tick", done: x.done ? null : todayISO() }, taskRef(x))); }
   else if (a === "eispick") {
+    t3Heal(todoView());
     const open = (todoView() || { tasks: [] }).tasks.filter((x) => !x.done).map((x) => String(x.id != null ? x.id : x.cid));
     T3PICK = T3PICK.filter((k) => open.includes(k));
     if (T3PICK.includes(arg)) T3PICK = T3PICK.filter((k) => k !== arg);
