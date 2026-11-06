@@ -791,7 +791,7 @@ function startGone(r) {
 }
 
 // ── windows ──
-const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
+const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["ideas", "💡", "Ideas"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
   ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["snail", "💌", "Snail mail"], ["posting", "🎬", "Posting"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
@@ -2927,20 +2927,21 @@ function rShowHome() {                          // Friday 3pm to Sunday, for thi
   const d = new Date(), dow = d.getDay();
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
-function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS }; }
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS }; }
 function tApplyBackup(b) {
   TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
   PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
   store.set("tlog", TLOG); store.set("twhat", TWHAT); store.set("tfri", TFRI); store.set("tshorts", TSHORTS); store.set("tbest", TBEST);
   store.set("plans", PLANS); store.set("plantpl", PLANTPL); store.set("links", LINKS);
+  if (b.ideas) { IDEAS = b.ideas; store.set("ideas", IDEAS); }   // an older backup has no ideas, so it leaves the phone's alone
 }
 async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
   let b = null;
   try { b = await call("appRestore", KEY); } catch (e) { if (manual) toast("⚠ Couldn't reach the backup. Try again with signal."); return; }
-  const n = b ? (b.tlog || []).length + (b.plans || []).length + (b.links || []).length + Object.keys(b.tfri || {}).length : 0;
+  const n = b ? (b.tlog || []).length + (b.plans || []).length + (b.links || []).length + (b.ideas || []).length + Object.keys(b.tfri || {}).length : 0;
   if (!n) { if (manual) toast("There's no backup yet. It's made the first time the app syncs your log."); return; }
   const when = new Date(b.at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " " + tClock(b.at);
-  ask("Bring back your time log, plans, links and Friday numbers from " + when + "?", () => { tApplyBackup(b); planFeed(); render(); toast("Back. Everything from " + when + " is restored."); });
+  ask("Bring back your time log, plans, links, ideas and Friday numbers from " + when + "?", () => { tApplyBackup(b); planFeed(); render(); toast("Back. Everything from " + when + " is restored."); });
 }
 failed = failed.filter((x) => x.fn !== "timeSync"); saveBox();     // each sync sends everything, so an old failed one is never needed
 setTimeout(() => tSyncSoon(4000), 3000);
@@ -2977,7 +2978,7 @@ function tSyncSoon(ms) {                     // everything to the "Time log", "F
   tSyncSoon.t = setTimeout(tSyncNow, ms == null ? 120000 : ms);
 }
 function tSyncNow() {
-  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length && !LINKS.length) return;
+  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length && !LINKS.length && !IDEAS.length) return;
   const rows = tPieces(null, null).map((p) => [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], p.what || ""]);
   const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0, TFRI[k].early == null ? "" : TFRI[k].early]);
   const links = LINKS.map((l) => [l.made, l.name, (LSPOTS.find((x) => x[0] === l.spot) || LSPOTS[0])[1].replace(/^\S+\s/, ""), l.campaign, l.url]);
@@ -2999,6 +3000,7 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
 // ── 🔗 Links: paste a link, name it, pick where it goes. It comes back tracked (utm) and logged for later ──
 const LSPOTS = [["bio", "📸 Bio", "instagram", "bio"], ["story", "📱 Story", "instagram", "story"], ["news", "📰 Newsletter", "newsletter", "email"]];
 let LINKS = store.get("links", []), lLast = null;
+let IDEAS = store.get("ideas", []), ideaOpen = null;
 const lSlug = (s) => String(s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 function lBuild(raw, spot, name) {
   let u = String(raw || "").trim();
@@ -4848,7 +4850,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    snail: winSnail, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
+    snail: winSnail, ideas: winIdeas, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5212,6 +5214,23 @@ function winEis() {                             // the Eisenhower Matrix: pick t
   return '<div class="card sunk"><b>' + live + " of 3 chosen.</b> " + (winEis.full ? "You've got 3. Unstar one first." : "Tap a to-do to star it. Tap ⇄ if it's in the wrong box. Any empty spots get a suggestion.") + "</div>" +
     box("🔥 Do first", "Urgent and important", true, true) + box("📅 Plan it", "Important, not urgent", false, true) +
     box("🤝 Quick or hand off", "Urgent, not important", true, false) + box("🗑 Maybe drop", "Not urgent, not important", false, false);
+}
+// ── 💡 Ideas: things to draw. A box, then the list. Ticked ones cross out and sink to the bottom ──
+function ideasSave() { store.set("ideas", IDEAS); tSyncSoon(3000); render(); }
+function addIdea() {
+  const el = $("ideat"), t = el.value.trim();
+  if (!t) { el.focus(); return; }
+  el.value = "";
+  IDEAS.unshift({ id: nId("i"), text: t, at: Date.now(), done: null });
+  ideasSave();
+  if ($("ideat")) $("ideat").focus();
+}
+function winIdeas() {
+  const open = IDEAS.filter((x) => !x.done), done = IDEAS.filter((x) => x.done).sort((a, b) => a.done - b.done);
+  const row = (x) => '<div class="task' + (x.done ? " done" : "") + (ideaOpen === x.id ? " open" : "") + '"><button class="circ' + (x.done ? " done" : "") + '" style="color:#1d3fbf" data-a="ideatick" data-arg="' + esc(x.id) + '" aria-label="tick"></button>' +
+    '<div style="flex:1;min-width:0" data-a="ideaopen" data-arg="' + esc(x.id) + '"><div class="tt">' + esc(x.text) + '</div><div class="more"><button class="btn raised small" data-a="ideadel" data-arg="' + esc(x.id) + '">🗑 Delete</button></div></div></div>';
+  return '<form id="ideaf" class="sunk" style="padding:8px"><input class="inp" id="ideat" placeholder="An idea to draw" autocomplete="off" enterkeyhint="done"></form>' +
+    (IDEAS.length ? '<div class="lv sunk" style="margin-top:8px">' + open.concat(done).map(row).join("") + "</div>" : "");
 }
 function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
 function winTodo() {
@@ -5950,6 +5969,7 @@ const beanLetGo = () => { if (pressT && pressT !== "long") clearTimeout(pressT);
 // ── taps ──
 document.addEventListener("submit", (e) => {
   if (e.target.id === "addf") { e.preventDefault(); addTodo(false); }
+  if (e.target.id === "ideaf") { e.preventDefault(); addIdea(); }
 });
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("[data-a]"); if (!t || t.closest("#dlg")) return;
@@ -6050,6 +6070,9 @@ document.addEventListener("click", async (e) => {
   else if (a === "addtoday") addTodo(true);
   else if (a === "tdel") { const x = findTask(arg); if (x) ask("Delete \"" + x.title + "\"?", () => todoChange(Object.assign({ kind: "delete" }, taskRef(x)))); }
   else if (a === "tick") { const x = findTask(arg); if (x) todoChange(Object.assign({ kind: "tick", done: x.done ? null : todayISO() }, taskRef(x))); }
+  else if (a === "ideatick") { const x = IDEAS.find((i) => i.id === arg); if (x) { x.done = x.done ? null : Date.now(); ideasSave(); } }
+  else if (a === "ideaopen") { ideaOpen = ideaOpen === arg ? null : arg; render(); }
+  else if (a === "ideadel") { const x = IDEAS.find((i) => i.id === arg); if (x) ask("Delete \"" + x.text + "\"?", () => { IDEAS = IDEAS.filter((i) => i !== x); ideasSave(); }); }
   else if (a === "eispick") {
     t3Heal(todoView());
     const open = (todoView() || { tasks: [] }).tasks.filter((x) => !x.done).map((x) => String(x.id != null ? x.id : x.cid));
