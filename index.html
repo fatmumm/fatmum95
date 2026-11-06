@@ -2945,7 +2945,7 @@ async function tRestore(manual) {              // phone storage gone (new instal
 }
 failed = failed.filter((x) => x.fn !== "timeSync"); saveBox();     // each sync sends everything, so an old failed one is never needed
 setTimeout(() => tSyncSoon(4000), 3000);
-document.addEventListener("visibilitychange", () => { if (document.hidden && (TLOG.length || PLANS.length || LINKS.length)) { clearTimeout(tSyncSoon.t); tSyncNow(); } });
+document.addEventListener("visibilitychange", () => { if (document.hidden && (TLOG.length || PLANS.length || LINKS.length || IDEAS.length)) { clearTimeout(tSyncSoon.t); tSyncNow(); } });
 setTimeout(() => {
   const empty = !TLOG.length && !LINKS.length && !Object.keys(TFRI).length && !PLANS.filter((p) => !p.auto).length;
   if (empty && KEY && !store.get("trestask", 0)) { store.set("trestask", 1); tRestore(false); }
@@ -3000,7 +3000,7 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
 // ── 🔗 Links: paste a link, name it, pick where it goes. It comes back tracked (utm) and logged for later ──
 const LSPOTS = [["bio", "📸 Bio", "instagram", "bio"], ["story", "📱 Story", "instagram", "story"], ["news", "📰 Newsletter", "newsletter", "email"]];
 let LINKS = store.get("links", []), lLast = null;
-let IDEAS = store.get("ideas", []), ideaOpen = null;
+let IDEAS = store.get("ideas", []);
 const lSlug = (s) => String(s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 function lBuild(raw, spot, name) {
   let u = String(raw || "").trim();
@@ -4779,6 +4779,7 @@ function useFeedback(type) {                   // 🙄 / 💡: one box, optional
 
 function winTitle(w) {
   if (w.kind === "eis") return "Choose my 3";
+  if (w.kind === "idea") return "Idea";
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
   if (w.kind === "photo") return "Photo";
   if (w.kind === "outbox") return "Outbox";
@@ -4850,7 +4851,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    snail: winSnail, ideas: winIdeas, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
+    snail: winSnail, ideas: winIdeas, idea: winIdea, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5227,12 +5228,27 @@ function addIdea() {
 }
 function winIdeas() {
   const open = IDEAS.filter((x) => !x.done), done = IDEAS.filter((x) => x.done).sort((a, b) => a.done - b.done);
-  const row = (x) => '<div class="task' + (x.done ? " done" : "") + (ideaOpen === x.id ? " open" : "") + '"><button class="circ' + (x.done ? " done" : "") + '" style="color:#1d3fbf" data-a="ideatick" data-arg="' + esc(x.id) + '" aria-label="tick"></button>' +
-    '<div style="flex:1;min-width:0" data-a="ideaopen" data-arg="' + esc(x.id) + '"><div class="tt">' + esc(x.text) + '</div><div class="more"><button class="btn raised small" data-a="ideadel" data-arg="' + esc(x.id) + '">🗑 Delete</button></div></div></div>';
+  const row = (x) => '<div class="task' + (x.done ? " done" : "") + '"><button class="circ' + (x.done ? " done" : "") + '" style="color:#1d3fbf" data-a="ideatick" data-arg="' + esc(x.id) + '" aria-label="tick"></button>' +
+    '<div style="flex:1;min-width:0;cursor:pointer" data-a="ideaopen" data-arg="' + esc(x.id) + '"><div class="tt">' + esc(x.text) + (String(x.notes || "").trim() ? " 📝" : "") + "</div></div></div>";
   return '<form id="ideaf" class="sunk" style="padding:8px"><input class="inp" id="ideat" placeholder="An idea to draw" autocomplete="off" enterkeyhint="done"></form>' +
     '<div class="sunk" style="padding:8px 10px;margin-top:8px"><b>Adventurers observing this universe</b><div class="dim" style="font-size:12px;margin-top:2px">what will they get themselves into this time?</div></div>' +
     (IDEAS.length ? '<div class="lv sunk" style="margin-top:8px">' + open.concat(done).map(row).join("") + "</div>" : "");
 }
+function winIdea(id) {                          // one idea's own page: its words, then notes to expand on it. Saves as you type
+  const x = IDEAS.find((i) => i.id === id);
+  if (!x) return '<div class="card sunk">This idea has gone.</div>';
+  return '<div class="sunk" style="padding:8px"><input class="inp" id="ideaname" value="' + esc(x.text) + '" autocomplete="off" enterkeyhint="done"></div>' +
+    '<label class="field">Notes</label><textarea class="inp" id="ideanotes" style="height:260px">' + esc(x.notes || "") + "</textarea>" +
+    '<div class="row btns" style="margin-top:8px"><button class="btn raised small" data-a="ideadel" data-arg="' + esc(x.id) + '">🗑 Delete</button></div>';
+}
+document.addEventListener("input", (e) => {     // no redraw here, so typing is never interrupted
+  const id = e.target.id, w = stack[stack.length - 1];
+  if ((id !== "ideaname" && id !== "ideanotes") || !w || w.kind !== "idea") return;
+  const x = IDEAS.find((i) => i.id === w.arg); if (!x) return;
+  if (id === "ideanotes") x.notes = e.target.value;
+  else if (e.target.value.trim()) x.text = e.target.value.trim();   // cleared by accident? It keeps its last words
+  store.set("ideas", IDEAS); tSyncSoon(3000);
+});
 function winReview() { return typeof rCard === "function" ? rCard(true) : ""; }
 function winTodo() {
   const v = todoView();
@@ -6072,8 +6088,8 @@ document.addEventListener("click", async (e) => {
   else if (a === "tdel") { const x = findTask(arg); if (x) ask("Delete \"" + x.title + "\"?", () => todoChange(Object.assign({ kind: "delete" }, taskRef(x)))); }
   else if (a === "tick") { const x = findTask(arg); if (x) todoChange(Object.assign({ kind: "tick", done: x.done ? null : todayISO() }, taskRef(x))); }
   else if (a === "ideatick") { const x = IDEAS.find((i) => i.id === arg); if (x) { x.done = x.done ? null : Date.now(); ideasSave(); } }
-  else if (a === "ideaopen") { ideaOpen = ideaOpen === arg ? null : arg; render(); }
-  else if (a === "ideadel") { const x = IDEAS.find((i) => i.id === arg); if (x) ask("Delete \"" + x.text + "\"?", () => { IDEAS = IDEAS.filter((i) => i !== x); ideasSave(); }); }
+  else if (a === "ideaopen") open_("idea", arg);
+  else if (a === "ideadel") { const x = IDEAS.find((i) => i.id === arg); if (x) ask("Delete \"" + x.text + "\"?", () => { IDEAS = IDEAS.filter((i) => i !== x); store.set("ideas", IDEAS); tSyncSoon(3000); back(); }); }
   else if (a === "eispick") {
     t3Heal(todoView());
     const open = (todoView() || { tasks: [] }).tasks.filter((x) => !x.done).map((x) => String(x.id != null ? x.id : x.cid));
