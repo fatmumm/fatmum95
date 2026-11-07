@@ -5097,7 +5097,7 @@ function winCal() {
   const [y, m] = calM.split("-").map(Number);
   const first = new Date(y, m - 1, 1), start = addDays(isoOf(first), -((first.getDay() + 6) % 7));
   const av = {}; ((O() && O().avail && O().avail.days) || []).forEach((a) => { av[a.iso] = a; });
-  const byDay = {}; live().forEach((r) => { if (r.iso) (byDay[r.iso] = byDay[r.iso] || []).push(r); });
+  const byDay = {}; live().forEach((r) => { if (r.iso && r.deposit) (byDay[r.iso] = byDay[r.iso] || []).push(r); });   // only people who've paid their deposit
   const tv = todoView(), tasksBy = {};
   if (tv) tv.tasks.forEach((x) => { if (x.due && !x.done) (tasksBy[x.due] = tasksBy[x.due] || []).push(x); });
   const st = streaks();
@@ -5245,7 +5245,7 @@ const JOBS = {
   social: { e: "🎬", l: "Socials + admin", hint: "How I draw video, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
   off: { e: "🛋", l: "Day off", hint: "Nothing planned. Have a proper rest.", tags: [] } };
 function dayJob(iso) {                         // a real booking makes any day a tattoo day, an empty Mon or Sun becomes a drawing day
-  if (isTattooDay(iso) || (D && live().some((r) => r.iso === iso))) return "tattoo";
+  if (isTattooDay(iso) || (D && live().some((r) => r.iso === iso && r.deposit))) return "tattoo";   // a booking counts once the deposit's paid
   const j = DAY_JOBS[new Date(iso + "T12:00").getDay()];
   return j === "tattoo" ? "draw" : j;
 }
