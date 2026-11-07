@@ -2015,6 +2015,15 @@ async function blLoad() {
 const blSrc = (s) => { s = String(s || "").toLowerCase(); return /^(meta|fb|ig-ad|fb-ad)/.test(s) ? "Meta ad" : /^(ig|instagram|story|bio)/.test(s) ? "Instagram" : !s || s === "landing" ? "Straight to the page" : s; };
 const blPct = (a, b) => b ? Math.round(a * 100 / b) + "%" : "–";
 const blMoney = (n) => "£" + (Math.round(n * 100) / 100).toFixed(2);
+const blN = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+const BL_SPEND_BASE = 83.34;                       // Meta spend when visit counting began, so cost per visit only uses spend since then
+function blSources(real) {                         // per source: visits, sign-ups since visits began, requests, deposits, money
+  const V = (BL && BL.visits) || {}, g = {}, of = (k) => (g[k] = g[k] || { v: 0, from: "", s: 0, n: 0, b: 0, d: 0, m: 0 });
+  Object.keys(V).filter((k) => !/^test/.test(k)).forEach((k) => { const x = of(blSrc(k)), f = V[k].first || ""; x.v += Number(V[k].n) || 0; if (f && (!x.from || f < x.from)) x.from = f; });
+  real.forEach((r) => { const x = of(blSrc(r.src)); x.n++; if (r.booked) x.b++; if (x.from && new Date(r.when) >= new Date(x.from)) x.s++; });
+  live().filter((c) => !c.test && c.deposit).forEach((c) => { const z = zipOf(c); if (z && zipBefore(c, z)) { const x = of(blSrc(z.src)); x.d++; x.m += Number(c.price) || 0; } });
+  return g;
+}
 function winBlead() {
   if (!blBusy && (!BL || Date.now() - (winBlead.at || 0) > 30000)) { winBlead.at = Date.now(); setTimeout(blLoad, 0); }   // fresh on open and every 30s while open
   if (!BL || !BL.rows) return '<div class="card sunk">' + (blErr ? "⚠ " + esc(blErr) : "Loading…") + "</div>";
@@ -2057,6 +2066,11 @@ function winBlead() {
     const c0 = cnt(0), c1 = cnt(1), vp = (a, b) => a + ' <span class="nt-c">(' + (a > b ? "▲" : a < b ? "▼" : "same as") + " " + b + " " + PL[1] + ")</span>";
     h += '<div class="card"><div class="rf-chips" style="flex-wrap:wrap;overflow:visible">' + [["day", "Day"], ["week", "Week"], ["month", "Month"]].map(([k, l]) => frChip("blper", k, l, per === k)).join("") + "</div>" +
       "<b>" + PL[0] + "</b><br>Sign-ups: " + vp(c0.s, c1.s) + "<br>Zip downloads: " + vp(c0.z, c1.z) + "<br>Join page: " + vp(c0.j, c1.j) + "</div>";
+    const gs = blSources(real), anyV = Object.keys(gs).some((k) => gs[k].v);
+    h += '<div class="card"><b>Where it\'s working</b>' + Object.keys(gs).sort((a, b) => gs[b].v - gs[a].v || gs[b].n - gs[a].n).map((k) => { const x = gs[k];
+      return '<div style="margin:6px 0"><b>' + esc(k) + "</b><br>" + (x.v ? blN(x.v, "visit") + ", " + blN(x.s, "sign-up") + " (" + blPct(x.s, x.v) + ")<br>" : "") +
+        '<span class="nt-c">All time: ' + blN(x.n, "sign-up") + ", " + blN(x.b, "request") + ", " + blN(x.d, "deposit") + ", " + blMoney(x.m) + " booked</span></div>"; }).join("") +
+      '<span class="nt-c">' + (anyV ? "Visits are counted once per browser session, so these are rough." : "Visit counts start once the page update is live.") + "</span></div>";
     const fu = real.filter((r) => r.follow).length, e3 = real.filter((r) => r.third).length, due = real.filter((r) => r.zip && !r.follow && !r.booked).length;
     h += '<div class="card"><b>Follow-up emails</b><br>Sent: <b>' + fu + "</b>" + (e3 ? " · email 3 sent: <b>" + e3 + "</b>" : "") + '<br><span class="nt-c">' + due + " still to get one (day 3, unless they book first)</span></div>";
     if (real.length) {
@@ -2091,6 +2105,10 @@ function winBlead() {
     h += '<div class="card"><b>Meta ad</b><div class="row"><span>Spent £</span><input id="blspend" type="number" step="0.01" value="' + (spend || "") + '" style="width:90px"><button class="btn raised" data-a="blspend">Save</button></div>' +
     (spend ? "Cost per sign-up: <b>" + (m.n ? blMoney(spend / m.n) : "–") + "</b> · Cost per booking: <b>" + (m.b ? blMoney(spend / m.b) : "none yet") + "</b>" : '<span class="nt-c">Type what you\'ve spent so far to see cost per lead.</span>') + "</div>";
     h += '<div class="card">Meta sign-ups: <b>' + m.n + "</b> · booked: <b>" + m.b + "</b> · last 14 days: <b>" + days.reduce((t, d) => t + d[3], 0) + "</b></div>";
+    const mg = blSources(real)["Meta ad"] || { v: 0, m: 0 }, since = spend - BL_SPEND_BASE, mDays = real.filter((r) => blSrc(r.src) === "Meta ad" && r.booked && r.bookedAt).map((r) => (new Date(r.bookedAt) - new Date(r.when)) / day);
+    h += '<div class="card">Booked from Meta: <b>' + blMoney(mg.m) + "</b> against <b>" + blMoney(spend) + "</b> spent" +
+      (mg.v && since > 0 ? "<br>Cost per visit: <b>" + blMoney(since / mg.v) + "</b>" : "") +
+      (mDays.length ? "<br>Average sign-up to booking: <b>" + Math.round(mDays.reduce((t, d) => t + d, 0) / mDays.length) + (Math.round(mDays.reduce((t, d) => t + d, 0) / mDays.length) === 1 ? " day</b>" : " days</b>") : "") + "</div>";
     const mNews = real.filter((r) => blSrc(r.src) === "Meta ad" && r.ticked).length;
     h += '<div class="card"><b>Newsletter from Meta</b><br><b style="font-size:22px;color:#000080">' + blPct(mNews, m.n) + "</b> signed up: <b>" + mNews + "</b> of " + m.n + ' Meta people<br><span class="nt-c">Counts everyone who ticked the updates box on the form.</span></div>';
   }
@@ -3150,15 +3168,15 @@ const PLAN_TPL = {
     [-3, "Reveal price and date, last call for Earlybird"], [-2, "Stories countdown + Earlybird email: tomorrow 7pm"],
     [-1, "Earlybird early access opens 7pm (final checks first)"], [0, "Public drop 7pm: email, IG post + stories"],
     [1, "Pack and post orders + sizes-left story"], [3, "72-hour check: all 15 sold?"]] },
-  snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Design sticker"], [-18, "Sketchbook spread"], [-14, "Write the essay / letter"],
-    [-12, "Introduction print"], [-10, "Make prints"], [-8, "Make postcards"], [-5, "Roster check + print labels"], [-3, "Pack envelopes"],
-    [-2, "Post international"], [0, "Post UK"]] }};
+  snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Design sticker"], [-21, "Sketchbook spread"], [-14, "Write the letter"],
+    [-14, "Introduction print"], [-14, "Print stickers"], [-7, "Make prints"], [-7, "Make postcards"], [-7, "Stock check: envelopes, sleeves, stamps"],
+    [-7, "Roster check + print labels"], [0, "Pack envelopes"], [0, "Post international"], [0, "Post UK"]] }};
 const PLAN_AHEAD = 7;                          // days before a step is due that it lands in To-do
 let PLANS = store.get("plans", []), PLANTPL = store.get("plantpl", {}), pDraft = null;
 const pSave = () => { store.set("plans", PLANS); store.set("plantpl", PLANTPL); tSyncSoon(); };
 const pTpl = (k) => Object.assign({}, PLAN_TPL[k], PLANTPL[k] ? { steps: PLANTPL[k] } : {});
 const pFind = (id) => PLANS.find((p) => p.id === id);
-const sDate = (p, s) => addDays(p.date, s.off);
+const sDate = (p, s) => p.tpl === "snail" ? smThuBefore(addDays(p.date, s.off)) : addDays(p.date, s.off);   // snail mail work always lands on a Thursday
 const pNice = (iso) => new Date(iso + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 function sTask(s) { const v = (s.cid || s.task != null) && todoView(); return v ? v.tasks.find((x) => (s.cid && x.cid === s.cid) || (s.task != null && x.id === s.task)) : null; }
 function sDone(s) { const t = sTask(s); return t ? !!t.done : !!s.done; }
@@ -3232,9 +3250,28 @@ function winPlan(arg) {
     (!draft ? '<div class="row btns"><button class="btn raised" data-a="psavetpl" data-arg="' + p.id + '">Save as my ' + esc(t.label) + " steps</button>" + (p.tpl !== "snail" ? '<button class="btn raised" data-a="pdel" data-arg="' + p.id + '">Delete plan</button>' : "") + "</div>" : "") +
     '<div class="nt-hint">Steps follow this schedule and land in ✅ To-do ' + PLAN_AHEAD + " days before they're due, never on a tattoo day. Tap a step to rename or move it, then Save as my steps to change future ones.</div></div>";
 }
-const SM_DAY = 1;                              // snail mail goes out on the 1st of every month
+function smLastThu(iso) { const d = new Date(iso + "T12:00"); d.setMonth(d.getMonth() + 1, 0); while (d.getDay() !== 4) d.setDate(d.getDate() - 1); return isoOf(d); }   // snail mail goes out on the last Thursday of the month
+function smThuBefore(iso) { const d = new Date(iso + "T12:00"); while (d.getDay() !== 4) d.setDate(d.getDate() - 1); return isoOf(d); }
+function smThuAfter(iso) { const d = new Date(iso + "T12:00"); while (d.getDay() !== 4) d.setDate(d.getDate() + 1); return isoOf(d); }
+function smMigrateEOM() {                      // once: posting moved from the 1st to the last Thursday of the month
+  if (store.get("sm_eom", 0)) return false;
+  const cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), v = todoView();
+  if (cur && !v) return false;                 // wait for the to-do list, the linked to-dos need moving
+  store.set("sm_eom", 1);
+  if (!cur || !/-01$/.test(cur.date) || cur.steps.some((s) => s.done && !s.auto)) return false;   // already started this month: leave it alone
+  const date = smLastThu(addDays(cur.date, -1)), first = smThuAfter(todayISO()), fresh = smCycle(date, false);
+  fresh.steps.forEach((s) => {
+    if (addDays(date, s.off) < first) { s.off = Math.round((new Date(first + "T12:00") - new Date(date + "T12:00")) / 864e5); s.done = null; delete s.auto; }   // nothing lands in the past
+    const key = SM_LINK.find((m) => m[0].test(s.text)), old = key && cur.steps.find((o) => (o.task != null || o.cid) && !o.took && key[0].test(o.text));
+    if (old) { if (old.task != null) s.task = old.task; s.cid = old.cid || null; old.took = 1; }   // his linked to-dos come along
+  });
+  cur.date = date; cur.steps = fresh.steps;
+  cur.steps.forEach((s) => { const t = sTask(s); if (t && !t.done) todoChange(Object.assign({ kind: "due", due: sDate(cur, s) }, taskRef(t))); });
+  pSave();
+  return true;
+}
 const SM_LINK = [[/sticker/i, "sticker"], [/spread/i, "spread"], [/essay|letter/i, "essay"], [/intro/i, "intro"], [/\bprints?\b/i, "prints"], [/postcard/i, "postcards"]];
-function smNext(after) { const d = new Date(after + "T12:00"); if (d.getDate() > SM_DAY) d.setMonth(d.getMonth() + 1); d.setDate(SM_DAY); return isoOf(d); }
+function smNext(after) { const x = smLastThu(after); return after > x ? smLastThu(addDays(x, 7)) : x; }
 function smCycle(date, link) {
   const t = pTpl("snail"), today = todayISO(), v = link && todoView();
   const used = new Set();
@@ -3245,11 +3282,11 @@ function smCycle(date, link) {
     if (old) { s.task = old.id; used.add(old.id); }                                   // his existing to-do stands in for this step
     else if (addDays(date, s.off) < today) { s.done = today; s.auto = true; }
   });
-  return { id: nId("p"), tpl: "snail", name: "Snail mail " + new Date(date + "T12:00").toLocaleDateString("en-GB", { month: "short" }), date: date, steps: steps, made: today, finished: null, auto: true };
+  return { id: nId("p"), tpl: "snail", name: "Snail mail " + new Date(addDays(date, 7) + "T12:00").toLocaleDateString("en-GB", { month: "short" }), date: date, steps: steps, made: today, finished: null, auto: true };
 }
 function pSnailEnsure() {                      // always one snail mail plan running, rolling over to the next 1st once posting day has passed
-  const today = todayISO();
-  let cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), changed = false;
+  const today = todayISO(), mig = smMigrateEOM();
+  let cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), changed = mig;
   if (cur && today > cur.date) { cur.finished = today; const next = smCycle(smNext(addDays(cur.date, 1)), false); PLANS.push(next); cur = next; changed = true; }
   if (!cur) { if (!todoView()) return false; PLANS.push(smCycle(smNext(today), true)); changed = true; }
   if (changed) pSave();
@@ -5156,6 +5193,47 @@ function taskRow(x, v) {
 }
 // ── ✅ Today's 3: the to-do list picks at most 3 for today (1 on a tattoo day). Nothing is deleted, the rest waits below ──
 function isTattooDay(iso) { const a = O() && O().avail, d = a && a.ok && a.days.find((x) => x.iso === iso); return !!(d && ((d.am && !d.am.free) || (d.pm && !d.pm.free))); }
+// ── the week: one main job a day. Mon and Sun are tattoo days only when something's booked
+const DAY_JOBS = ["tattoo", "tattoo", "draw", "draw", "snail", "social", "off"];   // Sun..Sat
+const JOBS = {
+  tattoo: { e: "🖋", l: "Tattoo day", hint: "Just one thing, if you have energy.", tags: [] },
+  draw: { e: "✏️", l: "Draw", hint: "Sketchbook. Move anything that's ready into flash.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
+  snail: { e: "💌", l: "Snail mail", hint: "Snail mail first. Trad in the afternoon.", tags: ["snail", "sm", "sticker", "stock", "pack", "postcard", "envelope", "print"] },
+  social: { e: "🎬", l: "Socials + admin", hint: "How I draw video, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
+  off: { e: "🛋", l: "Day off", hint: "Nothing planned. Have a proper rest.", tags: [] } };
+function dayJob(iso) {                         // a real booking makes any day a tattoo day, an empty Mon or Sun becomes a drawing day
+  if (isTattooDay(iso) || (D && live().some((r) => r.iso === iso))) return "tattoo";
+  const j = DAY_JOBS[new Date(iso + "T12:00").getDay()];
+  return j === "tattoo" ? "draw" : j;
+}
+function taskJob(x, v) {                       // which day a to-do belongs to, from its words, #tags and project. null = any day
+  const pr = v && x.project != null && (v.projects || []).find((q) => q.id === x.project);
+  const s = " " + String(x.title || "").toLowerCase() + " " + (pr ? String(pr.name || "").toLowerCase() : "") + " ";
+  return ["snail", "social", "draw"].find((j) => JOBS[j].tags.some((t) => new RegExp("[^a-z]#?" + t + "s?[^a-z]").test(s))) || null;
+}
+function nextDayFor(x, v) {                    // the next day whose job suits this to-do. Any-day ones skip days off and tattoo days
+  const j = taskJob(x, v), iso = todayISO();
+  for (let i = 1; i <= 14; i++) { const d = addDays(iso, i), dj = dayJob(d); if (j ? dj === j : dj !== "off" && dj !== "tattoo") return d; }
+  return addDays(iso, 1);
+}
+function t3MakeRoom(cid) {                     // a must-do for today on a full day: ask before moving anything
+  const v = todoView(); if (!v) return;
+  const iso = todayISO(), t = todayThree(v), key = (x) => String(x.id != null ? x.id : x.cid), day = store.get("t3today", null);
+  const pin = () => { if (!T3PICK.includes(cid)) { T3PICK.push(cid); store.set("t3pick", T3PICK); } render(); };
+  if (!t.n) return pin();                      // a day off: it shows, nothing else does
+  const ids = day && day.iso === iso ? day.ids : [];
+  const shown = ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && !x.done && key(x) !== cid);
+  const pl = store.get("t3plus", null), cap = t.n + (pl && pl.iso === iso ? pl.n : 0);
+  if (shown.length < cap) return;              // there's room, it'll show by itself
+  const r = (x) => { const i = t.picks.indexOf(x); return i < 0 ? 99 : i; };
+  const mv = shown.filter((x) => !T3PICK.includes(key(x))).sort((a, b) => imp(b) - imp(a) || r(a) - r(b)).pop();   // least important, then lowest ranked
+  if (!mv) return pin();                       // all his own picks: never moved
+  const to = nextDayFor(mv, v);
+  dialog("<b>Today's full.</b><br>Move <b>" + esc(mv.title) + "</b> to " + esc(niceDay(to)) + "?",
+    [["Move it", () => { todoChange(Object.assign({ kind: "due", due: to }, taskRef(mv))); store.set("t3today", { iso: iso, ids: ids.filter((k) => k !== key(mv)) }); pin(); }, 1],
+     ["Keep both", () => { store.set("t3plus", { iso: iso, n: cap - t.n + 1 }); pin(); }]], "📅");
+  return true;                                 // a question is showing, so no "Added" box on top of it
+}
 let T3PICK = store.get("t3pick", []), EISURG = store.get("eisurg", {});   // the 3 he chose, and to-dos he moved to the other side of urgent
 let T3SEEN = store.get("t3seen", {});          // when each to-do first showed up in Today's 3, so a long-skipped one steps aside
 function t3Heal(v) {                            // a to-do added on the phone swaps its temporary cid for a real id when the Mac syncs: move anything filed under the cid across, so picks aren't forgotten
@@ -5172,19 +5250,20 @@ function t3Heal(v) {                            // a to-do added on the phone sw
   if (d && d.ids) { const n = [...new Set(d.ids.map(swap))]; if (n.join() !== d.ids.join()) store.set("t3today", { iso: d.iso, ids: n }); }
 }
 function todayThree(v) {
-  if (!v) return { picks: [], rest: [], tattoo: false };
+  if (!v) return { picks: [], rest: [], tattoo: false, n: 3, job: "", jobE: "", jobL: "", jobH: "" };
   t3Heal(v);
-  const iso = todayISO(), tattoo = isTattooDay(iso), key = (x) => String(x.id != null ? x.id : x.cid);
-  const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)));
+  const iso = todayISO(), job = dayJob(iso), J = JOBS[job], tattoo = job === "tattoo", key = (x) => String(x.id != null ? x.id : x.cid);
+  const fits = (x) => { const tj = taskJob(x, v); return !tj || tj === job || (x.due && x.due <= iso) || imp(x) >= 5; };   // another day's job waits for its day, unless it's due or !5
+  const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)) && fits(x));
   const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
-  const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000;   // overdue, today, then soonest, and !5 jumps ahead
+  const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === job ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
   const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
-  const n = tattoo ? 1 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);   // his own picks always come first
-  const picks = chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n);
+  const n = tattoo ? 1 : job === "off" ? 0 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);   // his own picks always come first
+  const picks = n ? chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n) : chosen;   // a day off only shows his own picks
   let ch = false; picks.forEach((x) => { if (!T3SEEN[key(x)]) { T3SEEN[key(x)] = iso; ch = true; } });
   if (ch) store.set("t3seen", T3SEEN);
-  return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo };
+  return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo, n: n, job: job, jobE: J.e, jobL: J.l, jobH: J.hint };
 }
 function t3Card() {                            // the home screen card
   const v = todoView(), t = todayThree(v);
@@ -5192,7 +5271,7 @@ function t3Card() {                            // the home screen card
   const wait = D ? waitingThreads(1) : [], iso = todayISO(), key = (x) => String(x.id != null ? x.id : x.cid);
   // today's list stays put: ticked ones stay crossed out (tap again to undo), new picks only fill empty spots
   let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
-  const N = t.tattoo ? 1 : 3, was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
+  const pl = store.get("t3plus", null), N = t.n + (pl && pl.iso === iso ? pl.n : 0), was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
   const mine = (x) => T3PICK.includes(key(x));
   // crossed-out ones hold their spot, his picks always show, then what was already showing and suggestions fill any room left
   let rows = was.filter((x) => x.done); t.picks.filter(mine).forEach((x) => { if (!rows.includes(x)) rows.push(x); });
@@ -5200,7 +5279,7 @@ function t3Card() {                            // the home screen card
   const at = (x) => { const i = day.ids.indexOf(key(x)); return i < 0 ? 99 : i; }; rows = rows.slice().sort((a, b) => at(a) - at(b));
   const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
-    '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today' + (t.tattoo ? " (tattoo day)" : "") + "</b><span class=\"ts-go\">›</span></div>" +
+    '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today: ' + t.jobE + " " + esc(t.jobL) + "</b><span class=\"ts-go\">›</span></div>" + '<div style="padding:0 8px 3px;font-size:12px;opacity:.75">' + esc(t.jobH) + "</div>" +
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
@@ -5269,7 +5348,7 @@ function winTodo() {
     '<button class="btn raised wide" style="font-weight:600">Add</button></form>';
   const sec = (title, list, cls) => list.length ? '<div class="h' + (cls ? " " + cls : "") + '">' + title + " (" + list.length + ')</div><div class="lv sunk">' + list.map((x) => taskRow(x, v)).join("") + "</div>" : "";
   const t3 = todayThree(v);
-  h += '<div class="h">' + (t3.tattoo ? "Today (tattoo day)" : "Today's 3") + '</div>' + (t3.tattoo ? '<div class="dim">Tattoo day. Just this one, if you have energy.</div>' : "") +
+  h += '<div class="h">' + t3.jobE + " Today: " + esc(t3.jobL) + '</div><div class="dim">' + esc(t3.jobH) + "</div>" +
     (t3.picks.length ? '<div class="lv sunk">' + t3.picks.map((x) => taskRow(x, v)).join("") + "</div>" : '<div class="dim">All clear. Nice one.</div>') +
     '<button class="btn raised wide" data-a="open" data-arg="eis" style="margin-top:6px">🎯 Choose my 3</button>';
   h += '<details style="margin-top:10px"><summary class="h" style="cursor:pointer">Everything else (' + t3.rest.length + ")</summary>";
@@ -5287,7 +5366,9 @@ function addTodo(today) {
   if (due === "pick") due = $("addp").value || null;
   const n = Number($("addi").value || 3);
   $("addt").value = "";
-  todoChange({ kind: "add", text: t.replace(/\s!([1-5])\b/g, "") + " !" + n, due: due || null, cid: "p" + Date.now().toString(36) });
+  const cid = "p" + Date.now().toString(36);
+  todoChange({ kind: "add", text: t.replace(/\s!([1-5])\b/g, "") + " !" + n, due: due || null, cid: cid });
+  if (due === todayISO() && t3MakeRoom(cid)) return;   // a last-minute must-do on a full day: it asks first
   toast("Added" + (due ? " for " + niceDay(due) : "") + " ✓");
 }
 document.addEventListener("input", (e) => {
