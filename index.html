@@ -2943,7 +2943,7 @@ function rShowHome() {                          // Friday 3pm to Sunday, for thi
   const d = new Date(), dow = d.getDay();
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
-function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG }; }
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO }; }
 function tApplyBackup(b) {
   TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
   PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
@@ -2951,6 +2951,7 @@ function tApplyBackup(b) {
   store.set("plans", PLANS); store.set("plantpl", PLANTPL); store.set("links", LINKS);
   if (b.ideas) { IDEAS = b.ideas; store.set("ideas", IDEAS); }   // an older backup has no ideas, so it leaves the phone's alone
   if (b.t3log) { T3LOG = b.t3log; store.set("t3log", T3LOG); }
+  if (b.ctodo) { CTODO = b.ctodo; store.set("ctodo", CTODO); }
 }
 async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
   let b = null;
@@ -3018,6 +3019,7 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
 const LSPOTS = [["bio", "📸 Bio", "instagram", "bio"], ["story", "📱 Story", "instagram", "story"], ["news", "📰 Newsletter", "newsletter", "email"]];
 let LINKS = store.get("links", []), lLast = null;
 let IDEAS = store.get("ideas", []);
+let CTODO = store.get("ctodo", {});            // custom bookings → their "draw the custom" to-do {rowId: {cid, iso, n}}
 let T3LOG = store.get("t3log", {});            // each day's ✅ Today card: n on it, d ticked. Feeds the clear-day streaks in Calendar
 function clearDay(iso) { const x = T3LOG[iso]; return !!(x && x.n > 0 && x.d >= x.n); }
 function streaks() {                           // clear days = everything on the card ticked. Empty days and days not opened never break a run
@@ -3213,8 +3215,40 @@ function planFeed() {                         // steps due within a week go into
   PLANS.forEach((p) => { if (!p.finished && p.steps.length && p.steps.every(sDone)) { p.finished = todayISO(); pSave(); } });
   return n;
 }
-setInterval(() => { if (!document.hidden && planFeed()) render(); }, 60000);
-setTimeout(() => { if (planFeed()) render(); }, 2500);
+const isCustom = (r) => /custom/i.test(String(r.pkg || "")) || /\bcustoms?\b/i.test(String(r.design || ""));
+function customImp(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 2 ? 5 : d <= 7 ? 4 : 3; }   // more urgent as the session nears
+function customDue(iso) {                      // the last drawing day in the week before, else the day before
+  const today = todayISO();
+  for (let k = 1; k <= 6; k++) { const d = addDays(iso, -k); if (d < today) break; if (dayJob(d) === "draw") return d; }
+  const d = addDays(iso, -1); return d >= today ? d : today;
+}
+function customFeed() {                        // every paid custom booking gets one "draw it" to-do. Ticked = done for good
+  const v = todoView(); if (!v || !D) return 0;
+  const today = todayISO(); let n = 0;
+  const q = (c) => { c.id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); c.at = new Date().toISOString().slice(0, 19); pendingTodo.push(c); enqueue({ fn: "deskTodo", args: [KEY, c, DRY], todo: c.id, label: "To-do" }); n++; };
+  const find = (e) => v.tasks.find((x) => (e.cid && x.cid === e.cid) || (e.task != null && x.id === e.task));
+  rows().forEach((r) => {
+    if (!r.id) return;
+    const e = CTODO[r.id];
+    if (e) {
+      const t = find(e);
+      if (r.cancelled) { if (t && !t.done) q(Object.assign({ kind: "delete" }, taskRef(t))); delete CTODO[r.id]; n++; return; }
+      if (!t || t.done) return;                // ticked or removed by him: finished with
+      if (r.iso && r.iso !== e.iso) { e.iso = r.iso; q(Object.assign({ kind: "due", due: customDue(r.iso) }, taskRef(t))); }   // the session moved
+      const want = r.iso && r.iso >= today ? customImp(r.iso) : e.n;   // the session's been: leave it as it is
+      if (want > e.n) { e.n = want; q(Object.assign({ kind: "imp", n: want }, taskRef(t))); }
+      return;
+    }
+    if (r.cancelled || r.test || !r.deposit || !r.iso || r.iso < today || !isCustom(r)) return;
+    const cid = "cu" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), im = customImp(r.iso), who = String(r.first || r.name || "the").trim();
+    CTODO[r.id] = { cid: cid, iso: r.iso, n: im };
+    q({ kind: "add", text: "✏️ Draw " + who.charAt(0).toUpperCase() + who.slice(1) + "'s custom #draw !" + im, due: customDue(r.iso), cid: cid });
+  });
+  if (n) { store.set("todoq", pendingTodo); store.set("ctodo", CTODO); tSyncSoon(); }
+  return n;
+}
+setInterval(() => { if (!document.hidden && (planFeed() | customFeed())) render(); }, 60000);
+setTimeout(() => { if (planFeed() | customFeed()) render(); }, 2500);
 function planCard(p) {
   const t = pTpl(p.tpl), [d, all] = pProgress(p), nx = pNext(p);
   return '<div class="li" data-a="popen" data-arg="' + p.id + '"><span class="pl-e">' + t.emoji + '</span><span class="lab"><b>' + esc(p.name) + "</b> · " + pNice(p.date) +
