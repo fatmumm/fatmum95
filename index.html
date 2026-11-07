@@ -2794,8 +2794,8 @@ async function tSend() {
 const TPLAN = {                                 // matches the day jobs (Today card). Sun/Mon use Tue's plan when nothing's booked
   0: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
   1: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
-  2: [["Sketchbook in the world", ["draw"]], ["Sketchbook, camera rolling if you like", ["draw", "film"]]],
-  3: [["Finish an illustration", ["draw"]], ["Finish an illustration", ["draw"]]],
+  2: [["Sketchbook: thumbnails and loose drawing", ["draw"]], ["Sketchbook ideas, camera rolling if you like", ["draw", "film"]]],
+  3: [["Scan and digitise the best", ["draw"]], ["Finish it digitally", ["draw"]]],
   4: [["Snail mail", ["club", "pack"]], ["Trad", ["draw"]]],
   5: [["Socials", ["edit", "film", "post"]], ["Emails, shop and stock (stop at 2 hrs)", ["admin", "pack"]]],
   6: [["Off", []], ["Off", []]]};
@@ -5286,8 +5286,8 @@ const DAY_JOBS = ["tattoo", "tattoo", "draw", "finish", "snail", "social", "off"
 const jobFam = (j) => j === "finish" ? "draw" : j;   // drawing to-dos belong to both drawing days
 const JOBS = {
   tattoo: { e: "🖋", l: "Tattoo day", hint: "Just one thing, if you have energy.", tags: [] },
-  draw: { e: "✏️", l: "Draw", hint: "Sketchbook in the world: characters, places, little stories.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
-  finish: { e: "🖌", l: "Illustrate", hint: "Take the best from the sketchbook and finish it clean, ready for a sticker, flash or a shirt.", tags: [] },
+  draw: { e: "✏️", l: "Draw", hint: "Sketchbook: thumbnails, loose drawing and ideas in the world. Nothing has to be good.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
+  finish: { e: "🖌", l: "Illustrate", hint: "Digitise the best from the sketchbook and finish it, ready for flash, a sticker or a shirt.", tags: [] },
   snail: { e: "💌", l: "Snail mail", hint: "Snail mail first. Trad in the afternoon.", tags: ["snail", "sm", "sticker", "stock", "pack", "postcard", "envelope", "print"] },
   social: { e: "🎬", l: "Socials + admin", hint: "Socials, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
   off: { e: "🛋", l: "Day off", hint: "Nothing planned. Have a proper rest.", tags: [] } };
