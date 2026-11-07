@@ -5242,7 +5242,7 @@ const JOBS = {
   tattoo: { e: "🖋", l: "Tattoo day", hint: "Just one thing, if you have energy.", tags: [] },
   draw: { e: "✏️", l: "Draw", hint: "Sketchbook. Move anything that's ready into flash.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
   snail: { e: "💌", l: "Snail mail", hint: "Snail mail first. Trad in the afternoon.", tags: ["snail", "sm", "sticker", "stock", "pack", "postcard", "envelope", "print"] },
-  social: { e: "🎬", l: "Socials + admin", hint: "How I draw video, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
+  social: { e: "🎬", l: "Socials + admin", hint: "Socials, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
   off: { e: "🛋", l: "Day off", hint: "Nothing planned. Have a proper rest.", tags: [] } };
 function dayJob(iso) {                         // a real booking makes any day a tattoo day, an empty Mon or Sun becomes a drawing day
   if (isTattooDay(iso) || (D && live().some((r) => r.iso === iso && r.deposit))) return "tattoo";   // a booking counts once the deposit's paid
