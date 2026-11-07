@@ -2945,13 +2945,14 @@ function rShowHome() {                          // Friday 3pm to Sunday, for thi
   const d = new Date(), dow = d.getDay();
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
-function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS }; }
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG }; }
 function tApplyBackup(b) {
   TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
   PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
   store.set("tlog", TLOG); store.set("twhat", TWHAT); store.set("tfri", TFRI); store.set("tshorts", TSHORTS); store.set("tbest", TBEST);
   store.set("plans", PLANS); store.set("plantpl", PLANTPL); store.set("links", LINKS);
   if (b.ideas) { IDEAS = b.ideas; store.set("ideas", IDEAS); }   // an older backup has no ideas, so it leaves the phone's alone
+  if (b.t3log) { T3LOG = b.t3log; store.set("t3log", T3LOG); }
 }
 async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
   let b = null;
@@ -2963,7 +2964,7 @@ async function tRestore(manual) {              // phone storage gone (new instal
 }
 failed = failed.filter((x) => x.fn !== "timeSync"); saveBox();     // each sync sends everything, so an old failed one is never needed
 setTimeout(() => tSyncSoon(4000), 3000);
-document.addEventListener("visibilitychange", () => { if (document.hidden && (TLOG.length || PLANS.length || LINKS.length || IDEAS.length)) { clearTimeout(tSyncSoon.t); tSyncNow(); } });
+document.addEventListener("visibilitychange", () => { if (document.hidden && (TLOG.length || PLANS.length || LINKS.length || IDEAS.length || Object.keys(T3LOG).length)) { clearTimeout(tSyncSoon.t); tSyncNow(); } });
 setTimeout(() => {
   const empty = !TLOG.length && !LINKS.length && !Object.keys(TFRI).length && !PLANS.filter((p) => !p.auto).length;
   if (empty && KEY && !store.get("trestask", 0)) { store.set("trestask", 1); tRestore(false); }
@@ -2996,7 +2997,7 @@ function tSyncSoon(ms) {                     // everything to the "Time log", "F
   tSyncSoon.t = setTimeout(tSyncNow, ms == null ? 120000 : ms);
 }
 function tSyncNow() {
-  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length && !LINKS.length && !IDEAS.length) return;
+  if (!TLOG.length && !Object.keys(TFRI).length && !PLANS.length && !LINKS.length && !IDEAS.length && !Object.keys(T3LOG).length) return;
   const rows = tPieces(null, null).map((p) => [p.day, tClock(p.s), p.open ? "" : tClock(p.e), Math.round((p.e - p.s) / 60000), tcat(p.cat)[2], p.what || ""]);
   const fri = Object.keys(TFRI).sort().map((k) => [k, TFRI[k].news, TFRI[k].club, TFRI[k].paint, TFRI[k].posts, TSHORTS[k] || 0, TFRI[k].early == null ? "" : TFRI[k].early]);
   const links = LINKS.map((l) => [l.made, l.name, (LSPOTS.find((x) => x[0] === l.spot) || LSPOTS[0])[1].replace(/^\S+\s/, ""), l.campaign, l.url]);
@@ -3019,6 +3020,18 @@ function tBackup() {                          // a copy in 📝 Notes, so the lo
 const LSPOTS = [["bio", "📸 Bio", "instagram", "bio"], ["story", "📱 Story", "instagram", "story"], ["news", "📰 Newsletter", "newsletter", "email"]];
 let LINKS = store.get("links", []), lLast = null;
 let IDEAS = store.get("ideas", []);
+let T3LOG = store.get("t3log", {});            // each day's ✅ Today card: n on it, d ticked. Feeds the clear-day streaks in Calendar
+function clearDay(iso) { const x = T3LOG[iso]; return !!(x && x.n > 0 && x.d >= x.n); }
+function streaks() {                           // clear days = everything on the card ticked. Empty days and days not opened never break a run
+  const today = todayISO(), month = today.slice(0, 7);
+  let run = 0, best = 0, mo = 0, ticked = 0;
+  Object.keys(T3LOG).filter((k) => T3LOG[k].n > 0).sort().forEach((k) => {
+    const x = T3LOG[k], ok = x.d >= x.n;
+    if (k.slice(0, 7) === month) { if (ok) mo++; ticked += x.d; }
+    if (ok) { run++; best = Math.max(best, run); } else if (k !== today) run = 0;   // today still has time
+  });
+  return { month: mo, run: run, best: best, ticked: ticked, any: Object.keys(T3LOG).some((k) => T3LOG[k].n > 0) };
+}
 const lSlug = (s) => String(s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 function lBuild(raw, spot, name) {
   let u = String(raw || "").trim();
@@ -5089,7 +5102,9 @@ function winCal() {
   const byDay = {}; live().forEach((r) => { if (r.iso) (byDay[r.iso] = byDay[r.iso] || []).push(r); });
   const tv = todoView(), tasksBy = {};
   if (tv) tv.tasks.forEach((x) => { if (x.due && !x.done) (tasksBy[x.due] = tasksBy[x.due] || []).push(x); });
-  let h = '<div class="row" style="margin:0 0 8px;align-items:center"><button class="btn raised small" data-a="calmove" data-arg="-1" style="flex:none">◀</button><div class="px" style="flex:1;text-align:center;font-size:18px">' +
+  const st = streaks();
+  let h = '<div class="card" style="margin:0 0 8px">' + (st.any ? "⭐ <b>" + st.month + "</b> clear " + (st.month === 1 ? "day" : "days") + " this month · run <b>" + st.run + "</b> · best <b>" + st.best + '</b><br><span class="dim">' + st.ticked + " ticked off this month</span>" : '<span class="dim">⭐ Days you clear your whole list show here, starting today.</span>') + "</div>" +
+    '<div class="row" style="margin:0 0 8px;align-items:center"><button class="btn raised small" data-a="calmove" data-arg="-1" style="flex:none">◀</button><div class="px" style="flex:1;text-align:center;font-size:18px">' +
     ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][m - 1] + " " + y +
     '</div><button class="btn raised small" data-a="calmove" data-arg="1" style="flex:none">▶</button></div>';
   h += '<div class="cal">' + ["M", "T", "W", "T", "F", "S", "S"].map((d) => '<div class="dh">' + d + "</div>").join("");
@@ -5098,7 +5113,7 @@ function winCal() {
     if (i >= 35 && iso.slice(0, 7) !== calM) break;
     const cls = ["d"]; if (iso.slice(0, 7) !== calM) cls.push("out"); if (iso === t) cls.push("today"); if (iso === calSel) cls.push("sel");
     if (a) cls.push(a.state === "booked" ? "full" : a.state === "both" ? "free" : "half");
-    h += '<div class="' + cls.join(" ") + '" data-a="calday" data-arg="' + iso + '"><b>' + Number(iso.slice(8)) + '</b><div class="dots">' +
+    h += '<div class="' + cls.join(" ") + '" data-a="calday" data-arg="' + iso + '"><b>' + Number(iso.slice(8)) + "</b> " + (clearDay(iso) ? "⭐" : iso >= t ? '<span style="font-size:11px">' + JOBS[dayJob(iso)].e + "</span>" : "") + '<div class="dots">' +
       bs.map((r) => '<i class="dot' + (r.paid ? " p" : "") + '"></i>').join("") + ts.slice(0, 3).map(() => '<i class="dot t"></i>').join("") + "</div></div>";
   }
   h += "</div>";
@@ -5107,6 +5122,10 @@ function winCal() {
   const a = av[d], bs = byDay[d] || [], ts = tasksBy[d] || [];
   h += '<div class="h">' + esc(niceDay(d)) + (niceDay(d) !== shortDay(d) ? " · " + esc(shortDay(d)) : "") + "</div>";
   if (a) h += '<div class="dim" style="margin-bottom:6px">' + (a.am.free ? "11am free" : "11am taken" + (a.am.why ? " (" + esc(a.am.why) + ")" : "")) + " · " + (a.pm.free ? "1pm free" : "1pm taken" + (a.pm.why ? " (" + esc(a.pm.why) + ")" : "")) + "</div>";
+  if (d >= t) { const J = JOBS[dayJob(d)]; h += '<div class="dim" style="margin-bottom:6px">' + J.e + " " + esc(J.l) + ". " + esc(J.hint) + "</div>"; }
+  if (clearDay(d)) h += '<div class="dim" style="margin-bottom:6px">⭐ Cleared everything on the list.</div>';
+  const pst = []; PLANS.filter((p) => !p.finished).forEach((p) => p.steps.forEach((s) => { if (!sDone(s) && !sTask(s) && sDate(p, s) === d) pst.push(pTpl(p.tpl).emoji + " " + s.text); }));   // plan steps that aren't to-dos yet
+  if (pst.length) h += '<div class="lv sunk" style="margin-bottom:8px">' + pst.map((x) => '<div style="padding:4px 8px">' + esc(x) + "</div>").join("") + "</div>";
   h += bs.length ? '<div class="lv sunk">' + bs.map((r) => clientRow(r, false)).join("") + "</div>" : '<div class="dim">No clients.</div>';
   if (ts.length) h += '<div class="lv sunk" style="margin-top:8px">' + ts.map((x) => taskRow(x, todoView())).join("") + "</div>";
   return h;
@@ -5304,6 +5323,8 @@ function t3Card() {                            // the home screen card
   was.concat(t.picks).forEach((x) => { if (rows.length < N && !rows.includes(x)) rows.push(x); });
   const at = (x) => { const i = day.ids.indexOf(key(x)); return i < 0 ? 99 : i; }; rows = rows.slice().sort((a, b) => at(a) - at(b));
   const ids = rows.map(key); if (ids.join() !== day.ids.join()) store.set("t3today", { iso: iso, ids: ids });
+  const nd = rows.length, dd = rows.filter((x) => x.done).length, lg = T3LOG[iso];   // for the clear-day streaks
+  if (!lg || lg.n !== nd || lg.d !== dd) { T3LOG[iso] = { n: nd, d: dd }; const ks = Object.keys(T3LOG).sort(); while (ks.length > 400) delete T3LOG[ks.shift()]; store.set("t3log", T3LOG); tSyncSoon(); }
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
     '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today: ' + t.jobE + " " + esc(t.jobL) + "</b><span class=\"ts-go\">›</span></div>" + '<div style="padding:0 8px 3px;font-size:12px;opacity:.75">' + esc(t.jobH) + "</div>" +
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
