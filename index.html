@@ -3168,9 +3168,9 @@ const PLAN_TPL = {
     [-3, "Reveal price and date, last call for Earlybird"], [-2, "Stories countdown + Earlybird email: tomorrow 7pm"],
     [-1, "Earlybird early access opens 7pm (final checks first)"], [0, "Public drop 7pm: email, IG post + stories"],
     [1, "Pack and post orders + sizes-left story"], [3, "72-hour check: all 15 sold?"]] },
-  snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Design sticker"], [-21, "Sketchbook spread"], [-14, "Write the letter"],
-    [-14, "Introduction print"], [-14, "Print stickers"], [-7, "Make prints"], [-7, "Make postcards"], [-7, "Stock check: envelopes, sleeves, stamps"],
-    [-7, "Roster check + print labels"], [0, "Pack envelopes"], [0, "Post international"], [0, "Post UK"]] }};
+  snail: { emoji: "💌", label: "Snail mail", dlabel: "Posting day", tag: " #snail", steps: [[-21, "Pick the sticker + print from the sketchbook"], [-21, "Write the letter"],
+    [-14, "Print stickers"], [-14, "Make prints (incl. the introduction print)"], [-7, "Make postcards"], [-7, "Stock check: envelopes, sleeves, stamps"],
+    [-7, "Roster check + print labels"], [0, "Pack envelopes"], [0, "Post them, international + UK"]] }};
 const PLAN_AHEAD = 7;                          // days before a step is due that it lands in To-do
 let PLANS = store.get("plans", []), PLANTPL = store.get("plantpl", {}), pDraft = null;
 const pSave = () => { store.set("plans", PLANS); store.set("plantpl", PLANTPL); tSyncSoon(); };
@@ -3265,12 +3265,38 @@ function smMigrateEOM() {                      // once: posting moved from the 1
     const key = SM_LINK.find((m) => m[0].test(s.text)), old = key && cur.steps.find((o) => (o.task != null || o.cid) && !o.took && key[0].test(o.text));
     if (old) { if (old.task != null) s.task = old.task; s.cid = old.cid || null; old.took = 1; }   // his linked to-dos come along
   });
+  cur.steps.forEach((o) => { if (o.took) return; const t = sTask(o); if (t && !t.done) todoChange(Object.assign({ kind: "delete" }, taskRef(t))); });   // linked to a job that's gone
   cur.date = date; cur.steps = fresh.steps;
   cur.steps.forEach((s) => { const t = sTask(s); if (t && !t.done) todoChange(Object.assign({ kind: "due", due: sDate(cur, s) }, taskRef(t))); });
   pSave();
   return true;
 }
 const SM_LINK = [[/sticker/i, "sticker"], [/spread/i, "spread"], [/essay|letter/i, "essay"], [/intro/i, "intro"], [/\bprints?\b/i, "prints"], [/postcard/i, "postcards"]];
+function smMigrate2() {                       // once: lighter Thursdays. The sketchbook spread happens on drawing days, stickers and prints come from it
+  if (store.get("sm_eom2", 0)) return false;
+  const cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), v = todoView();
+  if (cur && !v) return false;
+  store.set("sm_eom2", 1);
+  if (!cur || cur.steps.some((s) => s.done && !s.auto)) return false;      // already started this month: leave it alone
+  const MAP = [[/design sticker|pick the sticker/i, 0], [/letter|essay/i, 1], [/print stickers/i, 2], [/make prints/i, 3], [/postcard/i, 4], [/stock check/i, 5], [/roster|labels/i, 6], [/pack/i, 7], [/^post (uk|them)/i, 8]];
+  const fresh = smCycle(cur.date, false), first = smThuAfter(todayISO()), n = fresh.steps.length;
+  const thu = []; for (let d = first; d <= cur.date; d = addDays(d, 7)) thu.push(d);
+  const late = fresh.steps.some((s) => addDays(cur.date, s.off) < first);
+  fresh.steps.forEach((s, i) => {
+    s.done = null; delete s.auto;
+    if (late && thu.length) s.off = Math.round((new Date(thu[Math.floor(i * thu.length / n)] + "T12:00") - new Date(cur.date + "T12:00")) / 864e5);   // spread evenly over the Thursdays left
+  });
+  cur.steps.forEach((o) => {                   // his linked to-dos: carried to the new step, or deleted if that job is gone
+    const t = sTask(o); if (!t) return;
+    const m = MAP.find((x) => x[0].test(o.text)), s = m && fresh.steps[m[1]];
+    if (s && s.task == null && !s.cid) { if (o.task != null) s.task = o.task; s.cid = o.cid || null; }
+    else if (!t.done) todoChange(Object.assign({ kind: "delete" }, taskRef(t)));
+  });
+  cur.steps = fresh.steps;
+  cur.steps.forEach((s) => { const t = sTask(s); if (t && !t.done && t.due !== sDate(cur, s)) todoChange(Object.assign({ kind: "due", due: sDate(cur, s) }, taskRef(t))); });
+  pSave();
+  return true;
+}
 function smNext(after) { const x = smLastThu(after); return after > x ? smLastThu(addDays(x, 7)) : x; }
 function smCycle(date, link) {
   const t = pTpl("snail"), today = todayISO(), v = link && todoView();
@@ -3285,7 +3311,7 @@ function smCycle(date, link) {
   return { id: nId("p"), tpl: "snail", name: "Snail mail " + new Date(addDays(date, 7) + "T12:00").toLocaleDateString("en-GB", { month: "short" }), date: date, steps: steps, made: today, finished: null, auto: true };
 }
 function pSnailEnsure() {                      // always one snail mail plan running, rolling over to the next 1st once posting day has passed
-  const today = todayISO(), mig = smMigrateEOM();
+  const today = todayISO(), mig = smMigrateEOM() | smMigrate2();
   let cur = PLANS.find((p) => p.tpl === "snail" && !p.finished), changed = mig;
   if (cur && today > cur.date) { cur.finished = today; const next = smCycle(smNext(addDays(cur.date, 1)), false); PLANS.push(next); cur = next; changed = true; }
   if (!cur) { if (!todoView()) return false; PLANS.push(smCycle(smNext(today), true)); changed = true; }
