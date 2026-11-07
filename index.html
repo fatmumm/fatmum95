@@ -2673,14 +2673,12 @@ function habitWidget() {
   if (pref("hwidget") === false) return "";
   const v = todoView(); if (!v || !v.habits.length) return "";
   const t = todayISO(), y = addDays(t, -1), today = v.habits.filter((h) => scheduled(h, t)), dn = today.filter((h) => (h.log || []).includes(t)).length;
-  const missed = v.habits.filter((h) => scheduled(h, y) && (h.added || "0") <= y && !(h.log || []).includes(y) && !h.pending).length;
   const rows = today.slice(0, 4).map((h) => { const kept = (h.log || []).includes(t);
     return '<div class="hw-row"><span class="hw-tick' + (kept ? " on" : "") + '"' + (h.pending ? "" : ' data-a="habit" data-arg="' + esc(habitKey(h)) + '"') + ">" + (kept ? "✓" : "") + '</span><span class="hw-n">' + esc(h.name) + '</span><span class="hw-s">' + streak(h, t) + " day streak</span></div>"; }).join("");
   const st = allStreak(v), best = Math.max(st, allBest(v));
   return '<div class="hw raised"><div class="hw-h" data-a="open" data-arg="habits"><b>🔥 ' + st + " day streak</b><span>" + (st > 1 && st >= best ? "🏆 New high score!" : "🏆 Best: " + best + " day" + (best === 1 ? "" : "s")) + " ›</span></div>" +
     '<div class="hw-sub">' + dn + "/" + today.length + " done today</div>" +
-    (rows || '<div class="hw-row dim">No habits due today.</div>') + (today.length > 4 ? '<div class="hw-more" data-a="open" data-arg="habits">+' + (today.length - 4) + " more ›</div>" : "") +
-    (missed ? '<div class="hw-miss" data-a="open" data-arg="habits">⚠ ' + missed + " missed yesterday · tap to fill in</div>" : "") + "</div>";
+    (rows || '<div class="hw-row dim">No habits due today.</div>') + (today.length > 4 ? '<div class="hw-more" data-a="open" data-arg="habits">+' + (today.length - 4) + " more ›</div>" : "") + "</div>";
 }
 
 // ── ⏱ Time log: two weeks of where the hours go (22 Oct to 4 Nov 2026). One tap per switch ──
