@@ -2791,20 +2791,20 @@ async function tSend() {
   copyText(text + "\n\n" + csv, "Time log");
 }
 // the week plan, by day (0 = Sunday): [morning, afternoon], each [what to do, categories it starts]
-const TPLAN = {
+const TPLAN = {                                 // matches the day jobs (Today card). Sun/Mon use Tue's plan when nothing's booked
   0: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
   1: [["Studio: tattoo", ["tattoo"]], ["Studio: tattoo", ["tattoo"]]],
-  2: [["Paint 3 hrs, phone in another room", ["paint"]], ["Sketchbook, camera rolling for a how-to", ["draw", "film"]]],
-  3: [["Paint 3 hrs", ["paint"]], ["Sketchbook or club letter writing", ["draw", "club"]]],
-  4: [["Edit 2 to 3 shorts and schedule them", ["edit"]], ["Emails, newsletter, shop admin (stop at 2 hrs)", ["admin"]]],
-  5: [["Paint 3 hrs", ["paint"]], ["Ship: club letters, orders, shirt prep. Then a 20-minute review", ["pack"]]],
-  6: [["Flex: catch-up, or printing in shirt week", ["other", "shirt"]], ["Off", []]]};
+  2: [["Sketchbook in the world", ["draw"]], ["Sketchbook, camera rolling if you like", ["draw", "film"]]],
+  3: [["Finish an illustration", ["draw"]], ["Finish an illustration", ["draw"]]],
+  4: [["Snail mail", ["club", "pack"]], ["Trad", ["draw"]]],
+  5: [["Socials", ["edit", "film", "post"]], ["Emails, shop and stock (stop at 2 hrs)", ["admin", "pack"]]],
+  6: [["Off", []], ["Off", []]]};
 const TDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const TGOALS = [["paint", "🎨 Painting", 9], ["draw", "✏️ Sketchbook", 6]];
+const TGOALS = [["draw", "✏️ Sketchbook", 6]];   // painting is a hobby now: no target
 const T_SHORTS = 3, T_ADMIN_CAP = 2, T_PAINTDAYS = [2, 3, 5], T_PAINT_HRS = 3;
 let TSHORTS = store.get("tshorts", {}), TFRI = store.get("tfri", {}), TBEST = store.get("tbest", 0);
 function tNow(when) {
-  const d = when ? new Date(when) : new Date(), h = d.getHours(), p = TPLAN[d.getDay()];
+  const d = when ? new Date(when) : new Date(), h = d.getHours(), dj = dayJob(isoOf(d)), p = dj === "tattoo" ? TPLAN[0] : d.getDay() <= 1 ? TPLAN[2] : TPLAN[d.getDay()];
   if (h >= 18) return { label: TDAYS[d.getDay()] + " evening", text: "Off", cats: [] };
   const half = h < 13 ? 0 : 1;
   return { label: TDAYS[d.getDay()] + (half ? " afternoon" : " morning"), text: p[half][0], cats: p[half][1] };
@@ -2832,11 +2832,10 @@ function tBar(label, have, goal, unit, limit) {
   return '<div class="tg-r"><span class="tg-n">' + label + (full ? " 🏆" : "") + '</span><span class="tg-bar sunk"><i class="' + (over ? "over" : full ? "full" : limit ? "ok" : "") + '" style="width:' + pct + '%"></i></span><span class="tg-v">' + v + (full ? " ✓" : over ? " ⚠" : "") + "</span></div>";
 }
 function tGoals() {
-  const mon = tMonday(), t = todayISO(), shorts = TSHORTS[mon] || 0, st = tStreak();
+  const mon = tMonday(), t = todayISO(), shorts = TSHORTS[mon] || 0;
   return '<div class="tg">' + TGOALS.map((g) => tBar(g[1], tHours(g[0], mon, t), g[2], "h")).join("") +
     '<div class="tg-sh">' + tBar("✂️ Shorts edited", shorts, T_SHORTS, "n") + '<button class="btn raised" data-a="tshort" data-arg="1">+1 short</button>' + (shorts ? '<button class="btn raised" data-a="tshort" data-arg="-1">−</button>' : "") + "</div>" +
-    tBar("📧 Admin today (limit)", Math.round(tHours("admin", t, t) * 10) / 10, T_ADMIN_CAP, "h", true) +
-    '<div class="tg-st">🔥 <b>' + st + "</b> paint day" + (st === 1 ? "" : "s") + " in a row · 🏆 best " + Math.max(st, TBEST) + '<br><small>Tue, Wed and Fri with 3+ hrs painted. Other days never break it.</small></div></div>';
+    tBar("📧 Admin today (limit)", Math.round(tHours("admin", t, t) * 10) / 10, T_ADMIN_CAP, "h", true) + "</div>";
 }
 function tNowLine() {
   const n = tNow(), r = tRunning(), on = r && n.cats.includes(r.cat);
@@ -2899,7 +2898,6 @@ function tWeekReview() {
   const behind = [];
   PLANS.filter((p) => !p.finished).forEach((p) => p.steps.forEach((s) => { if (!sDone(s) && sDate(p, s) < t) behind.push([p, s]); }));
   const other = (tot.other || 0) / 3600000, tips = [];
-  if (due.length && paintH < due.length * T_PAINT_HRS - 1) tips.push("Paint is at " + (Math.round(paintH * 10) / 10) + " of " + due.length * T_PAINT_HRS + " hrs for the paint days so far. Start the next paint morning before opening Inbox.");
   if (behind.length) tips.push(esc(behind[0][0].name) + ": \"" + esc(behind[0][1].text) + "\" is behind" + (behind.length > 1 ? " (plus " + (behind.length - 1) + " more)" : "") + ". Do that one first today.");
   if (adminOver.length) tips.push("Admin ran over 2 hrs on " + adminOver.join(" and ") + ". Try one 45-minute admin block, then stop.");
   if (other >= 1 && other / (all / 3600000) > 0.2) tips.push(tHM(tot.other) + " went to Other. Add a word when you log so the review can see where it goes.");
@@ -2908,7 +2906,7 @@ function tWeekReview() {
   const line = (a, b) => '<div class="wr-l"><span>' + a + "</span><span>" + b + "</span></div>";
   return '<div class="h">📋 This week so far</div><div class="card sunk wr">' +
     line("Logged", tHM(all) + " over " + logged + " of " + days.length + " days") + '<div class="wr-s">' + top.join(" · ") + "</div>" +
-    line("🎨 Paint", (Math.round(paintH * 10) / 10) + " / 9 hrs · " + hit.length + " of " + due.length + " paint days") +
+    line("✏️ Sketchbook", (Math.round(tHours("draw", mon, t) * 10) / 10) + " hrs") + (paintH ? line("🎨 Painting, for fun", (Math.round(paintH * 10) / 10) + " hrs") : "") +
     (blocks ? line("Went to plan", kept + " of " + blocks + " blocks") : "") +
     (adminOver.length ? line("📧 Admin over 2 hrs", adminOver.join(", ")) : "") +
     line("✅ To-dos", doneTodos + " done" + (overdue ? " · " + overdue + " overdue" : "")) +
@@ -2944,7 +2942,7 @@ function rShowHome() {                          // Friday 3pm to Sunday, for thi
   if (REVIEW && store.get("rhide", "") === REVIEW.week) return false;   // he clicked it away for this week
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
-function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO }; }
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO, sheetmo: store.get("sheetmo", "") }; }
 function tApplyBackup(b) {
   TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
   PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
@@ -2953,6 +2951,7 @@ function tApplyBackup(b) {
   if (b.ideas) { IDEAS = b.ideas; store.set("ideas", IDEAS); }   // an older backup has no ideas, so it leaves the phone's alone
   if (b.t3log) { T3LOG = b.t3log; store.set("t3log", T3LOG); }
   if (b.ctodo) { CTODO = b.ctodo; store.set("ctodo", CTODO); }
+  if (b.sheetmo) store.set("sheetmo", b.sheetmo);
 }
 async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
   let b = null;
@@ -2969,9 +2968,9 @@ setTimeout(() => {
   const empty = !TLOG.length && !LINKS.length && !Object.keys(TFRI).length && !PLANS.filter((p) => !p.auto).length;
   if (empty && KEY && !store.get("trestask", 0)) { store.set("trestask", 1); tRestore(false); }
 }, 1200);
-function tSlim() {
-  const mon = tMonday(), h = tHours("paint", mon, todayISO()), pct = Math.min(100, Math.round(100 * h / 9));
-  return '<div class="ts-slim" data-a="open" data-arg="time">🎨 <span class="tg-bar sunk"><i class="' + (h >= 9 ? "full" : "") + '" style="width:' + pct + '%"></i></span> ' + (Math.round(h * 10) / 10) + "/9 hrs · 🔥 " + tStreak() + "</div>";
+function tSlim() {                             // home time card: sketchbook hours this week (painting has no target any more)
+  const mon = tMonday(), h = tHours("draw", mon, todayISO()), pct = Math.min(100, Math.round(100 * h / 6));
+  return '<div class="ts-slim" data-a="open" data-arg="time">✏️ <span class="tg-bar sunk"><i class="' + (h >= 6 ? "full" : "") + '" style="width:' + pct + '%"></i></span> ' + (Math.round(h * 10) / 10) + "/6 hrs drawn this week</div>";
 }
 function tFriCard() {
   const t = todayISO(), dow = new Date(t + "T12:00").getDay(), mon = tMonday(), f = TFRI[mon];
@@ -3220,7 +3219,7 @@ const isCustom = (r) => /custom/i.test(String(r.pkg || "")) || /\bcustoms?\b/i.t
 function customImp(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 2 ? 5 : d <= 7 ? 4 : 3; }   // more urgent as the session nears
 function customDue(iso) {                      // the last drawing day in the week before, else the day before
   const today = todayISO();
-  for (let k = 1; k <= 6; k++) { const d = addDays(iso, -k); if (d < today) break; if (dayJob(d) === "draw") return d; }
+  for (let k = 1; k <= 6; k++) { const d = addDays(iso, -k); if (d < today) break; if (jobFam(dayJob(d)) === "draw") return d; }
   const d = addDays(iso, -1); return d >= today ? d : today;
 }
 function customFeed() {                        // every paid custom booking gets one "draw it" to-do. Ticked = done for good
@@ -3248,8 +3247,19 @@ function customFeed() {                        // every paid custom booking gets
   if (n) { store.set("todoq", pendingTodo); store.set("ctodo", CTODO); tSyncSoon(); }
   return n;
 }
-setInterval(() => { if (!document.hidden && (planFeed() | customFeed())) render(); }, 60000);
-setTimeout(() => { if (planFeed() | customFeed()) render(); }, 2500);
+function sheetFeed() {                         // first Wednesday of each month: pick drawings for a shop sticker sheet, once a month
+  const v = todoView(); if (!v) return 0;
+  const today = todayISO(), firstWed = (ym) => { let d = ym + "-01"; while (new Date(d + "T12:00").getDay() !== 3) d = addDays(d, 1); return d; };
+  let fw = firstWed(today.slice(0, 7)); if (fw < today) fw = firstWed(addDays(today.slice(0, 7) + "-01", 32).slice(0, 7));
+  if (store.get("sheetmo", "") === fw.slice(0, 7) || fw > addDays(today, 7)) return 0;
+  store.set("sheetmo", fw.slice(0, 7));
+  const c = { kind: "add", text: "🖌 Pick 4 to 6 finished illustrations for a sticker sheet #draw", due: fw, cid: "sh" + Date.now().toString(36) };
+  c.id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); c.at = new Date().toISOString().slice(0, 19);
+  pendingTodo.push(c); store.set("todoq", pendingTodo); enqueue({ fn: "deskTodo", args: [KEY, c, DRY], todo: c.id, label: "To-do" }); tSyncSoon();
+  return 1;
+}
+setInterval(() => { if (!document.hidden && (planFeed() | customFeed() | sheetFeed())) render(); }, 60000);
+setTimeout(() => { if (planFeed() | customFeed() | sheetFeed()) render(); }, 2500);
 function planCard(p) {
   const t = pTpl(p.tpl), [d, all] = pProgress(p), nx = pNext(p);
   return '<div class="li" data-a="popen" data-arg="' + p.id + '"><span class="pl-e">' + t.emoji + '</span><span class="lab"><b>' + esc(p.name) + "</b> · " + pNice(p.date) +
@@ -5272,10 +5282,12 @@ function taskRow(x, v) {
 // ── ✅ Today's 3: the to-do list picks at most 3 for today (1 on a tattoo day). Nothing is deleted, the rest waits below ──
 function isTattooDay(iso) { const a = O() && O().avail, d = a && a.ok && a.days.find((x) => x.iso === iso); return !!(d && ((d.am && !d.am.free) || (d.pm && !d.pm.free))); }
 // ── the week: one main job a day. Mon and Sun are tattoo days only when something's booked
-const DAY_JOBS = ["tattoo", "tattoo", "draw", "draw", "snail", "social", "off"];   // Sun..Sat
+const DAY_JOBS = ["tattoo", "tattoo", "draw", "finish", "snail", "social", "off"];   // Sun..Sat. Tue explores the world, Wed finishes one illustration
+const jobFam = (j) => j === "finish" ? "draw" : j;   // drawing to-dos belong to both drawing days
 const JOBS = {
   tattoo: { e: "🖋", l: "Tattoo day", hint: "Just one thing, if you have energy.", tags: [] },
-  draw: { e: "✏️", l: "Draw", hint: "Sketchbook. Move anything that's ready into flash.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
+  draw: { e: "✏️", l: "Draw", hint: "Sketchbook in the world: characters, places, little stories.", tags: ["draw", "drawing", "flash", "sketch", "sketchbook", "design"] },
+  finish: { e: "🖌", l: "Illustrate", hint: "Take the best from the sketchbook and finish it clean, ready for a sticker, flash or a shirt.", tags: [] },
   snail: { e: "💌", l: "Snail mail", hint: "Snail mail first. Trad in the afternoon.", tags: ["snail", "sm", "sticker", "stock", "pack", "postcard", "envelope", "print"] },
   social: { e: "🎬", l: "Socials + admin", hint: "Socials, emails, shop and stock.", tags: ["social", "post", "video", "reel", "edit", "film", "caption", "admin", "shop", "email", "invoice", "tax"] },
   off: { e: "🛋", l: "Day off", hint: "Nothing planned. Have a proper rest.", tags: [] } };
@@ -5291,7 +5303,7 @@ function taskJob(x, v) {                       // which day a to-do belongs to, 
 }
 function nextDayFor(x, v) {                    // the next day whose job suits this to-do. Any-day ones skip days off and tattoo days
   const j = taskJob(x, v), iso = todayISO();
-  for (let i = 1; i <= 14; i++) { const d = addDays(iso, i), dj = dayJob(d); if (j ? dj === j : dj !== "off" && dj !== "tattoo") return d; }
+  for (let i = 1; i <= 14; i++) { const d = addDays(iso, i), dj = dayJob(d); if (j ? jobFam(dj) === j : dj !== "off" && dj !== "tattoo") return d; }
   return addDays(iso, 1);
 }
 function t3MakeRoom(cid) {                     // a must-do for today on a full day: ask before moving anything
@@ -5331,11 +5343,11 @@ function todayThree(v) {
   if (!v) return { picks: [], rest: [], tattoo: false, n: 3, job: "", jobE: "", jobL: "", jobH: "" };
   t3Heal(v);
   const iso = todayISO(), job = dayJob(iso), J = JOBS[job], tattoo = job === "tattoo", key = (x) => String(x.id != null ? x.id : x.cid);
-  const fits = (x) => { const tj = taskJob(x, v); return !tj || tj === job || (x.due && x.due <= iso) || imp(x) >= 5; };   // another day's job waits for its day, unless it's due or !5
+  const fits = (x) => { const tj = taskJob(x, v); return !tj || tj === jobFam(job) || (x.due && x.due <= iso) || imp(x) >= 5; };   // another day's job waits for its day, unless it's due or !5
   const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)) && fits(x));
   const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
-  const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === job ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
+  const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === jobFam(job) ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
   const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
   const n = tattoo ? 1 : job === "off" ? 0 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);   // his own picks always come first
   const picks = n ? chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n) : chosen;   // a day off only shows his own picks
