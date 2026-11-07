@@ -2935,12 +2935,13 @@ setTimeout(() => rFetch(false), 4000);
 function rCard(full) {
   const r = REVIEW; if (!r || !r.text) return "";
   const wk = new Date(r.week + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  if (!full) return '<div class="rv-c" data-a="open" data-arg="review"><b>📋 Your Friday review is in</b> <small>(week of ' + wk + ")</small><div class=\"rv-p\">" + esc(String(r.text).split("\n")[0]).slice(0, 140) + "… ›</div></div>";
+  if (!full) return '<div class="rv-c" data-a="open" data-arg="review"><span data-a="rhide" title="Hide until next week" style="float:right;padding:0 4px 4px 10px;cursor:pointer">✕</span><b>📋 Your Friday review is in</b> <small>(week of ' + wk + ")</small><div class=\"rv-p\">" + esc(String(r.text).split("\n")[0]).slice(0, 140) + "… ›</div></div>";
   return '<div class="h">📋 Friday review · week of ' + wk + '</div><div class="card sunk wr">' + String(r.text).split("\n").filter(Boolean).map((p) => "<p>" + esc(p) + "</p>").join("") +
     ((r.tips || []).length ? '<div class="wr-t"><b>For next week</b>' + r.tips.map((x) => "<div>• " + esc(x) + "</div>").join("") + "</div>" : "") + "</div>";
 }
 function rShowHome() {                          // Friday 3pm to Sunday, for this week's review
   const d = new Date(), dow = d.getDay();
+  if (REVIEW && store.get("rhide", "") === REVIEW.week) return false;   // he clicked it away for this week
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
 function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO }; }
@@ -6165,6 +6166,7 @@ document.addEventListener("click", async (e) => {
   }
   if (a === "menu") { menuOpen = !menuOpen; render(); }
   else if (a === "reload") { load(true); }
+  else if (a === "rhide") { store.set("rhide", (REVIEW && REVIEW.week) || ""); render(); }
   else if (a === "open") { open_(arg); if (arg === "time") { tSyncSoon(1500); rFetch(true); } if (arg === "bookings") markClientsSeen(); }
   else if (a === "back") back();
   else if (a === "home") home();
