@@ -3217,6 +3217,10 @@ function planFeed() {                         // steps due within a week go into
   return n;
 }
 const isCustom = (r) => /custom/i.test(String(r.pkg || "")) || /\bcustoms?\b/i.test(String(r.design || ""));
+function customSoon(x) {                       // this to-do is a custom drawing whose session is today, tomorrow or the day after
+  const lim = addDays(todayISO(), 2);
+  return Object.values(CTODO).some((e) => e.iso <= lim && e.iso >= todayISO() && ((e.cid && x.cid === e.cid) || (e.task != null && x.id === e.task)));
+}
 function customImp(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 2 ? 5 : d <= 7 ? 4 : 3; }   // more urgent as the session nears
 function customDue(iso) {                      // the last drawing day in the week before, else the day before
   const today = todayISO();
@@ -5350,7 +5354,8 @@ function todayThree(v) {
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
   const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === jobFam(job) ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
   const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
-  const n = tattoo ? 1 : job === "off" ? 0 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);   // his own picks always come first
+  const n = tattoo ? 1 : job === "off" ? 0 : 3, chosen = T3PICK.map((k) => v.tasks.find((x) => key(x) === k && !x.done)).filter(Boolean);
+  v.tasks.forEach((x) => { if (!x.done && customSoon(x) && !chosen.includes(x)) chosen.push(x); });   // a custom tattooed in 2 days or less always shows   // his own picks always come first
   const picks = n ? chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n) : chosen;   // a day off only shows his own picks
   let ch = false; picks.forEach((x) => { if (!T3SEEN[key(x)]) { T3SEEN[key(x)] = iso; ch = true; } });
   if (ch) store.set("t3seen", T3SEEN);
@@ -5363,7 +5368,7 @@ function t3Card() {                            // the home screen card
   // today's list stays put: ticked ones stay crossed out (tap again to undo), new picks only fill empty spots
   let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
   const pl = store.get("t3plus", null), N = t.n + (pl && pl.iso === iso ? pl.n : 0), was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
-  const mine = (x) => T3PICK.includes(key(x));
+  const mine = (x) => T3PICK.includes(key(x)) || customSoon(x);
   // crossed-out ones hold their spot, his picks always show, then what was already showing and suggestions fill any room left
   let rows = was.filter((x) => x.done); t.picks.filter(mine).forEach((x) => { if (!rows.includes(x)) rows.push(x); });
   was.concat(t.picks).forEach((x) => { if (rows.length < N && !rows.includes(x)) rows.push(x); });
