@@ -3219,7 +3219,10 @@ function planFeed() {                         // steps due within a week go into
 const isCustom = (r) => /custom/i.test(String(r.pkg || "")) || /\bcustoms?\b/i.test(String(r.design || ""));
 function customSoon(x) {                       // this to-do is a custom drawing whose session is today, tomorrow or the day after
   const lim = addDays(todayISO(), 2);
-  return Object.values(CTODO).some((e) => e.iso <= lim && e.iso >= todayISO() && ((e.cid && x.cid === e.cid) || (e.task != null && x.id === e.task)));
+  return Object.values(CTODO).some((e) => e.iso <= lim && e.iso > todayISO() && ((e.cid && x.cid === e.cid) || (e.task != null && x.id === e.task)));   // not on the day itself
+}
+function customGone(x) {                       // the session is today or has been: drawing it is no longer a job
+  return Object.values(CTODO).some((e) => e.iso <= todayISO() && ((e.cid && x.cid === e.cid) || (e.task != null && x.id === e.task)));
 }
 function customImp(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 2 ? 5 : d <= 7 ? 4 : 3; }   // more urgent as the session nears
 function customDue(iso) {                      // the last drawing day in the week before, else the day before
@@ -5349,7 +5352,7 @@ function todayThree(v) {
   t3Heal(v);
   const iso = todayISO(), job = dayJob(iso), J = JOBS[job], tattoo = job === "tattoo", key = (x) => String(x.id != null ? x.id : x.cid);
   const fits = (x) => { const tj = taskJob(x, v); return !tj || tj === jobFam(job) || (x.due && x.due <= iso) || imp(x) >= 5; };   // another day's job waits for its day, unless it's due or !5
-  const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)) && fits(x));
+  const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)) && fits(x) && !customGone(x));
   const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
   const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === jobFam(job) ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
@@ -5367,7 +5370,7 @@ function t3Card() {                            // the home screen card
   const wait = D ? waitingThreads(1) : [], iso = todayISO(), key = (x) => String(x.id != null ? x.id : x.cid);
   // today's list stays put: ticked ones stay crossed out (tap again to undo), new picks only fill empty spots
   let day = store.get("t3today", null); if (!day || day.iso !== iso) day = { iso: iso, ids: [] };
-  const pl = store.get("t3plus", null), N = t.n + (pl && pl.iso === iso ? pl.n : 0), was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso));
+  const pl = store.get("t3plus", null), N = t.n + (pl && pl.iso === iso ? pl.n : 0), was = day.ids.map((k) => v.tasks.find((x) => key(x) === k)).filter((x) => x && (!x.done || x.done === iso) && !customGone(x));   // a custom's session day: drop it even if it showed this morning
   const mine = (x) => T3PICK.includes(key(x)) || customSoon(x);
   // crossed-out ones hold their spot, his picks always show, then what was already showing and suggestions fill any room left
   let rows = was.filter((x) => x.done); t.picks.filter(mine).forEach((x) => { if (!rows.includes(x)) rows.push(x); });
