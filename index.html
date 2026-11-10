@@ -826,7 +826,7 @@ function winSettings() {
     '<input class="inp" data-pref="server" value="' + esc(pref("server") || "") + '" placeholder="https://….ts.net:8446" autocapitalize="off" autocorrect="off" spellcheck="false">' +
     '<div class="row"><button class="btn raised" data-a="hstest">Test home server</button></div>';
   h += '<div class="h">Emails</div><div class="lv sunk"><div class="li" data-a="open" data-arg="auto"><span class="ico">✉️</span><span class="lab">Email wording, quick replies, reply nudges</span><span class="st">Auto emails ›</span></div></div>';
-  return h + '<div class="dim" style="margin-top:10px">These are saved on this phone.</div>';
+  return h + '<div class="dim" style="margin-top:10px">These are saved on this phone.' + (APPV ? " · " + esc(APPV) : "") + "</div>";   // which version this phone runs
 }
 document.addEventListener("change", (e) => { const k = e.target.dataset && e.target.dataset.pref; if (k) setPref(k, e.target.value); });
 document.body && document.body.classList.toggle("big", prefs.text === "big");
@@ -5385,9 +5385,9 @@ function t3Card() {                            // the home screen card
     (D ? live().filter((r) => r.iso === iso && r.deposit) : []).map((r) => { const f = String(r.first || r.name || "").trim(), td = store.get("tatdone", {}), on = td.iso === iso && (td.ids || []).includes(String(r.id));   // today's tattoos, tickable. Not counted in the streaks
       return '<div data-a="tattick" data-arg="' + esc(String(r.id)) + '" style="padding:3px 8px;cursor:pointer' + (on ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (on ? "✓ " : "○ ") + "🖋 Tattoo " + esc(f.charAt(0).toUpperCase() + f.slice(1)) + (r.time ? " at " + esc(r.time) : "") + "</div>"; }).join("") +
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
-    (rShowHome() ? rCard(false) : "") + '<div style="text-align:right;font-size:10px;opacity:.5;padding:0 6px">' + esc(APPV) + "</div></div>";
+    (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("0a907bd77a") ? "app 0a907bd77a" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("867044ae47") ? "app 867044ae47" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
