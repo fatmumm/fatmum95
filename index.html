@@ -635,7 +635,7 @@ function applyLocal(r, what, o) {                // what the screen shows straig
   else if (what === "price") { r.price = Number(o.total); r.owed = Math.max(0, r.price - (r.deposit ? DEPOSIT : 0)); }
   else if (what === "book") r.booked = true;
   else if (what === "receipt") r.rec = r.rec || "R-…";
-  else if (what === "balance") { r.inv = r.inv || "FM-…"; if (o.total > 0 && o.total !== r.price) { r.price = o.total; r.owed = Math.max(0, o.total - (r.deposit ? DEPOSIT : 0)); } }
+  else if (what === "balance") { r.inv = r.inv || "FM-…"; if (o.aftercare) r.aftercare = true; if (o.total > 0 && o.total !== r.price) { r.price = o.total; r.owed = Math.max(0, o.total - (r.deposit ? DEPOSIT : 0)); } }
   else if (what === "mail") { const f = { reminder: "reminder", aftercare: "aftercare", late: "late", chase_deposit: "chasedDep", chase_balance: "chasedRest", healing: "healing", healed_photo: "healedAsk", review: "reviewAsk" }[o.kind]; if (f) r[f] = true; }
   else if (what === "gone" || what === "cancel") r.cancelled = true;
   r.waiting = true;
@@ -767,8 +767,11 @@ function startDoc(r, kind, total) {
   if (kind === "balance" && total !== r.price) { r = Object.assign({}, r, { price: total, owed: Math.max(0, total - (r.deposit ? DEPOSIT : 0)) }); }
   const no = kind === "receipt" ? r.rec : r.inv;
   const tk = kind === "receipt" ? "receipt" : "balance";
-  confirmMails((no ? "Send " + no + " again?" : "Send it?"), "", [{ to: r.email, mail: fill(tk, r, { number: no || "{number}", amount: money(kind === "receipt" && r.paid ? r.paid.amt : owed(r)) }),
-    attach: (no || (kind === "receipt" ? "R-(next number)" : "FM-(next number)")) + ".pdf" }], (ms) => act(r.id, kind, kind === "balance" ? { mail: ms[0], total: r.price } : { mail: ms[0] }));
+  let m = fill(tk, r, { number: no || "{number}", amount: money(kind === "receipt" && r.paid ? r.paid.amt : owed(r)) });
+  const withCare = kind === "balance" && !no && on("auto_aftercare") && !r.aftercare;   // after the session: aftercare rides along with the invoice, one email
+  if (withCare) { const am = fill("aftercare", r); m = { subject: m.subject, body: m.body.replace(/\n+\s*(?:(?:best|thanks|cheers|love|danke)[^\n]{0,12}\n+\s*)?aron( x+)?\s*$/i, "") + "\n\n" + am.body.replace(/^\s*(Hi|Hey|Hello)[^\n]*\n+/, "") }; }
+  confirmMails((no ? "Send " + no + " again?" : "Send it?"), "", [{ label: withCare ? "Invoice + aftercare" : undefined, to: r.email, mail: m,
+    attach: (no || (kind === "receipt" ? "R-(next number)" : "FM-(next number)")) + ".pdf" }], (ms) => act(r.id, kind, kind === "balance" ? { mail: ms[0], total: r.price, aftercare: withCare } : { mail: ms[0] }));
 }
 function startPrice(r) {
   const dep = r.deposit ? DEPOSIT : 0;
@@ -5061,6 +5064,8 @@ function winClient(id) {
   const MAIN = { new: ["Send deposit invoice", "inv"], expired: ["Deposit paid", "dep"], deposit: ["Deposit paid", "dep"], book: ["Send calendar invite", "book"],
     remind: ["Send reminder", "remind"], due: ["Take payment " + money(owed(r)), "pay"], booked: [r.iso && r.iso <= addDays(t, 0) ? "Take payment " + money(owed(r)) : "Take payment " + money(owed(r)), "pay"],
     aftercare: ["Send aftercare", "aftercare"], ticket: [r.deposit ? "Take payment" : "Deposit paid", r.deposit ? "pay" : "dep"], tbc: ["📅 Pick their date", "slot"] };
+  if (MAIN[s] && MAIN[s][1] === "pay" && r.email && r.iso && r.iso <= t && !r.paid && owed(r) > 0)   // after the session: ask for the rest first, then mark it paid
+    MAIN[s] = r.inv ? ["💷 Payment received " + money(owed(r)), "pay"] : ["🧾 Send invoice for the rest " + money(owed(r)), "balinv"];
   if (MAIN[s] && !(s !== "new" && !r.email && ["remind", "aftercare"].includes(s))) h += '<button class="btn raised main" data-a="step" data-id="' + esc(r.id) + '" data-arg="' + MAIN[s][1] + '">' + esc(MAIN[s][0]) + "</button>";
   if (r.paid && r.email && !r.rec) h += '<button class="btn raised wide" data-a="doc" data-id="' + esc(r.id) + '" data-arg="receipt">Send receipt</button>';
   h += '<div class="h">Everything for ' + esc(r.first) + "</div>";
@@ -5387,7 +5392,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("867044ae47") ? "app 867044ae47" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("7854776cec") ? "app 7854776cec" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -6206,6 +6211,7 @@ document.addEventListener("click", async (e) => {
     else if (k === "dep") startDepositPaid(r);
     else if (k === "book") startBook(r);
     else if (k === "pay") startPay(r);
+    else if (k === "balinv") startDoc(r, "balance");
     else if (k === "remind") startMail(r, "reminder");
     else if (k === "aftercare") startMail(r, "aftercare");
     else if (k === "receipt") startDoc(r, "receipt");
