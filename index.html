@@ -5362,8 +5362,7 @@ function todayThree(v) {
   const picks = n ? chosen.concat(sorted.filter((x) => !chosen.includes(x))).slice(0, n) : chosen;   // a day off only shows his own picks
   let ch = false; picks.forEach((x) => { if (!T3SEEN[key(x)]) { T3SEEN[key(x)] = iso; ch = true; } });
   if (ch) store.set("t3seen", T3SEEN);
-  const who = tattoo && D ? live().filter((r) => r.iso === iso && r.deposit).map((r) => { const f = String(r.first || r.name || "").trim(); return f.charAt(0).toUpperCase() + f.slice(1) + (r.time ? " at " + r.time : ""); }).join(", ") : "";   // who's in today, and when
-  return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo, n: n, job: job, jobE: J.e, jobL: who ? J.l + ": " + who : J.l, jobH: J.hint };
+  return { picks: picks, rest: v.tasks.filter((x) => !x.done && !picks.includes(x)), tattoo: tattoo, n: n, job: job, jobE: J.e, jobL: J.l, jobH: J.hint };
 }
 function t3Card() {                            // the home screen card
   const v = todoView(), t = todayThree(v);
@@ -5383,10 +5382,12 @@ function t3Card() {                            // the home screen card
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
     '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today: ' + t.jobE + " " + esc(t.jobL) + "</b><span class=\"ts-go\">›</span></div>" + '<div style="padding:0 8px 3px;font-size:12px;opacity:.75">' + esc(t.jobH) + "</div>" +
     (t.job !== "off" ? '<div data-a="coffee" style="padding:3px 8px;cursor:pointer' + (store.get("coffee", "") === iso ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (store.get("coffee", "") === iso ? "✓ " : "○ ") + "☕ One coffee, then out of bed and start</div>" : "") +   // first thing, every working day. Not counted in the streaks
+    (D ? live().filter((r) => r.iso === iso && r.deposit) : []).map((r) => { const f = String(r.first || r.name || "").trim(), td = store.get("tatdone", {}), on = td.iso === iso && (td.ids || []).includes(String(r.id));   // today's tattoos, tickable. Not counted in the streaks
+      return '<div data-a="tattick" data-arg="' + esc(String(r.id)) + '" style="padding:3px 8px;cursor:pointer' + (on ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (on ? "✓ " : "○ ") + "🖋 Tattoo " + esc(f.charAt(0).toUpperCase() + f.slice(1)) + (r.time ? " at " + esc(r.time) : "") + "</div>"; }).join("") +
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + '<div style="text-align:right;font-size:10px;opacity:.5;padding:0 6px">' + esc(APPV) + "</div></div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("cc41336ad4") ? "app cc41336ad4" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("0a907bd77a") ? "app 0a907bd77a" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -6190,6 +6191,7 @@ document.addEventListener("click", async (e) => {
   }
   if (a === "menu") { menuOpen = !menuOpen; render(); }
   else if (a === "reload") { load(true); }
+  else if (a === "tattick") { const t = todayISO(), td = store.get("tatdone", {}), ids = td.iso === t ? (td.ids || []) : []; store.set("tatdone", { iso: t, ids: ids.includes(arg) ? ids.filter((x) => x !== arg) : ids.concat(arg) }); render(); }
   else if (a === "coffee") { store.set("coffee", store.get("coffee", "") === todayISO() ? "" : todayISO()); render(); }
   else if (a === "rhide") { store.set("rhide", (REVIEW && REVIEW.week) || ""); render(); }
   else if (a === "open") { open_(arg); if (arg === "time") { tSyncSoon(1500); rFetch(true); } if (arg === "bookings") markClientsSeen(); }
