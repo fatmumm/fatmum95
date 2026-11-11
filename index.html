@@ -5101,6 +5101,7 @@ function winClient(id) {
   const th = threadsFor(r);
   if (th.length) h += '<div class="h">Emails with ' + esc(r.first) + '</div><div class="lv sunk">' + th.map(threadRow).join("") + "</div>";
   if (r.photos.length) h += '<div class="h">Their pictures</div><div class="photos">' + r.photos.map((u, i) => '<img src="' + esc(u) + '" data-a="photo" data-id="' + esc(r.id) + '" data-arg="' + i + '">').join("") + "</div>";
+  else h += flPicked(r);
   if (r.paid) h += '<a class="link" data-a="undo" data-id="' + esc(r.id) + '">Undo payment</a>';
   return h;
 }
@@ -5392,7 +5393,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("7854776cec") ? "app 7854776cec" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("0526e96e9a") ? "app 0526e96e9a" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -5586,6 +5587,9 @@ document.head.insertAdjacentHTML("beforeend", "<style>" +
   ".flp.claimed{background:#c00000}.flp.tattooed{background:#555}.flp.pick{outline:3px solid #ffd400}" +
   ".flgone{position:absolute;transform:translate(-50%,-50%) rotate(-14deg);border:3px solid #c00000;color:#c00000;font:bold 20px/1 Tahoma,sans-serif;padding:3px 6px;background:rgba(255,255,255,.75);letter-spacing:.06em}" +
   ".flgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.flt{position:relative;background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/12px 12px;aspect-ratio:4/5;overflow:hidden;cursor:pointer}" +
+  ".flzs{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.flz{position:relative;aspect-ratio:1;overflow:hidden;cursor:pointer;border:2px solid #808080;background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/12px 12px}" +
+  ".flz img{position:absolute;left:50%;top:50%;width:300%;transform:translate(-50%,-50%);pointer-events:none}.flz img.all{width:100%;height:100%;left:0;top:0;transform:none;object-fit:contain}" +
+  ".flz b{position:absolute;left:3px;top:3px;background:#000080;color:#fff;font-size:12px;padding:1px 4px}" +
   ".flt img{width:100%;height:100%;object-fit:contain}.flt b{position:absolute;left:3px;top:3px;background:#000080;color:#fff;font-size:12px;padding:1px 4px}.flt i{position:absolute;left:3px;bottom:3px;right:3px;background:rgba(255,255,255,.85);font-size:11px;font-style:normal;padding:1px 3px}" +
   "</style>");
 const flSheet = (n) => FL && (FL.sheets || []).find((s) => s.n === Number(n));
@@ -5627,6 +5631,16 @@ function flashCard(r) {                          // the check on a client card
     const go = st === "pick" ? 'data-a="flpick" data-arg="' + esc(r.id) + '"' : st === "letter" ? 'data-a="flletter" data-arg="' + c.n + '"' : 'data-a="flopen" data-arg="s|' + c.n + '"';
     return '<div class="li" ' + go + ' style="cursor:pointer"><span class="ico">' + ic + '</span><span class="lab' + (st === "bad" ? " bad" : "") + '">' + esc(txt) + '</span><span class="st">›</span></div>';
   }).join("") + "</div>";
+}
+function flPicked(r) {                          // bottom of a client page: a zoomed look at each design they named, for when they sent no picture
+  if (!FL) return "";
+  const tiles = flCodesFor(r).map((c) => {
+    const sh = flSheet(c.n); if (!sh || !sh.url) return "";
+    const x = c.l && (sh.letters || []).find((y) => y.l === c.l);
+    const img = x ? '<img src="' + esc(flThumb(sh.url, 1400)) + '" alt="" style="transform:translate(-' + Number(x.x) + "%,-" + Number(x.y) + '%)">' : '<img class="all" src="' + esc(flThumb(sh.url, 600)) + '" alt="">';
+    return '<div class="flz" data-a="flopen" data-arg="s|' + c.n + '">' + img + "<b>" + esc(x ? c.n + c.l : "Sheet " + c.n) + (c.vary ? " · variation" : "") + "</b></div>";
+  }).join("");
+  return tiles ? '<div class="h">What they picked</div><div class="flzs">' + tiles + "</div>" : "";
 }
 async function flashLoad(check) {
   if (!STANDALONE || !serverUrl() || flBusy || srvDown()) return;
