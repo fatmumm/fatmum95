@@ -820,6 +820,7 @@ function winSettings() {
     [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["todo", "✅", "To-do"], ["bookings", "👥", "Clients"]].map(([k, i, l]) => row(i, l, sel("badge_" + k, pref("badge_" + k), colourOpts))).join("") + "</div>";
   h += '<div class="h">Icons on the desktop</div><div class="dim" style="margin-bottom:6px">Untick the ones you don\'t use. They stay in the Start menu.</div><div class="lv sunk">' +
     APPS.filter((x) => x[0] !== "settings").map((x) => '<div class="li" data-a="prefhide" data-arg="' + x[0] + '">' + box(!pref("hide").includes(x[0])) + '<span class="lab">' + x[1] + " " + esc(x[2]) + "</span></div>").join("") + "</div>";
+  h += paSettings();
   h += '<div class="h">' + esc(BEAN.name || "Bean") + '</div><div class="lv sunk">' +
     '<div class="li" data-a="preftoggle" data-arg="bean">' + box(pref("bean")) + '<span class="lab">Show ' + esc(BEAN.name || "Bean") + "</span></div>" +
     '<div class="li" data-a="preftoggle" data-arg="bean_morning">' + box(pref("bean_morning")) + '<span class="lab">Pop up with tips when I first open the app each day</span></div></div>';
@@ -836,6 +837,110 @@ document.body && document.body.classList.toggle("big", prefs.text === "big");
 function open_(kind, arg) { menuOpen = false; if (stack.length) stack[stack.length - 1].y = window.scrollY; stack = stack.filter((w) => !(w.kind === kind && w.arg === arg)); stack.push({ kind: kind, arg: arg }); if (typeof useLog === "function") useLog("open", kind); render(); window.scrollTo(0, 0); }
 function back() { stack.pop(); render(); const w = stack[stack.length - 1]; if (w && w.y) window.scrollTo(0, w.y); }   // back to where you were in the list
 function home() { stack = []; menuOpen = false; render(); }
+
+// ── 📱 Phone apps: only inside the Jelly Star launcher (window.FMShell). The iPhone never sees any of this ──
+const SHELL = window.FMShell || null;
+let paCache = null;
+function paAll() {                              // every installed app: [{pkg, label, icon}], "@phone" / "@sms" / "@camera" are the system ones
+  if (!SHELL) return [];
+  if (!paCache) { try { paCache = JSON.parse(SHELL.apps()) || []; } catch (e) { paCache = []; } paCache.sort((a, b) => a.label.localeCompare(b.label)); }
+  return paCache;
+}
+document.addEventListener("visibilitychange", () => { if (SHELL && !document.hidden) { paCache = null; render(); } });   // apps added or removed while away
+const PA_START = [["@phone"], ["@sms"], ["com.whatsapp", /whatsapp/i], ["com.google.android.apps.maps", /^maps$|google maps/i], [null, /santander/i], ["com.google.android.gm", /^gmail/i],
+  ["com.google.android.calendar", /^calendar$|google calendar/i], ["com.reddit.frontpage", /^reddit/i], ["@camera"], ["com.google.android.apps.photos", /^photos$|google photos/i], [null, /^nts\b/i], ["com.anthropic.claude", /^claude/i]];
+const paGet = (k, d) => store.get(k, d);
+function paStart() {                            // his Start menu list, filled once from his picks
+  let l = paGet("papps", null);
+  if (!l && SHELL) {
+    const all = paAll();
+    l = PA_START.map(([p, re]) => (all.find((a) => a.pkg === p) || (re && all.find((a) => re.test(a.label))) || {}).pkg).filter(Boolean);
+    store.set("papps", l);
+  }
+  return (l || []).filter((p) => paAll().some((a) => a.pkg === p));
+}
+const paApp = (pkg) => paAll().find((a) => a.pkg === pkg);
+const paLabel = (pkg) => paGet("pname", {})[pkg] || ((paApp(pkg) || {}).label) || pkg;
+function paIcon(pkg) {                          // his emoji or picture, else the app's own icon
+  const c = paGet("picon", {})[pkg];
+  if (c && c.indexOf("data:") !== 0) return "<i>" + esc(c) + "</i>";
+  const src = c || ((paApp(pkg) || {}).icon) || "";
+  return src ? '<img src="' + esc(src) + '" alt="" style="width:36px;height:36px;display:block">' : "<i>📱</i>";
+}
+const paSmall = (pkg) => '<span class="paic">' + paIcon(pkg) + "</span>";
+function paSet(k, pkg, v) { const o = paGet(k, {}); if (v) o[pkg] = v; else delete o[pkg]; store.set(k, o); }
+function paToggle(k, pkg) { const l = paGet(k, []).slice(), i = l.indexOf(pkg); if (i < 0) l.push(pkg); else l.splice(i, 1); store.set(k, l); }
+function paMove(pkg, d) { const l = paStart().slice(), i = l.indexOf(pkg), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; l.splice(i, 1); l.splice(j, 0, pkg); store.set("papps", l); }
+function paOpen(pkg) { try { SHELL.open(pkg); } catch (e) { toast("⚠ Couldn't open that app."); } }
+document.head.insertAdjacentHTML("beforeend", "<style>.paic{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;vertical-align:middle;margin-right:6px;font-size:22px}.paic img{width:26px!important;height:26px!important}.paic i{font-style:normal}" +
+  ".menu .pah{padding:6px 12px;font-weight:700;background:#808080;color:#fff;font-size:13px}.icon .ic>img{width:36px;height:36px}</style>");
+function paMenu() {
+  const l = SHELL ? paStart() : [];
+  return l.length ? '<div class="pah">📱 Phone</div>' + l.map((p) => '<div class="it" data-a="papp" data-arg="' + esc(p) + '">' + paSmall(p) + esc(paLabel(p)) + "</div>").join("") + '<div class="pah">Fat Mum 95</div>' : "";
+}
+function paDesk() {
+  if (!SHELL) return "";
+  const s = paStart();
+  return paGet("pdesk", []).filter((p) => s.includes(p)).map((p) => '<div class="icon" data-a="papp" data-arg="' + esc(p) + '"><div class="ic">' + paIcon(p) + '</div><span>' + esc(paLabel(p)) + "</span></div>").join("");
+}
+function paSettings() {
+  if (!SHELL) return "";
+  const desk = paGet("pdesk", []);
+  return '<div class="h">Phone apps</div><div class="dim" style="margin-bottom:6px">These are in the Start menu. Tick one to put it on the desktop too. Tap a name to rename it or change its icon.</div><div class="lv sunk">' +
+    paStart().map((p) => '<div class="li"><span data-a="padesk" data-arg="' + esc(p) + '" style="cursor:pointer"><span class="bx sunk" style="width:20px;height:20px;display:inline-block;text-align:center;line-height:16px;font-weight:700">' + (desk.includes(p) ? "✓" : "") + '</span></span><span class="lab" data-a="paedit" data-arg="' + esc(p) + '" style="cursor:pointer;margin-left:8px">' + paSmall(p) + esc(paLabel(p)) + '</span><span class="st">›</span></div>').join("") +
+    '<div class="li" data-a="open" data-arg="papps" style="cursor:pointer"><span class="ico">＋</span><span class="lab">Add an app to the Start menu</span><span class="st">›</span></div></div>';
+}
+function winPapps(arg) {                        // "add": pick one for the Start menu. Otherwise the full list (the 3 second escape hatch)
+  const add = arg === "add" || !arg, s = paStart();
+  return '<div class="dim" style="margin-bottom:6px">' + (add ? "Tap an app to add it to the Start menu." : "Every app on the phone.") + '</div><div class="lv sunk">' +
+    paAll().map((a) => '<div class="li" data-a="' + (add ? "paadd" : "papp") + '" data-arg="' + esc(a.pkg) + '" style="cursor:pointer"><span class="lab">' + paSmall(a.pkg) + esc(paLabel(a.pkg)) + (paLabel(a.pkg) !== a.label ? ' <span class="dim">(' + esc(a.label) + ")</span>" : "") + '</span><span class="st">' + (add && s.includes(a.pkg) ? "✓" : "›") + "</span></div>").join("") + "</div>";
+}
+function winPapp(pkg) {                         // one app: name, icon, where it shows
+  const a = paApp(pkg); if (!a) return '<div class="card sunk">That app isn\'t on the phone any more.</div>';
+  const inStart = paStart().includes(pkg), onDesk = paGet("pdesk", []).includes(pkg), c = paGet("picon", {})[pkg] || "";
+  const tick = (on) => '<span class="bx sunk" style="width:20px;height:20px;display:inline-block;text-align:center;line-height:16px;font-weight:700;margin-right:8px">' + (on ? "✓" : "") + "</span>";
+  return '<div class="card sunk" style="text-align:center"><div class="icon" style="display:inline-block;width:96px;color:#000"><div class="ic">' + paIcon(pkg) + '</div><span>' + esc(paLabel(pkg)) + "</span></div>" +
+    '<div class="row"><button class="btn raised main" data-a="papp" data-arg="' + esc(pkg) + '">Open it</button></div></div>' +
+    '<div class="h">Name</div><input class="inp sunk" id="pa_name" data-pkg="' + esc(pkg) + '" value="' + esc(paLabel(pkg)) + '" placeholder="' + esc(a.label) + '">' +
+    '<div class="h">Icon</div><div class="row" style="flex-wrap:wrap;gap:6px">' +
+    '<button class="btn raised" data-a="pareal" data-arg="' + esc(pkg) + '">' + (c ? "" : "✓ ") + "Real icon</button>" +
+    '<label class="btn raised">🖼 Picture' + (c.indexOf("data:") === 0 ? " ✓" : "") + '<input type="file" accept="image/*" id="pa_pic" data-pkg="' + esc(pkg) + '" style="display:none"></label></div>' +
+    '<div class="dim" style="margin:8px 0 4px">Or type an emoji:</div><input class="inp sunk" id="pa_emoji" data-pkg="' + esc(pkg) + '" value="' + esc(c.indexOf("data:") === 0 ? "" : c) + '" placeholder="e.g. 💸" style="font-size:28px;width:90px;text-align:center">' +
+    '<div class="h">Where it shows</div><div class="lv sunk">' +
+    '<div class="li" data-a="pastart" data-arg="' + esc(pkg) + '" style="cursor:pointer">' + tick(inStart) + '<span class="lab">Start menu</span></div>' +
+    '<div class="li" data-a="padesk" data-arg="' + esc(pkg) + '" style="cursor:pointer">' + tick(onDesk) + '<span class="lab">Desktop</span></div></div>' +
+    (inStart ? '<div class="row" style="margin-top:8px"><button class="btn raised" data-a="paup" data-arg="' + esc(pkg) + '">▲ Move up</button><button class="btn raised" data-a="padown" data-arg="' + esc(pkg) + '">▼ Move down</button></div>' : "") +
+    '<div class="row" style="margin-top:8px"><button class="btn raised" data-a="pareset" data-arg="' + esc(pkg) + '">↺ Original name and icon</button></div>';
+}
+function paAction(a, arg) {                     // → true when it was one of ours
+  if (a === "papp") { paOpen(arg); return true; }
+  if (a === "paedit") { open_("papp", arg); return true; }
+  if (a === "paadd") { if (!paStart().includes(arg)) store.set("papps", paStart().concat([arg])); stack.pop(); open_("papp", arg); return true; }
+  if (a === "pastart") { const l = paStart(); store.set("papps", l.includes(arg) ? l.filter((p) => p !== arg) : l.concat([arg])); render(); return true; }
+  if (a === "padesk") { paToggle("pdesk", arg); render(); return true; }
+  if (a === "paup" || a === "padown") { paMove(arg, a === "paup" ? -1 : 1); render(); return true; }
+  if (a === "pareal") { paSet("picon", arg, ""); render(); return true; }
+  if (a === "pareset") { paSet("picon", arg, ""); paSet("pname", arg, ""); render(); return true; }
+  return false;
+}
+document.addEventListener("change", async (e) => {
+  const el = e.target, pkg = el.dataset && el.dataset.pkg; if (!pkg || !/^pa_/.test(el.id)) return;
+  if (el.id === "pa_name") paSet("pname", pkg, el.value.trim());
+  if (el.id === "pa_emoji") paSet("picon", pkg, el.value.trim().slice(0, 8));
+  if (el.id === "pa_pic" && el.files && el.files[0]) { try { paSet("picon", pkg, await photoToJpeg(el.files[0], 96)); } catch (err) { toast("⚠ " + err.message); } }
+  render();
+});
+let paHold = null;                              // hold the clock 3 seconds → every app
+document.addEventListener("pointerdown", (e) => { if (SHELL && e.target.closest && e.target.closest("#clock")) { clearTimeout(paHold); paHold = setTimeout(() => { paHold = null; open_("papps", "all"); }, 3000); } });
+["pointerup", "pointercancel", "pointerleave"].forEach((ev) => document.addEventListener(ev, () => { clearTimeout(paHold); paHold = null; }, { passive: true, capture: true }));
+function paBattery() { if (!SHELL || !SHELL.battery) return ""; try { const b = JSON.parse(SHELL.battery()); return b && b.pct >= 0 ? " " + (b.charging ? "⚡" : "🔋") + b.pct + "%" : ""; } catch (e) { return ""; } }
+window.fmShellBack = () => {                    // the Android back button: close what's open, never leave the app
+  if ($("dlg") && $("dlg").innerHTML.trim()) { $("dlg").innerHTML = ""; return true; }
+  if (menuOpen) { menuOpen = false; render(); return true; }
+  if (stack.length) { back(); return true; }
+  return false;
+};
+if (SHELL) setInterval(() => { if (!document.hidden) $("clock").textContent = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes()) + paBattery(); }, 60000);
 function winOutbox() {
   const row = (it, i, bad) => '<div class="li"><span class="ico">' + (bad ? "⚠️" : "📤") + '</span><span class="lab"><b>' + esc(it.label || it.fn) + '</b><div class="dim">' + esc(ago(it.at)) + (bad ? " · " + esc(it.error) : i === 0 && sending ? " · sending…" : " · waiting") + "</div></span>" +
     (bad ? '<button class="btn raised small" data-a="boxretry" data-arg="' + i + '">Retry</button>' : "") + '<button class="btn raised small" data-a="boxbin" data-arg="' + (bad ? "f" : "o") + i + '">Bin</button></div>';
@@ -4909,6 +5014,8 @@ function useFeedback(type) {                   // 🙄 / 💡: one box, optional
 
 function winTitle(w) {
   if (w.kind === "eis") return "Choose my 3";
+  if (w.kind === "papp") return paLabel(w.arg);
+  if (w.kind === "papps") return w.arg === "all" ? "All apps" : "Add an app";
   if (w.kind === "idea") return "Idea";
   if (w.kind === "client") { const r = byId(w.arg); return r ? r.name : "Client"; }
   if (w.kind === "photo") return "Photo";
@@ -4945,13 +5052,13 @@ function badge(kind) {
   return 0;
 }
 function render() {
-  $("clock").textContent = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
+  $("clock").textContent = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes()) + paBattery();
   setStatus((DRY ? "TEST · " : "") + (D && D.now ? "updated " + ago(D.now) : ""));
-  $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
+  $("menu").innerHTML = menuOpen ? '<div class="menu raised"><div class="side">FAT MUM 95</div><div class="items">' + paMenu() + APPS.map((a) => '<div class="it" data-a="open" data-arg="' + a[0] + '">' + a[1] + " " + a[2] + "</div>").join("") + (beanHidden() ? '<div class="it" data-a="beanback">🫘 Bring ' + esc(BEAN.name) + " back</div>" : "") + '<div class="it" data-a="reload">↻ Refresh</div></div></div>' : "";
   if (!stack.length) {
     render.lastKey = null;
     if (document.activeElement && document.activeElement.id === "tswhat") { const el = $("tsel"), r = tRunning(); if (el && r) el.textContent = " · " + tHM(Date.now() - r.s) + " since " + tClock(r.s); return; }
-    $("main").innerHTML = (sheetBroken() ? '<div class="card sunk bad" style="margin-bottom:10px">⚠ Your bookings aren\'t loading. The Read tab in the sheet has an error, so Clients may look empty. Nothing is lost.</div>' : "") + t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "red"] || BADGE_COLOURS.red; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + "</div>" + habitWidget();
+    $("main").innerHTML = (sheetBroken() ? '<div class="card sunk bad" style="margin-bottom:10px">⚠ Your bookings aren\'t loading. The Read tab in the sheet has an error, so Clients may look empty. Nothing is lost.</div>' : "") + t3Card() + '<div class="desk">' + APPS.filter((a) => !pref("hide").includes(a[0])).map((a) => { const n = badge(a[0]), c = BADGE_COLOURS[pref("badge_" + a[0]) || "red"] || BADGE_COLOURS.red; return '<div class="icon" data-a="open" data-arg="' + a[0] + '"><div class="ic"><i>' + a[1] + "</i></div>" + (n && c[1] ? '<b class="badge" style="background:' + c[1] + ";color:" + c[2] + '">' + n + "</b>" : "") + "<span>" + a[2] + "</span></div>"; }).join("") + paDesk() + "</div>" + habitWidget();
   } else {
     const w = stack[stack.length - 1];
     if ((w.kind === "note" && nEditing()) || (w.kind === "blead" && document.activeElement && /^(blk_|bltag)/.test(document.activeElement.id || "")) || (w.kind === "ref" && $("rvc") && RV && RV.i === Number(w.arg))) { drawCharts(); beanDraw(); boxBadge(); return; }
@@ -4981,7 +5088,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    snail: winSnail, ideas: winIdeas, idea: winIdea, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers }[w.kind])(w.arg);
+    snail: winSnail, ideas: winIdeas, idea: winIdea, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers, papp: winPapp, papps: winPapps }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5394,7 +5501,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("1614752083") ? "app 1614752083" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("dea1bf90b4") ? "app dea1bf90b4" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -6209,6 +6316,7 @@ document.addEventListener("click", async (e) => {
     }).catch(() => setupScreen("No signal right now. Try again when you're online."));
     return;
   }
+  if (paAction(a, arg)) return;
   if (a === "menu") { menuOpen = !menuOpen; render(); }
   else if (a === "reload") { load(true); }
   else if (a === "tattick") { const t = todayISO(), td = store.get("tatdone", {}), ids = td.iso === t ? (td.ids || []) : []; store.set("tatdone", { iso: t, ids: ids.includes(arg) ? ids.filter((x) => x !== arg) : ids.concat(arg) }); render(); }
