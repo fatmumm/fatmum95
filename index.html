@@ -1015,9 +1015,13 @@ document.addEventListener("change", async (e) => {
   if (el.id === "pa_pic" && el.files && el.files[0]) { try { paSet("picon", pkg, await photoToJpeg(el.files[0], 96)); } catch (err) { toast("⚠ " + err.message); } }
   render();
 });
-let paHold = null;                              // hold the clock 3 seconds → every app
-document.addEventListener("pointerdown", (e) => { if (SHELL && e.target.closest && e.target.closest("#clock")) { clearTimeout(paHold); paHold = setTimeout(() => { paHold = null; open_("papps", "all"); }, 3000); } });
-["pointerup", "pointercancel", "pointerleave"].forEach((ev) => document.addEventListener(ev, () => { clearTimeout(paHold); paHold = null; }, { passive: true, capture: true }));
+let paHold = null, paXY = null;                // hold the clock 3 seconds → every app (touch events: Android's long-press would cancel pointer ones)
+const paStop = () => { clearTimeout(paHold); paHold = null; };
+document.addEventListener("touchstart", (e) => { if (!SHELL || !(e.target.closest && e.target.closest("#clock"))) return; const t = e.touches[0]; paXY = [t.clientX, t.clientY]; paStop(); paHold = setTimeout(() => { paHold = null; if (navigator.vibrate) navigator.vibrate(30); open_("papps", "all"); }, 3000); }, { passive: true });
+document.addEventListener("touchmove", (e) => { if (!paHold || !paXY) return; const t = e.touches[0]; if (Math.abs(t.clientX - paXY[0]) + Math.abs(t.clientY - paXY[1]) > 24) paStop(); }, { passive: true });
+["touchend", "touchcancel"].forEach((ev) => document.addEventListener(ev, paStop, { passive: true }));
+document.addEventListener("contextmenu", (e) => { if (SHELL && e.target.closest && e.target.closest("#clock")) e.preventDefault(); });
+$("clock").style.cssText += ";-webkit-user-select:none;user-select:none;-webkit-touch-callout:none";
 function paBattery() { if (!SHELL || !SHELL.battery) return ""; try { const b = JSON.parse(SHELL.battery()); return b && b.pct >= 0 ? " " + (b.charging ? "⚡" : "🔋") + b.pct + "%" : ""; } catch (e) { return ""; } }
 window.fmShellBack = () => {                    // the Android back button: close what's open, never leave the app
   if ($("dlg") && $("dlg").innerHTML.trim()) { $("dlg").innerHTML = ""; return true; }
@@ -5610,14 +5614,14 @@ function t3Card() {                            // the home screen card
   const nd = rows.length, dd = rows.filter((x) => x.done).length, lg = T3LOG[iso];   // for the clear-day streaks
   if (!lg || lg.n !== nd || lg.d !== dd) { T3LOG[iso] = { n: nd, d: dd }; const ks = Object.keys(T3LOG).sort(); while (ks.length > 400) delete T3LOG[ks.shift()]; store.set("t3log", T3LOG); tSyncSoon(); }
   return (wait.length ? '<div class="ts raised" data-a="open" data-arg="inbox" style="cursor:pointer;padding:6px 8px">💌 <b>' + esc(wait.map((x) => x.name || x.client).slice(0, 3).join(", ")) + "</b> " + (wait.length === 1 ? "is" : "are") + " waiting for a reply ›</div>" : "") +
-    '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today: ' + t.jobE + " " + esc(t.jobL) + "</b><span class=\"ts-go\">›</span></div>" + '<div style="padding:0 8px 3px;font-size:12px;opacity:.75">' + esc(t.jobH) + "</div>" +
+    '<div class="ts raised" data-a="open" data-arg="todo" style="cursor:pointer"><div class="ts-h"><b>✅ Today: ' + t.jobE + " " + esc(t.jobL) + "</b><span class=\"ts-go\">›</span></div>" + "" +   // 11 Nov: only the to-dos on the card, no hint line
     (t.job !== "off" ? '<div data-a="coffee" style="padding:3px 8px;cursor:pointer' + (store.get("coffee", "") === iso ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (store.get("coffee", "") === iso ? "✓ " : "○ ") + "☕ One coffee, then out of bed and start</div>" : "") +   // first thing, every working day. Not counted in the streaks
     (D ? live().filter((r) => r.iso === iso && r.deposit) : []).map((r) => { const f = String(r.first || r.name || "").trim(), td = store.get("tatdone", {}), on = td.iso === iso && (td.ids || []).includes(String(r.id));   // today's tattoos, tickable. Not counted in the streaks
       return '<div data-a="tattick" data-arg="' + esc(String(r.id)) + '" style="padding:3px 8px;cursor:pointer' + (on ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (on ? "✓ " : "○ ") + "🖋 Tattoo " + esc(f.charAt(0).toUpperCase() + f.slice(1)) + (r.time ? " at " + esc(r.time) : "") + "</div>"; }).join("") +
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("9b2d5cfeae") ? "app 9b2d5cfeae" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("a69c33c075") ? "app a69c33c075" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
