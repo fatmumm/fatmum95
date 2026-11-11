@@ -5048,7 +5048,8 @@ function zipLine(r) {
   if (!BL || !BL.rows) return "checking…";
   const z = zipOf(r);
   if (!z) return "No, this email didn't sign up";
-  return "✓ Signed up " + shortDay(String(z.when).slice(0, 10)) + (zipBefore(r, z) ? ", before booking" : ", after booking") + (z.src ? " (" + z.src + ")" : "");
+  const zd = String(z.when).slice(0, 10), n = daysBetween(zd, todayISO());   // how long ago, so he can see how warm they are
+  return "✓ Signed up " + shortDay(zd) + " (" + (n <= 0 ? "today" : n === 1 ? "yesterday" : n + " days ago") + ")" + (zipBefore(r, z) ? ", before booking" : ", after booking") + (z.src ? " (" + z.src + ")" : "");
 }
 function winClient(id) {
   const r = byId(id); if (!r) return '<div class="card sunk">Not found. Pull down to refresh.</div>';
@@ -5393,7 +5394,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("0526e96e9a") ? "app 0526e96e9a" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("1614752083") ? "app 1614752083" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
