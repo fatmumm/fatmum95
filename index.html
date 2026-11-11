@@ -158,7 +158,7 @@ button,input,textarea,select{font-family:inherit;font-size:var(--t3);color:#000}
 .win{margin:var(--s1)}
 .title{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:600;font-size:var(--t3);padding:var(--s1);display:flex;align-items:center;gap:var(--s2);min-height:32px}
 .title .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:var(--s1)}
-.tb{width:40px;height:36px;min-height:0!important;padding:0!important;font-size:15px;font-weight:600;line-height:20px;flex:none}
+.tb{width:44px;height:40px;min-height:0!important;padding:0!important;font-size:16px;font-weight:600;line-height:20px;flex:none}
 .body{padding:var(--s2)}
 .btn{font-size:var(--t3);padding:var(--s2) var(--s3);min-height:44px;cursor:pointer;border-radius:0}
 .btn:active,.btn.on{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px #808080}
@@ -845,7 +845,7 @@ const SHELL = window.FMShell || null;
 let paCache = null;
 if (SHELL) {                                    // the launcher: Microsoft Fluent flat emoji (MIT) instead of Android's, falling back to the normal emoji
   document.body.classList.add("shell");
-  document.head.insertAdjacentHTML("beforeend", "<style>img.emj{height:1.15em;width:1.15em;vertical-align:-.2em;display:inline-block}.icon .ic>i img.emj{width:32px;height:32px;vertical-align:top}.shell .icon .ic>i{font-size:24px}.shell .sync{display:none}.shell .tbar .tray{margin-left:auto}.paic img.emj{width:24px;height:24px}</style>");
+  document.head.insertAdjacentHTML("beforeend", "<style>img.emj{height:1.15em;width:1.15em;vertical-align:-.2em;display:inline-block}.icon .ic>i img.emj{width:32px;height:32px;vertical-align:top}.shell .icon .ic>i{font-size:24px}.shell .sync{display:none}.shell .tbar{margin-top:0;border-top:0}.shell .menu{top:52px}.shell .tbar .tray{margin-left:auto}.paic img.emj{width:24px;height:24px}</style>");
   const CDN = "https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-flat@1.1.0/assets/";
   const RE = /(?:\p{RI}\p{RI}|[#*0-9]️?⃣|\p{Extended_Pictographic}(?:️|\p{EMod})?(?:‍\p{Extended_Pictographic}(?:️|\p{EMod})?)*)/gu;
   const cps = (e, keep) => [...e].map((c) => c.codePointAt(0).toString(16).padStart(4, "0")).filter((h) => keep || h !== "fe0f").join("-");
@@ -5622,7 +5622,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("a8f1ec4a51") ? "app a8f1ec4a51" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("dae1aa86c6") ? "app dae1aa86c6" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
