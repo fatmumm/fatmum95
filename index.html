@@ -878,7 +878,13 @@ function paAll() {                              // every installed app: [{pkg, l
   if (!paCache) { try { paCache = JSON.parse(SHELL.apps()) || []; } catch (e) { paCache = []; } paCache.sort((a, b) => a.label.localeCompare(b.label)); }
   return paCache;
 }
-document.addEventListener("visibilitychange", () => { if (SHELL && !document.hidden) paCache = null; });   // apps added or removed while away (no redraw here: it would throw away a file box mid-pick)
+document.addEventListener("visibilitychange", () => { if (SHELL && !document.hidden) paCache = null; });
+if (SHELL) {                                    // Android's picker hides the page, and coming back redraws it: keep the file box that's mid-pick in the page so its pick still lands
+  let fIn = null; const keep = document.createElement("div"); keep.style.display = "none"; document.body.appendChild(keep);
+  document.addEventListener("click", (e) => { const el = e.target.closest && e.target.closest("label"); const inp = e.target.matches && e.target.matches("input[type=file]") ? e.target : el && el.querySelector("input[type=file]"); if (inp) fIn = inp; }, true);
+  new MutationObserver(() => { if (fIn && !document.contains(fIn)) keep.appendChild(fIn); }).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("change", (e) => { if (e.target === fIn) setTimeout(() => { if (fIn && fIn.parentNode === keep) keep.removeChild(fIn); fIn = null; }, 0); }, true);
+}   // apps added or removed while away (no redraw here: it would throw away a file box mid-pick)
 const PA_START = [["@phone"], ["@sms"], ["com.whatsapp", /whatsapp/i], ["com.google.android.apps.maps", /^maps$|google maps/i], [null, /santander/i], ["com.google.android.gm", /^gmail/i],
   ["com.google.android.calendar", /^calendar$|google calendar/i], ["com.reddit.frontpage", /^reddit/i], ["@camera"], ["com.google.android.apps.photos", /^photos$|google photos/i], [null, /^nts\b/i], ["com.anthropic.claude", /^claude/i], ["com.pinterest", /^pinterest/i], ["com.instagram.android", /^instagram/i]];
 const paGet = (k, d) => store.get(k, d);
@@ -5649,7 +5655,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("bc766ed39a") ? "app bc766ed39a" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("a56b224482") ? "app a56b224482" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
