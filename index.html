@@ -5583,7 +5583,7 @@ function todayThree(v) {
   const iso = todayISO(), job = dayJob(iso), J = JOBS[job], tattoo = job === "tattoo", key = (x) => String(x.id != null ? x.id : x.cid);
   const fits = (x) => { const tj = taskJob(x, v); return !tj || tj === jobFam(job) || (x.due && x.due <= iso) || imp(x) >= 5; };   // another day's job waits for its day, unless it's due or !5
   const open = v.tasks.filter((x) => !x.done && (!x.due || x.due <= addDays(iso, PLAN_AHEAD)) && fits(x) && !customGone(x));
-  const stale = (x) => { const s = T3SEEN[key(x)]; return s && s <= addDays(iso, -7); };
+  const stale = (x) => { const s0 = T3SEEN[key(x)], s = x.due && x.due < iso && (!s0 || x.due < s0) ? x.due : s0; return s && s <= addDays(iso, -7); };   // a new phone has no memory, so an overdue one counts from its due date (11 Nov)
   const ahead = (x) => Math.round((new Date(x.due + "T12:00") - new Date(iso + "T12:00")) / 864e5);
   const rank = (x) => (stale(x) ? 1e6 : 0) + (x.due && x.due < iso ? 0 : x.due === iso ? 1e4 : 2e4 + (x.due ? ahead(x) : 4) * 1500) - imp(x) * 2000 - (taskJob(x, v) === jobFam(job) ? 3000 : 0);   // overdue, today, then soonest, !5 jumps ahead, and today's job comes first
   const sorted = open.slice().sort((a, b) => rank(a) - rank(b));
@@ -5617,7 +5617,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("bb7bdc32f5") ? "app bb7bdc32f5" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("520b6029c3") ? "app 520b6029c3" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
