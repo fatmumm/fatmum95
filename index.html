@@ -903,7 +903,8 @@ const paSmall = (pkg) => '<span class="paic">' + paIcon(pkg) + "</span>";
 function paSet(k, pkg, v) { const o = paGet(k, {}); if (v) o[pkg] = v; else delete o[pkg]; store.set(k, o); }
 function paToggle(k, pkg) { const l = paGet(k, []).slice(), i = l.indexOf(pkg); if (i < 0) l.push(pkg); else l.splice(i, 1); store.set(k, l); }
 function paMove(pkg, d) { const l = paStart().slice(), i = l.indexOf(pkg), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; l.splice(i, 1); l.splice(j, 0, pkg); store.set("papps", l); }
-function paOpen(pkg) { if (paLocked(pkg)) { open_("palock", pkg); return; } try { SHELL.open(pkg); } catch (e) { toast("⚠ Couldn't open that app."); } }
+const paLeft = (pkg) => { try { return SHELL && SHELL.timeLeft ? Number(SHELL.timeLeft(pkg)) || 0 : 0; } catch (e) { return 0; } };   // ms left on its timer
+function paOpen(pkg) { if (paLocked(pkg) && !(paLeft(pkg) > 0)) { open_("palock", pkg); return; } try { SHELL.open(pkg); } catch (e) { toast("⚠ Couldn't open that app."); } }
 // ── 🔒 tag-locked apps: scan his NFC tag to open one, and it only stays open for a few minutes (the launcher pulls him back) ──
 if (SHELL && paGet("plock", null) === null) store.set("plock", ["com.instagram.android"]);
 const paLocked = (pkg) => paGet("plock", []).includes(pkg);
@@ -955,7 +956,7 @@ document.head.insertAdjacentHTML("beforeend", "<style>.paic{display:inline-flex;
   ".menu .pah{padding:var(--s2) var(--s3);font-weight:700;background:#808080;color:#fff;font-size:var(--t2)}.icon .ic>img{width:36px;height:36px}</style>");
 function paMenu() {
   const l = SHELL ? paStart() : [];
-  return l.length ? '<div class="pah">📱 Phone</div>' + l.map((p) => '<div class="it" data-a="papp" data-arg="' + esc(p) + '">' + paSmall(p) + esc(paLabel(p)) + (paLocked(p) ? " 🔒" : "") + "</div>").join("") + '<div class="pah">Fat Mum 95</div>' : "";
+  return l.length ? '<div class="pah">📱 Phone</div>' + l.map((p) => '<div class="it" data-a="papp" data-arg="' + esc(p) + '">' + paSmall(p) + esc(paLabel(p)) + (paLocked(p) ? (paLeft(p) > 0 ? ' <span style="margin-left:auto;font-size:var(--t2);color:#000080">⏱ ' + Math.max(1, Math.ceil(paLeft(p) / 60000)) + " min</span>" : " 🔒") : "") + "</div>").join("") + '<div class="pah">Fat Mum 95</div>' : "";
 }
 function paDesk() {
   if (!SHELL) return "";
@@ -5623,7 +5624,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("86fddf2e5d") ? "app 86fddf2e5d" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("a72b2c0b7b") ? "app a72b2c0b7b" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
