@@ -138,6 +138,7 @@ button,input,textarea,select{font-family:inherit;font-size:16px;color:#000}
 .sunk{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
 .tbar{display:flex;gap:4px;align-items:center;padding:4px;position:relative;z-index:8;margin-top:calc(14px + env(safe-area-inset-top))}
 .tbar .btn{min-height:38px;padding:2px 10px}
+.tbar .start{white-space:nowrap;padding:2px 8px;font-weight:700;display:flex;align-items:center;gap:3px;flex:none}
 .spacer{flex:1}
 .tray{padding:7px 9px;font-size:14px;white-space:nowrap}
 .sync{font-size:12px;color:#333;font-family:Tahoma,sans-serif;white-space:nowrap;overflow:hidden;flex:1;min-width:0}
@@ -237,7 +238,7 @@ textarea.inp{height:190px;font-size:14px;line-height:1.35}
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:30;display:flex;align-items:center;justify-content:center}.lb img{max-width:100%;max-height:100%}
 </style></head><body>
 <div class="tbar raised" id="tbar">
-  <button class="btn raised" data-a="menu" style="font-weight:600">🐀 Start</button>
+  <button class="btn raised start" data-a="menu">🐀 Start</button>
   <button class="btn raised" data-a="home" aria-label="Home">🏠</button>
   <button class="btn raised" data-a="open" data-arg="outbox" id="boxbtn" style="display:none"></button>
   <span class="sync" id="sync"></span>
@@ -841,6 +842,35 @@ function home() { stack = []; menuOpen = false; render(); }
 // ── 📱 Phone apps: only inside the Jelly Star launcher (window.FMShell). The iPhone never sees any of this ──
 const SHELL = window.FMShell || null;
 let paCache = null;
+if (SHELL) {                                    // the launcher: Microsoft Fluent flat emoji (MIT) instead of Android's, falling back to the normal emoji
+  document.body.classList.add("shell");
+  document.head.insertAdjacentHTML("beforeend", "<style>img.emj{height:1.15em;width:1.15em;vertical-align:-.2em;display:inline-block}.icon .ic>i img.emj{width:32px;height:32px;vertical-align:top}.shell .icon .ic>i{font-size:24px}.paic img.emj{width:24px;height:24px}</style>");
+  const CDN = "https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-flat@1.1.0/assets/";
+  const RE = /(?:\p{RI}\p{RI}|[#*0-9]️?⃣|\p{Extended_Pictographic}(?:️|\p{EMod})?(?:‍\p{Extended_Pictographic}(?:️|\p{EMod})?)*)/gu;
+  const cps = (e, keep) => [...e].map((c) => c.codePointAt(0).toString(16).padStart(4, "0")).filter((h) => keep || h !== "fe0f").join("-");
+  const SKIP = /^(INPUT|TEXTAREA|SCRIPT|STYLE|SELECT|OPTION|CANVAS)$/;
+  const swap = (t) => {
+    const s = t.nodeValue; if (!s || !RE.test(s)) return; RE.lastIndex = 0;
+    const f = document.createDocumentFragment(); let last = 0, m;
+    while ((m = RE.exec(s))) {
+      if (m.index > last) f.appendChild(document.createTextNode(s.slice(last, m.index)));
+      const e = m[0], im = document.createElement("img");
+      im.className = "emj"; im.alt = e; im.draggable = false; im.src = CDN + cps(e, false) + ".svg";
+      im.onerror = () => { if (!im.dataset.t) { im.dataset.t = 1; im.src = CDN + cps(e, true) + ".svg"; } else { const sp = document.createElement("span"); sp.className = "noemj"; sp.textContent = e; im.replaceWith(sp); } };
+      f.appendChild(im); last = m.index + e.length;
+    }
+    if (last < s.length) f.appendChild(document.createTextNode(s.slice(last)));
+    t.replaceWith(f);
+  };
+  const walk = (n) => {
+    if (n.nodeType === 3) { const p = n.parentNode; if (p && !SKIP.test(p.nodeName) && !(p.closest && p.closest("[contenteditable],.noemj"))) swap(n); return; }
+    if (n.nodeType !== 1 || SKIP.test(n.nodeName) || n.isContentEditable) return;
+    const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), list = []; let x; while ((x = tw.nextNode())) list.push(x);
+    list.forEach((t) => walk(t));
+  };
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(walk))).observe(document.body, { childList: true, subtree: true });
+  walk(document.body);
+}
 function paAll() {                              // every installed app: [{pkg, label, icon}], "@phone" / "@sms" / "@camera" are the system ones
   if (!SHELL) return [];
   if (!paCache) { try { paCache = JSON.parse(SHELL.apps()) || []; } catch (e) { paCache = []; } paCache.sort((a, b) => a.label.localeCompare(b.label)); }
@@ -3130,7 +3160,7 @@ function rShowHome() {                          // Friday 3pm to Sunday, for thi
   if (REVIEW && store.get("rhide", "") === REVIEW.week) return false;   // he clicked it away for this week
   return REVIEW && REVIEW.week === tMonday() && (dow === 6 || dow === 0 || (dow === 5 && d.getHours() >= 15));
 }
-function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO, sheetmo: store.get("sheetmo", "") }; }
+function tBackupData() { return { at: Date.now(), tlog: TLOG, twhat: TWHAT, tfri: TFRI, tshorts: TSHORTS, tbest: TBEST, plans: PLANS, plantpl: PLANTPL, links: LINKS, ideas: IDEAS, t3log: T3LOG, ctodo: CTODO, sheetmo: store.get("sheetmo", ""), prefs: Object.assign({}, prefs, { server: "" }), t3pick: T3PICK, t3seen: T3SEEN, eisurg: EISURG, shell: !!window.FMShell }; }   // 11 Nov: the home screen setup too, never the server address
 function tApplyBackup(b) {
   TLOG = b.tlog || []; TWHAT = b.twhat || {}; TFRI = b.tfri || {}; TSHORTS = b.tshorts || {}; TBEST = b.tbest || 0;
   PLANS = b.plans || []; PLANTPL = b.plantpl || {}; LINKS = b.links || [];
@@ -3140,6 +3170,10 @@ function tApplyBackup(b) {
   if (b.t3log) { T3LOG = b.t3log; store.set("t3log", T3LOG); }
   if (b.ctodo) { CTODO = b.ctodo; store.set("ctodo", CTODO); }
   if (b.sheetmo) store.set("sheetmo", b.sheetmo);
+  if (b.prefs) { prefs = Object.assign({}, prefs, b.prefs, { server: prefs.server }); store.set("prefs", prefs); }   // keeps this phone's server address
+  if (b.t3pick) { T3PICK = b.t3pick; store.set("t3pick", T3PICK); }
+  if (b.t3seen) { T3SEEN = b.t3seen; store.set("t3seen", T3SEEN); }
+  if (b.eisurg) { EISURG = b.eisurg; store.set("eisurg", EISURG); }
 }
 async function tRestore(manual) {              // phone storage gone (new install or cleared)? Bring it back from the office copy
   let b = null;
@@ -5502,6 +5536,7 @@ function dayJob(iso) {                         // a real booking makes any day a
 function taskJob(x, v) {                       // which day a to-do belongs to, from its words, #tags and project. null = any day
   const pr = v && x.project != null && (v.projects || []).find((q) => q.id === x.project);
   const s = " " + String(x.title || "").toLowerCase() + " " + (pr ? String(pr.name || "").toLowerCase() : "") + " ";
+  if (/[^a-z]design(s|ing)?[^a-z]/.test(s)) return "draw";   // "Snail mail: Design sticker" is drawing work, for Tue/Wed (11 Nov)
   return ["snail", "social", "draw"].find((j) => JOBS[j].tags.some((t) => new RegExp("[^a-z]#?" + t + "s?[^a-z]").test(s))) || null;
 }
 function nextDayFor(x, v) {                    // the next day whose job suits this to-do. Any-day ones skip days off and tattoo days
@@ -5582,7 +5617,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("a623f28bb3") ? "app a623f28bb3" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("bb7bdc32f5") ? "app bb7bdc32f5" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
