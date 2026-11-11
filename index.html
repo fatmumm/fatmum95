@@ -844,7 +844,7 @@ const SHELL = window.FMShell || null;
 let paCache = null;
 if (SHELL) {                                    // the launcher: Microsoft Fluent flat emoji (MIT) instead of Android's, falling back to the normal emoji
   document.body.classList.add("shell");
-  document.head.insertAdjacentHTML("beforeend", "<style>img.emj{height:1.15em;width:1.15em;vertical-align:-.2em;display:inline-block}.icon .ic>i img.emj{width:32px;height:32px;vertical-align:top}.shell .icon .ic>i{font-size:24px}.paic img.emj{width:24px;height:24px}</style>");
+  document.head.insertAdjacentHTML("beforeend", "<style>img.emj{height:1.15em;width:1.15em;vertical-align:-.2em;display:inline-block}.icon .ic>i img.emj{width:32px;height:32px;vertical-align:top}.shell .icon .ic>i{font-size:24px}.shell .sync{visibility:hidden}.paic img.emj{width:24px;height:24px}</style>");
   const CDN = "https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-flat@1.1.0/assets/";
   const RE = /(?:\p{RI}\p{RI}|[#*0-9]️?⃣|\p{Extended_Pictographic}(?:️|\p{EMod})?(?:‍\p{Extended_Pictographic}(?:️|\p{EMod})?)*)/gu;
   const cps = (e, keep) => [...e].map((c) => c.codePointAt(0).toString(16).padStart(4, "0")).filter((h) => keep || h !== "fe0f").join("-");
@@ -5617,7 +5617,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:3px 8px;cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + (!x.done && !mine(x) ? ' <span class="dim" style="font-size:12px">suggested</span>' : "") + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:3px 8px" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:3px 8px" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("520b6029c3") ? "app 520b6029c3" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("9b2d5cfeae") ? "app 9b2d5cfeae" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
