@@ -1,5 +1,5 @@
 // Fat Mum 95: keeps the app itself on the phone so it opens with no signal.
-const V = "fm95-af71b5e4eb";
+const V = "fm95-ed92cf3b64";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {
