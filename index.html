@@ -46,6 +46,13 @@ html{-webkit-text-size-adjust:100%}
 .rf-cell{position:relative;aspect-ratio:1;background:#e2e2e2;overflow:hidden;cursor:pointer}
 .rf-cell img{width:100%;height:100%;object-fit:cover;display:block}
 .rf-cell i{position:absolute;right:5px;bottom:3px;color:#fff;font-style:normal;text-shadow:0 0 3px #000}
+.sn-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2)}
+.sn-tile{text-align:center;padding:var(--s2) var(--s1);margin:0}.sn-tile b{display:block;font-size:30px;line-height:1.1;color:#000080}.sn-tile span{font-size:var(--t1)}
+.sn-acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2);margin:var(--s2) 0}.sn-acts.three{grid-template-columns:repeat(3,minmax(0,1fr))}.sn-acts.one{grid-template-columns:1fr}
+.sn-acts .btn,.sn-acts input{width:100%;margin:0;min-height:44px;box-sizing:border-box;font-size:var(--t2);padding:var(--s1) var(--s2);display:flex;align-items:center;justify-content:center;text-align:center}
+.sn-acts .btn.on{background:#000080;color:#fff}
+.sn-note{font-size:var(--t1);color:#555;margin:var(--s1) 0}
+.btn.sn-sm{min-height:32px;padding:2px var(--s2);font-size:var(--t1);margin:0}
 .ig-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s1);margin:0 0 var(--s2)}
 .ig-tabs .nt-btn{height:auto;min-height:34px;padding:4px 6px;font-size:12px;line-height:1.15;text-align:center;white-space:normal;min-width:0}
 .ig-tabs .ig-wide{grid-column:1/-1}
@@ -2534,65 +2541,72 @@ function snCsv() {                            // 26 Nov: the newest Appstle coun
   return here;
 }
 function snCsvCard(joined) {
-  const C = snCsv(), btn = '<label class="btn raised' + (C ? "" : " main") + '">📂 ' + (C ? "Load a newer export" : "Load Appstle export") + '<input type="file" accept=".csv,text/csv" style="display:none" onchange="snCsvFile(this)"></label>';
-  if (!C) return '<div class="card"><b>From your Appstle export</b><br><span class="nt-c">Pick the SUBSCRIPTION_export file from Downloads and it counts each tier. It stays on this device.</span><div class="row btns">' + btn + "</div></div>";
-  const tot = C.t[1] + C.t[2] + C.t[3] + C.other;
-  return '<div class="card"><b>From your Appstle export</b><br><span class="nt-c">' + esc(C.file) + " · " + esc(snDay(C.at)) + "</span>" +
-    [1, 2, 3].map((t) => '<div class="row" style="justify-content:space-between"><span>T' + t + " " + esc(SN_TIERS[t]) + "</span><b>" + C.t[t] + "</b></div>").join("") +
-    (C.other ? '<div class="row" style="justify-content:space-between"><span>No tier in the name</span><b>' + C.other + "</b></div>" : "") +
-    '<div class="row" style="justify-content:space-between;border-top:1px solid #888"><span><b>Active</b> · ' + C.uk + " UK · " + C.intl + " international</span><b>" + tot + "</b></div>" +
-    (C.paused ? '<span class="nt-c">' + C.paused + " paused, not counted.</span>" : "") +
-    ((joined || []).length ? '<div class="row" style="justify-content:space-between"><span>🆕 Joined since this file</span><b>+' + joined.length + "</b></div>" +
-      '<div class="row" style="justify-content:space-between;border-top:1px solid #888"><span><b>Active now</b></span><b>' + (tot + joined.length) + "</b></div>" : "") +
-    '<div class="row btns">' + btn + '<button class="btn raised" data-a="sncsvoff">Stop using it</button></div><span class="nt-c">What to print below uses these numbers' + ((joined || []).length ? ", plus the new joiners" : "") + ".</span></div>";
+  const C = snCsv(), btn = '<label class="btn raised">📂 ' + (C ? "Load a newer export" : "Load Appstle export") + '<input type="file" accept=".csv,text/csv" style="display:none" onchange="snCsvFile(this)"></label>';
+  const row = (l, r, sub) => '<div class="li"><span class="lab">' + l + (sub ? '<div class="dim">' + sub + "</div>" : "") + '</span><span class="st">' + r + "</span></div>";
+  if (!C) return '<div class="h">From your Appstle export</div><div class="sn-note">Pick the SUBSCRIPTION_export file from Downloads and it counts each tier. Every device gets the counts (no names).</div><div class="sn-acts one">' + btn + "</div>";
+  const tot = C.t[1] + C.t[2] + C.t[3] + C.other, jn = (joined || []).length;
+  return '<div class="h">From your Appstle export</div><div class="lv sunk">' +
+    [1, 2, 3].map((t) => row("T" + t + " " + esc(SN_TIERS[t]), "<b>" + C.t[t] + "</b>")).join("") +
+    (C.other ? row("No tier in the name", "<b>" + C.other + "</b>") : "") +
+    (jn ? row("🆕 Joined since this file", "<b>+" + jn + "</b>") : "") +
+    row("<b>Active" + (jn ? " now" : "") + "</b>", '<b style="font-size:18px">' + (tot + jn) + "</b>", C.uk + " UK · " + C.intl + " international" + (C.paused ? " · " + C.paused + " paused, not counted" : "")) + "</div>" +
+    '<div class="sn-note">' + esc(C.file) + " · " + esc(snDay(C.at)) + ". What to print uses these numbers" + (jn ? ", plus the new joiners" : "") + ".</div>" +
+    '<div class="sn-acts">' + btn + '<button class="btn raised" data-a="sncsvoff">Stop using it</button></div>';
 }
 function snMakeCard(countAll, countNew) {
   const countFor = (it) => it.newOnly ? (countNew ? countNew(it.t) : 0) : countAll(it.t);
   const MK = snMake(), MD = snDone(MK);
-  return '<div class="card"><b>What to print</b><br><span class="nt-c"><b>Fine</b> = one each, no spares. <b>Safe</b> = ' + MK.spare + '% extra for mistakes (at least 2). The big number is what\'s left for fine. Tap one to change it or say how many you\'ve printed.</span><div class="lv sunk" style="margin-top:var(--s1)">' + MK.items.map((it, i) => {
+  return '<div class="h">What to print</div><div class="sn-note"><b>Fine</b> = one each, no spares. <b>Safe</b> = ' + MK.spare + '% extra for mistakes (at least 2). The number on the right is what\'s left for fine. Tap one to change it or say how many you\'ve printed.</div><div class="lv sunk">' + MK.items.map((it, i) => {
     // 26 Nov: "fine" = exactly one each, "safe" = with spares for mistakes. The big number is what's left for fine
     const n = countFor(it), x = n ? Math.max(2, Math.ceil(n * MK.spare / 100)) : 0, safe = n + x, d = MD[it.n] || 0, left = Math.max(0, n - d), leftSafe = Math.max(0, safe - d);
     return '<div class="li" data-a="snmkedit" data-arg="' + i + '"><span class="lab"><b>' + esc(it.n) + '</b><div class="dim">' + (it.newOnly ? "🆕 new subscribers only" : "T" + it.t.join(", T")) + " · fine " + n + " · safe " + safe + (d ? " · " + d + " printed" : "") +
       (d && !left && leftSafe ? " · " + leftSafe + " more for safe" : "") + '</div></span><span class="st"><b style="font-size:18px">' + (left ? (d ? left + " left" : n) : "✓") + "</b></span></div>"; }).join("") +
-    '</div><div class="row btns"><button class="btn raised" data-a="snmkedit" data-arg="new">＋ Add a thing</button><button class="btn raised" data-a="snmkspare">Spares: ' + MK.spare + "%</button></div></div>";
+    '</div><div class="sn-acts"><button class="btn raised" data-a="snmkedit" data-arg="new">＋ Add a thing</button><button class="btn raised" data-a="snmkspare">Spares: ' + MK.spare + "%</button></div>";
 }
 function winSnail() {
   if (!SN && !snBusy && !snErr) setTimeout(snLoad, 0);
   const CSV = snCsv(), csvCount = (ts) => ts.reduce((a, t) => a + (CSV.t[t] || 0), 0);
-  if (!SN) return snCsvCard() + (CSV ? snMakeCard(csvCount) : "") + '<div class="card sunk">' + (snErr ? "⚠ " + esc(snErr) + '<br><br><button class="btn raised" data-a="snrefresh">Try again</button>' : "Checking who has paid…") + "</div>";
+  if (!SN) return (CSV ? snMakeCard(csvCount) : "") + snCsvCard() + '<div class="card sunk">' + (snErr ? "⚠ " + esc(snErr) + '<br><br><button class="btn raised" data-a="snrefresh">Try again</button>' : "Checking who has paid…") + "</div>";
   const st = SN.state, list = snPeople(), uk = list.filter((p) => p.cc === "GB").length, keys = st.keys || [];
   const fresh = st.printedAt ? list.filter((p) => !keys.includes(p.key)) : [];
   const noAddr = list.filter((p) => !p.a1 || !p.zip).length;
-  let h = '<div class="card" style="text-align:center"><b style="font-size:40px;color:#000080">' + list.length + "</b><br><b>" + (st.printedAt ? "ready for your next labels" : "label" + (list.length === 1 ? "" : "s") + " to print") + "</b><br>" +
-    uk + " UK · " + (list.length - uk) + " international<br><span class=\"nt-c\">Paid since " + esc(snDay(st.since)) + (st.printedAt ? " · " + st.printedN + " printed on " + esc(snDay(st.printedAt)) : "") + "</span></div>";
-  h += '<div class="row btns"><button class="btn raised main" data-a="snpdf" data-arg="all"' + (list.length ? "" : " disabled") + '>📄 Labels file</button><button class="btn raised" data-a="snprinted"' + (list.length ? "" : " disabled") + ">✅ Mark as printed</button></div>";
+  // 26 Nov tidy: one look for the whole page. Sections = blue heading + sunk list of equal rows. Buttons sit in equal grids.
+  const sec = (title, rows, note) => '<div class="h">' + title + '</div><div class="lv sunk">' + rows.join("") + "</div>" + (note ? '<div class="sn-note">' + note + "</div>" : "");
+  const row = (left, right, sub) => '<div class="li"><span class="lab">' + left + (sub ? '<div class="dim">' + sub + "</div>" : "") + '</span><span class="st">' + (right == null ? "" : right) + "</span></div>";
+  const acts = (btns) => '<div class="sn-acts' + (btns.length === 3 ? " three" : btns.length === 1 ? " one" : "") + '">' + btns.join("") + "</div>";
   const newbies = list.filter((p) => p.isNew);   // 26 Nov: first ever order = a brand new subscriber
-  if (newbies.length) h += '<div class="card"><b>🆕 ' + newbies.length + " new subscriber" + (newbies.length === 1 ? "" : "s") + ": add a welcome postcard 💌</b><br>" +
-    newbies.map((p) => esc(p.name || "No name") + " · " + esc(snTierCode(p))).join("<br>") + "</div>";
-  if (SN.truncated) h += '<div class="card">⚠ There were too many orders to read them all, so this list may be short. Set a later start date below.</div>';
-  if (noAddr) h += '<div class="card">⚠ ' + noAddr + " without a full address. Check them before printing.</div>";
-  if ((SN.waiting || []).length) h += '<div class="card"><b>Ordered, payment not through yet</b><br>' + SN.waiting.map((w) => esc(w.name || "No name") + " · " + esc(w.order)).join("<br>") + '<br><span class="nt-c">Not counted until it says paid. Add them by hand if you want to send theirs anyway.</span></div>';
-  const lastNames = st.names || {}, notYet = keys.filter((k) => !list.some((p) => p.key === k));
-  if (st.printedAt && notYet.length) h += '<div class="card"><b>On your last labels, no new payment yet: ' + notYet.length + "</b><br>" + notYet.map((k) => esc(lastNames[k] || "Someone")).join(", ") + '<br><span class="nt-c">Normal early in the month, most just haven\'t reached their payment date. Worth a look just before you print.</span></div>';
-  const art = store.get("snart", null), sample = list.find((p) => p.cc !== "GB") || list[0];
-  h += '<div class="card"><b>Art on the labels</b><br>' + (snArtC ? (snArtInk > 0.35 ? '⚠ This is ' + Math.round(snArtInk * 100) + "% black, which can make the Munbyn crawl or stall. A lighter picture is safer.<br>" : "") +
-    '<div class="row btns"><button class="btn raised' + (art.mode === "line" ? " main" : "") + '" data-a="snartmode" data-arg="line">Line art</button><button class="btn raised' + (art.mode === "photo" ? " main" : "") + '" data-a="snartmode" data-arg="photo">Photo dots</button><button class="btn raised" data-a="snartoff">Remove</button></div>' : '<span class="nt-c">Optional. It goes on the right of every label.</span>') +
-    '<div class="row btns"><label class="btn raised">🖼 ' + (snArtC ? "Change picture" : "Add from Photos") + '<input type="file" accept="image/*" style="display:none" onchange="snArtFile(this)"></label></div>' +
-    (sample ? '<b>How a label will look</b><br><img alt="Label preview" src="' + snLabelCanvas(sample).toDataURL("image/png") + '" style="width:100%;max-width:356px;border:1px solid #888;background:#fff;display:block;margin-top:var(--s1)">' : "") + "</div>";
-  if (fresh.length) h += '<div class="card"><b>' + fresh.length + " new since you printed</b><br>" + fresh.map((p) => esc(p.name) + " · " + esc(snTierCode(p))).join("<br>") +
-    '<div class="row btns"><button class="btn raised" data-a="snpdf" data-arg="new">📄 Just their labels</button><button class="btn raised" data-a="sntopup">✅ Sent theirs</button></div></div>';
-  h += '<div class="card"><b>Who\'s on which tier</b>' + [1, 2, 3].map((t) => '<div class="row" style="justify-content:space-between"><span>T' + t + " " + esc(SN_TIERS[t]) + "</span><b>" + list.filter((p) => (p.tiers || []).includes(t)).length + "</b></div>").join("") + "</div>";
+  let h = '<div class="sn-tiles"><div class="card sunk sn-tile"><b>' + list.length + "</b><span>" + (st.printedAt ? "ready to label" : "to label") + '</span></div><div class="card sunk sn-tile"><b>' + uk + '</b><span>UK</span></div><div class="card sunk sn-tile"><b>' + (list.length - uk) + "</b><span>international</span></div></div>" +
+    '<div class="sn-note" style="text-align:center">Paid since ' + esc(snDay(st.since)) + (st.printedAt ? " · " + st.printedN + " printed on " + esc(snDay(st.printedAt)) : "") + "</div>";
+  h += acts(['<button class="btn raised" data-a="snpdf" data-arg="all"' + (list.length ? "" : " disabled") + "><b>📄 Labels file</b></button>", '<button class="btn raised" data-a="snprinted"' + (list.length ? "" : " disabled") + ">✅ Mark as printed</button>"]);
+  const warn = [];
+  if (SN.truncated) warn.push(row("⚠ Too many orders to read them all", null, "This list may be short. Set a later start date at the bottom."));
+  if (noAddr) warn.push(row("⚠ " + noAddr + " without a full address", null, "Check them before printing."));
+  if (warn.length) h += sec("Check first", warn);
+  if (newbies.length) h += sec("🆕 New this month: add a welcome postcard 💌", newbies.map((p) => row(esc(p.name || "No name"), esc(snTierCode(p)))));
   // 26 Nov: the export is a snapshot, so add anyone who joined after it (first ever order since the file was made)
   const csvT = CSV ? ((m) => m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : CSV.at)(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(CSV.file || "")) : 0;
   const joined = CSV ? list.filter((p) => p.isNew && Date.parse(p.paid) > csvT) : [];
   const csvPlus = (ts) => csvCount(ts) + joined.filter((p) => (p.tiers || []).some((t) => ts.includes(t))).length;
-  h += snCsvCard(joined) + snMakeCard(CSV ? csvPlus : (ts) => list.filter((p) => (p.tiers || []).some((t) => ts.includes(t))).length,
-    (ts) => newbies.filter((p) => !(st.removes || []).includes(p.key) && (p.tiers || []).some((t) => ts.includes(t))).length);   // first timers this month
-  h += '<div class="card"><b>Who\'s on the list</b>' + list.map((p) => '<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid #888;padding:var(--s1) 0"><span>' + (p.isNew ? "🆕 " : "") + esc(p.name || "No name") + (p.a1 && p.zip ? "" : " ⚠") + '<br><span class="nt-c">' + esc(snTierCode(p) || "No tier") + " · " + (p.added ? "added by you" : "paid " + esc(snDay(p.paid))) + " · " + (p.cc === "GB" ? "UK" : esc(p.cc || "?")) + '</span></span><button class="btn raised" data-a="' + (p.added ? "snunadd" : "snrm") + '" data-arg="' + esc(p.key) + '">Remove</button></div>').join("") + "</div>";
-  const gone = SN.people.filter((p) => (st.removes || []).includes(p.key));
-  if (gone.length) h += '<div class="card"><b>Removed this time</b>' + gone.map((p) => '<div class="row" style="justify-content:space-between;align-items:center"><span>' + esc(p.name) + '</span><button class="btn raised" data-a="snunrm" data-arg="' + esc(p.key) + '">Put back</button></div>').join("") + "</div>";
-  h += '<div class="row btns"><button class="btn raised" data-a="snadd">＋ Add someone</button><button class="btn raised" data-a="snrefresh">↻ Refresh</button>' + (st.canUndo ? '<button class="btn raised" data-a="snundo">↩ Undo last change</button>' : "") + "</div>";
-  h += '<div class="card"><b>Count payments from</b><div class="row"><input id="snsince" type="date" value="' + esc(String(st.since).slice(0, 10)) + '"><button class="btn raised" data-a="snsince">Set</button></div></div>';
+  h += snMakeCard(CSV ? csvPlus : (ts) => list.filter((p) => (p.tiers || []).some((t) => ts.includes(t))).length,
+    (ts) => newbies.filter((p) => !(st.removes || []).includes(p.key) && (p.tiers || []).some((t) => ts.includes(t))).length) + snCsvCard(joined);   // first timers this month
+  if ((SN.waiting || []).length) h += sec("Ordered, payment not through yet", SN.waiting.map((w) => row(esc(w.name || "No name"), esc(w.order))), "Not counted until it says paid. Add them by hand if you want to send theirs anyway.");
+  const lastNames = st.names || {}, notYet = keys.filter((k) => !list.some((p) => p.key === k) && !(st.removes || []).includes(k));
+  if (st.printedAt && notYet.length) h += sec("On your last labels, no new payment yet (" + notYet.length + ")", notYet.map((k) => row(esc(lastNames[k] || "Someone"), null)), "Normal early in the month, most just haven't reached their payment date. Worth a look just before you print.");
+  const art = store.get("snart", null), sample = list.find((p) => p.cc !== "GB") || list[0];
+  h += '<div class="h">Art on the labels</div><div class="card sunk">' + (snArtC ? (snArtInk > 0.35 ? '<div class="sn-note">⚠ This is ' + Math.round(snArtInk * 100) + "% black, which can make the Munbyn crawl or stall. A lighter picture is safer.</div>" : "") +
+    acts(['<button class="btn raised' + (art.mode === "line" ? " on" : "") + '" data-a="snartmode" data-arg="line">Line art</button>', '<button class="btn raised' + (art.mode === "photo" ? " on" : "") + '" data-a="snartmode" data-arg="photo">Photo dots</button>', '<button class="btn raised" data-a="snartoff">Remove</button>']) : '<div class="sn-note">Optional. It goes on the right of every label.</div>') +
+    acts(['<label class="btn raised">🖼 ' + (snArtC ? "Change picture" : "Add from Photos") + '<input type="file" accept="image/*" style="display:none" onchange="snArtFile(this)"></label>']) +
+    (sample ? '<b>How a label will look</b><br><img alt="Label preview" src="' + snLabelCanvas(sample).toDataURL("image/png") + '" style="width:100%;max-width:356px;border:1px solid #888;background:#fff;display:block;margin-top:var(--s1)">' : "") + "</div>";
+  if (fresh.length) h += sec(fresh.length + " paid since you printed", fresh.map((p) => row(esc(p.name), esc(snTierCode(p))))) +
+    acts(['<button class="btn raised" data-a="snpdf" data-arg="new">📄 Just their labels</button>', '<button class="btn raised" data-a="sntopup">✅ Sent theirs</button>']);
+  h += sec("Paid so far this month, by tier", [1, 2, 3].map((t) => row("T" + t + " " + esc(SN_TIERS[t]), "<b>" + list.filter((p) => (p.tiers || []).includes(t)).length + "</b>")));
+  const small = (a, k, t) => '<button class="btn raised sn-sm" data-a="' + a + '" data-arg="' + esc(k) + '">' + t + "</button>";
+  h += sec("Who's on the list (" + list.length + ")", list.map((p) => row((p.isNew ? "🆕 " : "") + esc(p.name || "No name") + (p.a1 && p.zip ? "" : " ⚠"), small(p.added ? "snunadd" : "snrm", p.key, "Remove"),
+    esc(snTierCode(p) || "No tier") + " · " + (p.added ? "added by you" : "paid " + esc(snDay(p.paid))) + " · " + (p.cc === "GB" ? "UK" : esc(p.cc || "?")))));
+  const goneKeys = st.removes || [], gone = goneKeys.map((k) => SN.people.find((p) => p.key === k) || { key: k, name: lastNames[k] || "", unpaid: true });   // 26 Nov: removed people who haven't paid yet show too
+  if (gone.length) h += sec("Removed this time (" + gone.length + ")", gone.map((p) => row(esc(p.name || "Not paid yet this month"), small("snunrm", p.key, "Put back"), p.unpaid ? "Hasn't paid since your last print" : "")), "They won't get labels this month. This resets when you mark the next labels as printed.");
+  h += acts(['<button class="btn raised" data-a="snadd">＋ Add someone</button>', '<button class="btn raised" data-a="snrefresh">↻ Refresh</button>'].concat(st.canUndo ? ['<button class="btn raised" data-a="snundo">↩ Undo</button>'] : []));
+  h += '<div class="h">Count payments from</div><div class="sn-acts"><input id="snsince" type="date" value="' + esc(String(st.since).slice(0, 10)) + '"><button class="btn raised" data-a="snsince">Set</button></div>';
   return h;
 }
 // One 1-bit, 203 dpi image per label. Drawn text so any alphabet prints, and an outlined AIR MAIL box because filled black stalls the thermal printer.
@@ -6118,7 +6132,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("75266a4f63") ? "app 75266a4f63" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("e157615ea9") ? "app e157615ea9" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
