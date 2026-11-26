@@ -2523,12 +2523,18 @@ function snCsvFile(input) {
       if (m && C.t[m[1]] != null) C.t[m[1]]++; else C.other++;
       if (cC >= 0 && v(row, cC).toUpperCase() !== "GB") C.intl++; else C.uk++;
     });
-    store.set("sncsv", C); render();
+    store.set("sncsv", C); render(); snSave({ do: "csv", csv: C });   // counts only, so the other devices get them too
   };
   r.readAsText(file);
 }
+function snCsv() {                            // 26 Nov: the newest Appstle counts, from this device or from the office (shared by every device)
+  const here = store.get("sncsv", null), there = SN && SN.state && SN.state.csv;
+  if (there && there.t && (there.at || 0) > store.get("sncsvoffat", 0) && (!here || (there.at || 0) > (here.at || 0))) { store.set("sncsv", there); return there; }
+  if (here && SN && SN.state && !there && store.get("sncsvpushed", 0) !== here.at) { store.set("sncsvpushed", here.at); setTimeout(() => snSave({ do: "csv", csv: here }), 0); }   // a file loaded before sharing existed
+  return here;
+}
 function snCsvCard(joined) {
-  const C = store.get("sncsv", null), btn = '<label class="btn raised' + (C ? "" : " main") + '">📂 ' + (C ? "Load a newer export" : "Load Appstle export") + '<input type="file" accept=".csv,text/csv" style="display:none" onchange="snCsvFile(this)"></label>';
+  const C = snCsv(), btn = '<label class="btn raised' + (C ? "" : " main") + '">📂 ' + (C ? "Load a newer export" : "Load Appstle export") + '<input type="file" accept=".csv,text/csv" style="display:none" onchange="snCsvFile(this)"></label>';
   if (!C) return '<div class="card"><b>From your Appstle export</b><br><span class="nt-c">Pick the SUBSCRIPTION_export file from Downloads and it counts each tier. It stays on this device.</span><div class="row btns">' + btn + "</div></div>";
   const tot = C.t[1] + C.t[2] + C.t[3] + C.other;
   return '<div class="card"><b>From your Appstle export</b><br><span class="nt-c">' + esc(C.file) + " · " + esc(snDay(C.at)) + "</span>" +
@@ -2549,7 +2555,7 @@ function snMakeCard(countFor) {
 }
 function winSnail() {
   if (!SN && !snBusy && !snErr) setTimeout(snLoad, 0);
-  const CSV = store.get("sncsv", null), csvCount = (ts) => ts.reduce((a, t) => a + (CSV.t[t] || 0), 0);
+  const CSV = snCsv(), csvCount = (ts) => ts.reduce((a, t) => a + (CSV.t[t] || 0), 0);
   if (!SN) return snCsvCard() + (CSV ? snMakeCard(csvCount) : "") + '<div class="card sunk">' + (snErr ? "⚠ " + esc(snErr) + '<br><br><button class="btn raised" data-a="snrefresh">Try again</button>' : "Checking who has paid…") + "</div>";
   const st = SN.state, list = snPeople(), uk = list.filter((p) => p.cc === "GB").length, keys = st.keys || [];
   const fresh = st.printedAt ? list.filter((p) => !keys.includes(p.key)) : [];
@@ -6108,7 +6114,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("f39903a31e") ? "app f39903a31e" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("9115b24117") ? "app 9115b24117" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -7086,7 +7092,7 @@ document.addEventListener("click", async (e) => {
   else if (["frtab", "frartist", "frbook", "frsheet", "frfav", "frrot", "frflip", "frbookrot", "frav", "fredit", "frdeltag", "fraddtag", "frhide", "frunhide", "frfs", "frsim", "frcrop", "frcorig", "frcsave", "frclear", "fraddopen", "fraddkind", "frcutnew", "frboard", "frbtoggle", "frbmake", "frbopen", "frbdel", "frfixopen", "frfixset", "frbackup", "frrandom", "frshuf", "frshufoff"].includes(a)) frAct(a, arg);
   else if (["snrefresh", "snpdf", "snprinted", "sntopup", "snrm", "snunrm", "snunadd", "snundo", "snsince", "snadd", "snartmode", "snartoff"].includes(a)) snAct(a, arg);
   else if (a === "snmkedit" || a === "snmkspare") snMakeAct(a, arg);
-  else if (a === "sncsvoff") { store.set("sncsv", null); render(); }
+  else if (a === "sncsvoff") { store.set("sncsv", null); store.set("sncsvoffat", Date.now()); render(); snSave({ do: "csv", csv: { off: true } }); }
   else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab", "blper"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
   else if (a === "instawk") { instaWeek = arg; render(); }
