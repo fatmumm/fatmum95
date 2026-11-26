@@ -831,7 +831,7 @@ function startGone(r) {
 
 // ── windows ──
 const APPS = [["admin", "🗂", "Admin"], ["today", "📇", "Today"], ["inbox", "📧", "Inbox"], ["bookings", "👥", "Clients"], ["cal", "🗓", "Calendar"], ["todo", "✅", "To-do"], ["habits", "🔥", "Habits"], ["plans", "🚀", "Plans"], ["links", "🔗", "Links"], ["notes", "📝", "Notes"], ["ideas", "💡", "Ideas"], ["refs", "🖼", "Refs"], ["fref", "🔎", "Flash refs"],
-  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["snail", "💌", "Snail mail"], ["rings", "💍", "Rings"],["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
+  ["hooks", "🪝", "Hooks"], ["leads", "📈", "Leads"], ["blead", "📥", "Booking leads"], ["snail", "💌", "Snail mail"], ["rings", "💍", "Rings"], ["insta", "📸", "Insta week"], ["flash", "🌸", "Flash"], ["week", "📰", "Week"], ["avail", "📅", "Availability"], ["stats", "📊", "How I'm doing"], ["takings", "💷", "Takings"],
   ["story", "📋", "Story text"], ["auto", "✉️", "Auto emails"], ["vouchers", "🎟", "Vouchers"], ["settings", "⚙️", "Settings"]];
 
 // ── ⚙️ Settings: looks + feel, saved on this phone ──
@@ -842,6 +842,7 @@ if (!store.get("iconsv2", 0)) {                 // home screen = the daily ones,
   const keep = ["today", "inbox", "bookings", "todo", "time", "plans", "posting", "notes", "settings"];
   prefs.hide = APPS.map((a) => a[0]).filter((k) => !keep.includes(k)); store.set("prefs", prefs); store.set("iconsv2", 1);
 }
+if (!store.get("instahide1", 0)) { if (!prefs.hide.includes("insta")) prefs.hide.push("insta"); store.set("prefs", prefs); store.set("instahide1", 1); }   // 📸 Insta week lives in the Start menu, not on the home screen
 let seenSeeded = store.get("seenclients1", 0);
 if (!store.get("redbadges1", false)) { Object.keys(prefs).forEach((k) => { if (k.indexOf("badge_") === 0 && prefs[k] !== "off") prefs[k] = "red"; }); store.set("prefs", prefs); store.set("redbadges1", true); }   // 5 Nov: he wants every badge red
 const pref = (k) => prefs[k];
@@ -4633,6 +4634,46 @@ function weekStats(start) {                    // Monday-based week starting `st
   return { money, requests: rows().filter((r) => r.submitted && inWeek(r.submitted.slice(0, 10))).length, deposits: rows().filter((r) => inWeek(r.depIso)).length,
     tattoos: live().filter((r) => inWeek(r.iso) && r.iso <= todayISO() && (r.deposit || r.paid)).length, todos, habits: due ? Math.round(kept / due * 100) : null, hooksUsed };
 }
+// ── 📸 Insta week: the weekly report Meta Muse (his Instagram assistant) writes. News only: no badge, no to-dos ──
+let instaWeek = "";
+function winInsta() {
+  const all = ((O() || {}).muse || []).slice().sort((a, b) => a.week < b.week ? -1 : 1);
+  if (!all.length) return '<div class="nt-hint">Nothing from Muse yet. Its first weekly report shows up here after it sends one (Thursday evenings).</div>';
+  let i = all.findIndex((r) => r.week === instaWeek); if (i < 0) i = all.length - 1;
+  const r = all[i], p = all[i - 1] || null;
+  const n = (v) => (v == null || v === "" || isNaN(Number(v))) ? null : Number(v);
+  const gain = (x) => x && x.followers && n(x.followers.end) != null && n(x.followers.start) != null ? n(x.followers.end) - n(x.followers.start) : null;
+  const acc = (x, k) => x && x.account ? n(x.account[k]) : null;
+  const enq = (x) => x && x.dms ? n(x.dms.booking_enquiries) : null;
+  const fmt = (v) => v == null ? "–" : (Math.abs(v) >= 10000 ? (v / 1000).toFixed(1) + "k" : String(Math.round(v)));
+  const cmp = (x, y) => x == null || y == null ? "" : x === y ? '<span class="dim">same</span>' : '<span style="color:' + (x > y ? "#0a7a2f" : "#777") + '">' + (x > y ? "▲ " : "▼ ") + fmt(Math.abs(x - y)) + "</span>";
+  const row = (label, x, y) => '<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>' + label + "</span><b>" + fmt(x) + '</b></div><div style="text-align:right;font-size:var(--t1)">' + (p ? cmp(x, y) : "") + "</div></div>";
+  const url = (u) => /^https:\/\//.test(String(u || "")) ? String(u) : "";
+  const open = (u, t) => url(u) ? '<a class="link" href="' + esc(url(u)) + '" target="_blank" rel="noopener">' + t + "</a>" : "";
+  const card = (title, x) => x && (x.why || x.link) ? '<div class="h">' + title + '</div><div class="lv sunk"><div class="li" style="display:block">' + esc(x.why || "") + (x.link ? '<div style="margin-top:4px">' + open(x.link, "Open the post ↗") + "</div>" : "") + "</div></div>" : "";
+  const nav = '<div class="row" style="margin:0 0 var(--s2);align-items:center"><button class="btn raised small" data-a="instawk" data-arg="' + esc((all[i - 1] || r).week) + '" style="flex:none"' + (i ? "" : " disabled") + '>◀</button>' +
+    '<div class="px" style="flex:1;text-align:center"><b>Week of ' + esc(shortDay(r.week)) + "</b></div>" +
+    '<button class="btn raised small" data-a="instawk" data-arg="' + esc((all[i + 1] || r).week) + '" style="flex:none"' + (i < all.length - 1 ? "" : " disabled") + ">▶</button></div>";
+  let h = nav + '<div class="h">This week' + (p ? " vs the week before" : "") + '</div><div class="lv sunk">' +
+    row("Followers gained", gain(r), gain(p)) + row("Reach", acc(r, "reach"), acc(p, "reach")) + row("Profile visits", acc(r, "profile_visits"), acc(p, "profile_visits")) +
+    row("Link in bio taps", acc(r, "link_taps"), acc(p, "link_taps")) + row("Booking enquiries (DMs)", enq(r), enq(p)) + "</div>";
+  const fs = (r.findings || []).filter((x) => typeof x === "string" && x);
+  if (fs.length || r.try_next) h += '<div class="h">What Muse found</div><div class="lv sunk">' + fs.map((x) => '<div class="li" style="display:block">• ' + esc(x) + "</div>").join("") +
+    (r.try_next ? '<div class="li" style="display:block"><b>Try next week:</b> ' + esc(r.try_next) + "</div>" : "") + "</div>";
+  h += card("⭐ Best post", r.best) + card("Weakest post", r.weakest);
+  const posts = (r.posts || []).filter((x) => x && typeof x === "object");
+  if (posts.length) h += '<div class="h">Posts (' + posts.length + ')</div><div class="lv sunk">' + posts.map((x) => '<div class="li" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span>' +
+    esc([x.type, x.topic].filter(Boolean).join(": ") || "Post") + '</span><span class="dim">' + esc(x.date ? shortDay(String(x.date).slice(0, 10)) : "") + '</span></div><div class="dim" style="font-size:var(--t1)">' +
+    [["views", x.views], ["reach", x.reach], ["saves", x.saves], ["shares", x.shares], ["follows", x.follows], ["likes", x.likes], ["comments", x.comments]].filter((y) => n(y[1]) != null).map((y) => fmt(n(y[1])) + " " + y[0]).join(" · ") +
+    (n(x.avg_watch_s) != null ? " · " + n(x.avg_watch_s) + "s watched" : "") + (n(x.past_3s) != null ? " · " + fmt(n(x.past_3s)) + " past 3s" : "") + "</div>" +
+    (x.link ? '<div style="margin-top:2px">' + open(x.link, "Open ↗") + "</div>" : "") + "</div>").join("") + "</div>";
+  const qs = ((r.dms || {}).top_questions || []).filter((x) => typeof x === "string" && x);
+  if (qs.length) h += '<div class="h">What people asked</div><div class="lv sunk">' + qs.map((x) => '<div class="li" style="display:block">“' + esc(x) + "”</div>").join("") + "</div>";
+  const last8 = all.slice(Math.max(0, i - 7), i + 1), top = Math.max(1, ...last8.map((x) => Math.max(0, gain(x) || 0)));
+  if (last8.length > 1) h += '<div class="h">Followers gained, last ' + last8.length + ' weeks</div><div style="display:flex;gap:var(--s1);align-items:flex-end;height:90px;background:#fff;padding:var(--s1);border:2px inset #e0e0e0;overflow:hidden;box-sizing:border-box">' +
+    last8.map((x, k) => { const g = gain(x); return '<div style="flex:1;min-width:0;text-align:center;font-size:var(--t1);line-height:1.1"><div>' + fmt(g) + '</div><div style="height:' + Math.round(Math.max(0, g || 0) / top * 50) + 'px;background:' + (k === last8.length - 1 ? "#000080" : "#8080c0") + '"></div><div class="dim">' + esc(x.week.slice(8)) + "</div></div>"; }).join("") + "</div>";
+  return h;
+}
 function winWeekly() {
   const t = todayISO(), mon = addDays(t, -dow(t)), last = addDays(mon, -7), nextMon = addDays(mon, 7);
   const a = weekStats(mon), b = weekStats(last);
@@ -5428,7 +5469,7 @@ function fieldRestore(s) {
 }
 function winBody(w) {
   return ({ eis: winEis, admin: winAdmin, today: winToday, bookings: winBookings, cal: winCal, todo: winTodo, avail: winAvail, stats: winStats, statsold: winStatsOld,
-    snail: winSnail, rings: winRings, ideas: winIdeas, idea: winIdea, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers, papp: winPapp, papps: winPapps, palock: winPalock, patag: winPatag }[w.kind])(w.arg);
+    snail: winSnail, rings: winRings, ideas: winIdeas, idea: winIdea, takings: winTakings, story: winStory, auto: winAuto, settings: winSettings, client: winClient, photo: winPhoto, outbox: winOutbox, hooks: winHooks, leads: winLeads, posting: winPosting, insta: winInsta, week: winWeekly, reading: winReading, money: winMoney, inbox: winInbox, thread: winThread, notes: winNotes, nlist: winNList, note: winNote, refs: winRefs, ref: winRef, fref: winFref, frefv: winFrefV, frartist: winFrArtist, frsheet: winFrSheet, frbook: winFrBook, blead: winBlead, review: winReview, frsim: winFrSimilar, frcrop: winFrCrop, fradd: winFrAdd, frbpick: winFrBoardPick, frboard: winFrBoard, frfix: winFrFix, habits: winHabits, flash: winFlash, time: winTime, plans: winPlans, plan: winPlan, links: winLinks, vouchers: winVouchers, papp: winPapp, papps: winPapps, palock: winPalock, patag: winPatag }[w.kind])(w.arg);
 }
 const chipFor = (r) => {
   if (r.waiting && outbox.length) return '<span class="chip mid">⏳ sending</span>';
@@ -5947,7 +5988,7 @@ function t3Card() {                            // the home screen card
     (rows.length ? rows.map((x) => '<div data-a="tick" data-arg="' + esc(String(x.id != null ? x.id : x.cid)) + '" style="padding:var(--s1) var(--s2);cursor:pointer' + (x.done ? ';text-decoration:line-through;opacity:.55' : "") + '">' + (x.done ? "✓ " : "○ ") + esc(x.title) + "</div>").join("") + (rows.every((x) => x.done) ? '<div style="padding:var(--s1) var(--s2)" class="dim">All done. Nice one.</div>' : "") : '<div style="padding:var(--s1) var(--s2)" class="dim">All clear. Nice one.</div>') +
     (rShowHome() ? rCard(false) : "") + "</div>";
 }
-const APPV = /^[0-9a-f]{10}$/.test("123dd211c6") ? "app 123dd211c6" : "";   // which version this phone is running, stamped in when it's published
+const APPV = /^[0-9a-f]{10}$/.test("ba634481db") ? "app ba634481db" : "";   // which version this phone is running, stamped in when it's published
 function eisUrgent(x, iso) { const k = String(x.id != null ? x.id : x.cid); return k in EISURG ? EISURG[k] : !!(x.due && x.due <= addDays(iso, 2)); }
 function winEis() {                             // the Eisenhower Matrix: pick today's 3 from four boxes
   const v = todoView(); if (!v) return '<div class="card sunk">Your to-dos show up here once your Mac has synced.</div>';
@@ -6928,6 +6969,7 @@ document.addEventListener("click", async (e) => {
   else if (a === "sncsvoff") { store.set("sncsv", null); render(); }
   else if (["blrefresh", "bledit", "blcancel", "blreset", "blsave", "blopen", "blmark", "blspend", "bltags", "blback", "bltag1", "blkeys", "blconnect", "blpaste", "bltab", "blper"].includes(a)) blAct(a, arg);
   else if (a === "statp") { statP = arg; store.set("statp", arg); render(); }
+  else if (a === "instawk") { instaWeek = arg; render(); }
   else if (a === "frmore") { frN += 120; render.noKeep = true; render(); }
   else if (a === "frchip") { const w = frQ.toLowerCase().split(/[\s,]+/).filter(Boolean); frQ = (w.includes(arg) ? w.filter((x) => x !== arg) : w.concat([arg])).join(" "); store.set("frq", frQ); frN = 60; if (stack.length && stack[stack.length - 1].kind !== "fref") { frTab = "search"; store.set("frtab", frTab); open_("fref"); } else { render.noKeep = true; render(); } }
   else if (a === "refgo") refGo(Number(arg));
